@@ -94,12 +94,17 @@ export class ArtistService {
       try {
         const recommendations: any[] = [];
         const seenIds = new Set<string>();
+        // Ids of the artists we searched FROM — a "related artists" lookup can
+        // legitimately include the queried artist itself; exclude those from
+        // the output (same fix as RecommendationService.getRecommendedArtists).
+        const seedIds = new Set<string>();
 
         const searchPromises = preferredArtists.slice(0, 3).map(async (artistName) => {
           try {
             const searchRes = await this.saavn.search(artistName);
             if (searchRes.artists && searchRes.artists.length > 0) {
               const mainArtist = searchRes.artists[0];
+              seedIds.add(mainArtist.id);
               const related = await this.saavn.getRelatedArtists(mainArtist.id);
               return related;
             }
@@ -113,7 +118,7 @@ export class ArtistService {
         results.forEach((relatedList) => {
           if (relatedList) {
             relatedList.forEach((artist) => {
-              if (artist && !seenIds.has(artist.id)) {
+              if (artist && !seenIds.has(artist.id) && !seedIds.has(artist.id)) {
                 seenIds.add(artist.id);
                 recommendations.push(artist);
               }
