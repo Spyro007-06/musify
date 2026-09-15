@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vibe - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#e5deff",
+                    "outline-variant": "#3c4a3c",
+                    "on-error-container": "#ffdad6",
+                    "outline": "#859583",
+                    "on-tertiary-fixed": "#001c38",
+                    "primary-container": "#1ed760",
+                    "on-background": "#dce5d8",
+                    "on-surface-variant": "#bbcbb8",
+                    "secondary-container": "#4720ca",
+                    "surface-container-high": "#232c23",
+                    "on-tertiary-container": "#004c87",
+                    "inverse-primary": "#006e2c",
+                    "on-secondary": "#2e009c",
+                    "inverse-on-surface": "#2a3329",
+                    "on-primary-container": "#005721",
+                    "error-container": "#93000a",
+                    "surface-container": "#192219",
+                    "on-tertiary-fixed-variant": "#004881",
+                    "tertiary-fixed-dim": "#a2c9ff",
+                    "on-primary-fixed-variant": "#00531f",
+                    "on-error": "#690005",
+                    "surface-tint": "#34e36a",
+                    "background": "#0d150d",
+                    "surface-dim": "#0d150d",
+                    "on-primary-fixed": "#002108",
+                    "on-secondary-fixed": "#1a0063",
+                    "on-surface": "#dce5d8",
+                    "on-primary": "#003913",
+                    "tertiary-container": "#8cbeff",
+                    "surface": "#0d150d",
+                    "on-secondary-fixed-variant": "#441cc8",
+                    "secondary": "#c9bfff",
+                    "surface-container-low": "#151e15",
+                    "secondary-fixed-dim": "#c9bfff",
+                    "error": "#ffb4ab",
+                    "tertiary": "#bfd9ff",
+                    "surface-container-highest": "#2e372e",
+                    "primary-fixed": "#69ff89",
+                    "tertiary-fixed": "#d3e4ff",
+                    "surface-variant": "#2e372e",
+                    "primary": "#4cf479",
+                    "surface-container-lowest": "#081008",
+                    "on-secondary-container": "#baaeff",
+                    "inverse-surface": "#dce5d8",
+                    "on-tertiary": "#00315b",
+                    "surface-bright": "#333b32",
+                    "primary-fixed-dim": "#34e36a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "md": "16px",
+                    "xs": "4px",
+                    "margin-desktop": "48px",
+                    "gutter": "24px",
+                    "margin-mobile": "16px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "display-lg-mobile": ["40px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "label-sm": ["12px", {"lineHeight": "1.0", "fontWeight": "500"}],
+                    "display-lg": ["64px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .glass-panel {
+            background: rgba(24, 24, 31, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-glow:hover {
+            box-shadow: 0 0 15px rgba(76, 244, 121, 0.4);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background overflow-hidden selection:bg-primary/30">
+<main class="flex min-h-screen w-full">
+<!-- Left Side: Immersive Visuals -->
+<section class="hidden lg:flex relative w-1/2 items-center justify-center overflow-hidden">
+<!-- Background Shader -->
+<!-- STITCH_SHADER_START:ANIMATION_2 class="absolute inset-0 w-full h-full opacity-60" -->
+<div class="absolute inset-0 w-full h-full opacity-60" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_2" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_2');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Create moving organic blobs
+    float noise1 = sin(uv.x * 3.0 + u_time * 0.5) * cos(uv.y * 2.0 - u_time * 0.3);
+    float noise2 = cos(uv.x * 2.0 - u_time * 0.4) * sin(uv.y * 4.0 + u_time * 0.6);
+    
+    // Define brand colors
+    vec3 color1 = vec3(0.043, 0.043, 0.059); // Background #0B0B0F
+    vec3 color2 = vec3(0.482, 0.380, 1.0);   // Purple #7B61FF
+    vec3 color3 = vec3(0.302, 0.639, 1.0);   // Blue #4DA3FF
+    
+    // Mix colors based on noise
+    float mixFactor = (noise1 + noise2 + 1.0) * 0.5;
+    vec3 finalColor = mix(color1, color2, mixFactor * 0.3);
+    finalColor = mix(finalColor, color3, (1.0 - mixFactor) * 0.2);
+    
+    // Add a slight gradient glow
+    finalColor += 0.05 * sin(u_time * 0.2);
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_2 -->
+<!-- Atmospheric Glow Orbs -->
+<div class="absolute top-1/4 -left-1/4 w-96 h-96 bg-primary/20 blur-[120px] rounded-full"></div>
+<div class="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-secondary-container/20 blur-[120px] rounded-full"></div>
+<!-- Central Content: Animation 3 (Music Notes) -->
+<div class="relative z-10 text-center px-margin-desktop">
+<div class="mb-lg">
+<!-- STITCH_SVG_START:ANIMATION_3 class="w-full aspect-square max-w-md mx-auto" --><div class="w-full aspect-square max-w-md mx-auto" id="animated-svg-ANIMATION_3" style="display:block;"><svg viewbox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<lineargradient id="grad1" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#7B61FF;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#4DA3FF;stop-opacity:1"></stop>
+</lineargradient>
+</defs>
+<!-- Floating Note 1 -->
+<g>
+<path d="M150 100 L150 200 C150 220 130 230 110 230 C90 230 70 220 70 200 C70 180 90 170 110 170 C120 170 130 175 140 180 L140 110 L220 80 L220 120 L150 145" fill="url(#grad1)">
+<animatetransform attributename="transform" dur="4s" repeatcount="indefinite" type="translate" values="0,0; 10,-20; 0,0"></animatetransform>
+<animate attributename="opacity" dur="4s" repeatcount="indefinite" values="0.6;1;0.6"></animate>
+</path>
+</g>
+<!-- Floating Note 2 -->
+<g>
+<path d="M280 180 L280 280 C280 300 260 310 240 310 C220 310 200 300 200 280 C200 260 220 250 240 250 C250 250 260 255 270 260 L270 190 L330 165 L330 200 L280 225" fill="#1ED760">
+<animatetransform attributename="transform" dur="5s" repeatcount="indefinite" type="translate" values="0,0; -15,-10; 0,0"></animatetransform>
+<animate attributename="opacity" dur="5s" repeatcount="indefinite" values="0.4;0.9;0.4"></animate>
+</path>
+</g>
+</svg></div><!-- STITCH_SVG_END:ANIMATION_3 -->
+</div>
+<h1 class="font-display-lg text-display-lg text-primary tracking-tighter mb-sm">
+                    Vibe
+                </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mx-auto">
+                    Experience sound in its purest form. High-fidelity audio, curated for your journey.
+                </p>
+</div>
+</section>
+<!-- Right Side: Clean Login Form -->
+<section class="w-full lg:w-1/2 flex items-center justify-center p-md lg:p-margin-desktop relative">
+<!-- Mobile Background (Mirroring Left side for consistency) -->
+<div class="lg:hidden absolute inset-0 z-0">
+<!-- STITCH_SHADER_START:ANIMATION_2 class="w-full h-full opacity-40" -->
+<div class="w-full h-full opacity-40" style="display:block;">
+<canvas id="shader-canvas-ANIMATION_2" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_2');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+varying vec2 v_texCoord;
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Create moving organic blobs
+    float noise1 = sin(uv.x * 3.0 + u_time * 0.5) * cos(uv.y * 2.0 - u_time * 0.3);
+    float noise2 = cos(uv.x * 2.0 - u_time * 0.4) * sin(uv.y * 4.0 + u_time * 0.6);
+    
+    // Define brand colors
+    vec3 color1 = vec3(0.043, 0.043, 0.059); // Background #0B0B0F
+    vec3 color2 = vec3(0.482, 0.380, 1.0);   // Purple #7B61FF
+    vec3 color3 = vec3(0.302, 0.639, 1.0);   // Blue #4DA3FF
+    
+    // Mix colors based on noise
+    float mixFactor = (noise1 + noise2 + 1.0) * 0.5;
+    vec3 finalColor = mix(color1, color2, mixFactor * 0.3);
+    finalColor = mix(finalColor, color3, (1.0 - mixFactor) * 0.2);
+    
+    // Add a slight gradient glow
+    finalColor += 0.05 * sin(u_time * 0.2);
+    
+    gl_FragColor = vec4(finalColor, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_2 -->
+</div>
+<div class="glass-panel w-full max-w-md p-xl rounded-xl z-10 animate-fade-in-up" style="animation-delay: 0.1s;">
+<div class="text-center mb-xl">
+<span class="material-symbols-outlined text-primary text-[48px] mb-md" style="font-variation-settings: 'FILL' 1;">
+                        graphic_eq
+                    </span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-xs">Welcome back</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Log in to your Vibe account</p>
+</div>
+<form class="space-y-lg">
+<div class="space-y-xs animate-fade-in-up" style="animation-delay: 0.2s;">
+<label class="font-label-md text-label-md text-on-surface-variant ml-unit" for="email">Email address</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
+                                mail
+                            </span>
+<input class="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="email" placeholder="name@example.com" type="email"/>
+</div>
+</div>
+<div class="space-y-xs animate-fade-in-up" style="animation-delay: 0.3s;">
+<div class="flex justify-between items-center px-unit">
+<label class="font-label-md text-label-md text-on-surface-variant" for="password">Password</label>
+<a class="font-label-sm text-label-sm text-primary hover:underline transition-all" href="#">Forgot Password?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
+                                lock
+                            </span>
+<input class="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="password" placeholder="••••••••" type="password"/>
+</div>
+</div>
+<button class="w-full py-4 bg-primary text-on-primary font-bold rounded-lg neon-glow transition-all active:scale-95 animate-fade-in-up" style="animation-delay: 0.4s;" type="submit">
+                        Log In
+                    </button>
+</form>
+<div class="relative my-xl animate-fade-in-up" style="animation-delay: 0.5s;">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/10"></div></div>
+<div class="relative flex justify-center text-label-sm uppercase"><span class="bg-[#18181F] px-4 text-on-surface-variant">Or continue with</span></div>
+</div>
+<div class="grid grid-cols-2 gap-md animate-fade-in-up" style="animation-delay: 0.6s;">
+<button class="flex items-center justify-center gap-sm bg-white/5 border border-white/10 py-3 rounded-lg hover:bg-white/10 transition-all font-label-md text-label-md">
+<svg class="w-5 h-5" viewbox="0 0 24 24">
+<path d="M12 5.04c1.94 0 3.51.68 4.79 1.84l3.54-3.54C18.18 1.48 15.34 0 12 0 7.31 0 3.25 2.69 1.25 6.61l4.08 3.17c.97-2.91 3.68-4.74 6.67-4.74z" fill="#EA4335"></path>
+<path d="M23.49 12.27c0-.8-.07-1.56-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.89 3c2.28-2.1 3.53-5.2 3.53-8.82z" fill="#4285F4"></path>
+<path d="M5.33 14.22c-.25-.74-.39-1.53-.39-2.35s.14-1.61.39-2.35L1.25 6.61C.45 8.19 0 9.94 0 12s.45 3.81 1.25 5.39l4.08-3.17z" fill="#FBBC05"></path>
+<path d="M12 24c3.24 0 5.97-1.07 7.96-2.91l-3.89-3c-1.1.74-2.51 1.17-4.07 1.17-3 0-5.54-2.01-6.46-4.74L1.25 17.75C3.25 21.31 7.31 24 12 24z" fill="#34A853"></path>
+</svg>
+                        Google
+                    </button>
+<button class="flex items-center justify-center gap-sm bg-white/5 border border-white/10 py-3 rounded-lg hover:bg-white/10 transition-all font-label-md text-label-md">
+<svg class="w-5 h-5 fill-current" viewbox="0 0 24 24">
+<path d="M17.073 11.233c-.025-2.511 2.046-3.719 2.141-3.776-1.173-1.714-2.992-1.947-3.64-1.975-1.545-.158-3.016.91-3.8.91-.785 0-1.996-.893-3.287-.866-1.697.025-3.264.987-4.137 2.506-1.764 3.064-.452 7.6 1.264 10.075.838 1.209 1.831 2.565 3.136 2.516 1.257-.051 1.733-.812 3.251-.812 1.519 0 1.947.812 3.277.787 1.353-.025 2.215-1.233 3.047-2.45 1-.448 1.41-1.332 1.428-1.368-.02-.01-2.693-1.033-2.72-4.116M15.421 4.757c.691-.836 1.155-2.001.026-3.729-1.012.041-2.235.674-2.959 1.517-.652.747-1.22 1.943-1.071 3.093 1.134.088 2.274-.674 2.87-1.381"></path>
+</svg>
+                        Apple
+                    </button>
+</div>
+<div class="mt-xl text-center animate-fade-in-up" style="animation-delay: 0.7s;">
+<p class="font-body-md text-body-md text-on-surface-variant">
+                        New to Vibe? 
+                        <a class="text-primary font-bold hover:underline ml-xs transition-all" href="#">Sign Up</a>
+</p>
+</div>
+</div>
+<!-- Global Footer Information (Simplified for Login) -->
+<footer class="absolute bottom-md left-0 w-full px-margin-desktop hidden lg:flex justify-between items-center opacity-40">
+<p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Vibe Music. High-Fidelity Sound.</p>
+<div class="flex gap-lg">
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary" href="#">Privacy</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary" href="#">Terms</a>
+<a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary" href="#">Support</a>
+</div>
+</footer>
+</section>
+</main>
+<script>
+        // Micro-interactions for form inputs
+        const inputs = document.querySelectorAll('input');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.classList.add('scale-[1.01]');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.classList.remove('scale-[1.01]');
+            });
+        });
+
+        // Simple mouse tracking for background glow on form container
+        const formPanel = document.querySelector('.glass-panel');
+        document.addEventListener('mousemove', (e) => {
+            const { clientX, clientY } = e;
+            const x = (clientX / window.innerWidth - 0.5) * 20;
+            const y = (clientY / window.innerHeight - 0.5) * 20;
+            if (window.innerWidth > 1024) {
+               formPanel.style.transform = `translate(${x}px, ${y}px)`;
+            }
+        });
+    </script>
+</body></html>

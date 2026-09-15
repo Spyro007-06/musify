@@ -1,0 +1,257 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ARTIST
+  ADMIN
+  SUPERADMIN
+}
+
+model User {
+  id                    String                 @id @default(uuid())
+  supabaseId            String                 @unique  // links to auth.users.id in Supabase
+  email                 String                 @unique
+  username              String                 @unique
+  displayName           String?
+  avatarUrl             String?
+  bio                   String?
+  role                  Role                   @default(USER)
+  isVerified            Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  isPremium             Boolean                @default(false)
+  premiumUntil          DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  
+  playlists             Playlist[]
+  likedTracks           LikedTrack[]
+  likedAlbums           LikedAlbum[]
+  dislikedSongs         DislikedSong[]
+  
+  listeningHistory      ListeningHistory[]
+  skippedSongs          SkippedSongs[]
+  sessionHistory        SessionHistory[]
+  moodHistory           MoodHistory[]
+  
+  userPreferences       UserPreferences?
+  genreAffinity         GenreAffinity[]
+  artistAffinity        ArtistAffinity[]
+  
+  recommendationScores  RecommendationScores[]
+  recommendationCache   RecommendationCache[]
+  searchHistory         SearchHistory[]
+}
+
+model Playlist {
+  id          String          @id @default(uuid())
+  title       String
+  slug        String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean         @default(true)
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tracks      PlaylistTrack[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model PlaylistTrack {
+  id             String   @id @default(uuid())
+  playlistId     String
+  playlist       Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  spotifyTrackId String
+  addedAt        DateTime @default(now())
+
+  @@unique([playlistId, spotifyTrackId])
+}
+
+model LikedTrack {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyTrackId String
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, spotifyTrackId])
+}
+
+model LikedAlbum {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, albumId])
+  @@index([userId])
+}
+
+model DislikedSong {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyTrackId String
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, spotifyTrackId])
+  @@index([userId])
+}
+
+model Category {
+  id        String  @id @default(uuid())
+  name      String
+  slug      String  @unique
+  coverUrl  String?
+  gradient  String?
+}
+
+// ---------------------------------------------------------
+// NEW RECOMMENDATION ENGINE MODELS
+// ---------------------------------------------------------
+
+model SessionHistory {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime       DateTime          @default(now())
+  endTime         DateTime?
+  device          String?
+  ipAddress       String?
+  listeningEvents ListeningHistory[]
+
+  @@index([userId, startTime])
+}
+
+model ListeningHistory {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId       String?
+  session         SessionHistory? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  
+  spotifyTrackId  String
+  albumId         String?
+  artistId        String?
+  genre           String?
+  
+  timestamp       DateTime        @default(now())
+  device          String?
+  sessionDuration Int?            // in seconds
+  listenPercentage Float?         // e.g. 0 to 100
+  completedSong   Boolean         @default(false)
+  numberOfReplays Int             @default(0)
+
+  @@index([userId, timestamp])
+  @@index([spotifyTrackId])
+}
+
+model SkippedSongs {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyTrackId  String
+  skipTime        Float     // in seconds when the song was skipped
+  timestamp       DateTime  @default(now())
+
+  @@index([userId, timestamp])
+}
+
+model MoodHistory {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mood            String    // e.g. "chill", "workout", "focus"
+  isImplicit      Boolean   @default(false) // true if auto-detected, false if selected by user
+  timestamp       DateTime  @default(now())
+
+  @@index([userId, timestamp])
+}
+
+model UserPreferences {
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favouriteLanguages String[]
+  favouriteAlbums    String[]
+  favouriteArtists   String[]
+  favouriteGenres    String[]
+  favouriteMoods     String[]
+  updatedAt          DateTime  @updatedAt
+}
+
+model GenreAffinity {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  genre           String
+  score           Float    @default(1.0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, genre])
+  @@index([userId, score(sort: Desc)])
+}
+
+model ArtistAffinity {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyArtistId String
+  score           Float    @default(1.0)
+  isFollowed      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, spotifyArtistId])
+  @@index([userId, score(sort: Desc)])
+}
+
+// ---------------------------------------------------------
+// CACHING & SEARCH
+// ---------------------------------------------------------
+
+model RecommendationScores {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifyTrackId String
+  score          Float
+  reason         String?
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, spotifyTrackId])
+  @@index([userId])
+  @@index([score])
+}
+
+model RecommendationCache {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sectionType String   // e.g., "continue-listening", "recently-played", etc.
+  cachedData  Json     // stores array of tracks, albums or artists
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, sectionType])
+  @@index([userId, sectionType])
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query     String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

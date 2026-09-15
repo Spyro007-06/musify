@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aether | Artist Profile</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            background-color: #0d150d;
+            color: #dce5d8;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(24, 24, 31, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-glow-primary {
+            box-shadow: 0 0 15px rgba(76, 244, 121, 0.4);
+        }
+        .neon-glow-primary:hover {
+            box-shadow: 0 0 25px rgba(76, 244, 121, 0.6);
+        }
+        .ambient-orb {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .track-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body class="selection:bg-primary-container selection:text-on-primary-container">
+<!-- Background Orbs -->
+<div class="ambient-orb bg-primary top-[-10%] right-[-5%]"></div>
+<div class="ambient-orb bg-secondary bottom-[-10%] left-[-5%]"></div>
+<!-- Sidebar Navigation -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-surface/60 backdrop-blur-xl border-r border-white/10 shadow-xl flex flex-col py-lg z-50">
+<div class="px-lg mb-xl">
+<span class="font-headline-md text-headline-md font-black text-primary-container tracking-tighter">Vibe</span>
+<p class="text-label-sm font-label-sm text-on-surface-variant opacity-70">Premium Audio</p>
+</div>
+<nav class="flex-1 space-y-2 px-md">
+<!-- Home -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-body-md text-body-md">Home</span>
+</a>
+<!-- Search -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="font-body-md text-body-md">Search</span>
+</a>
+<!-- Browse -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-body-md text-body-md">Browse</span>
+</a>
+<!-- Library -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="library_music">library_music</span>
+<span class="font-body-md text-body-md">Library</span>
+</a>
+<div class="pt-lg pb-sm px-md">
+<p class="text-label-sm font-label-sm text-on-surface-variant/50 uppercase tracking-widest">Collection</p>
+</div>
+<!-- Liked Songs -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="favorite">favorite</span>
+<span class="font-body-md text-body-md">Liked Songs</span>
+</a>
+<!-- Playlists -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="playlist_play">playlist_play</span>
+<span class="font-body-md text-body-md">Playlists</span>
+</a>
+<!-- Profile - ACTIVE -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary font-bold border-r-2 border-primary hover:bg-white/5 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+<span class="font-body-md text-body-md">User Profile</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 pb-32 min-h-screen relative">
+<!-- Top Nav Bar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-surface/40 backdrop-blur-md flex justify-between items-center px-margin-desktop h-20">
+<div class="flex-1 flex items-center">
+<div class="relative w-96 group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-white/10 border-none rounded-full pl-12 pr-6 py-2 text-label-md font-label-md focus:ring-1 focus:ring-primary placeholder:text-on-surface-variant/50" placeholder="Search artists, tracks, or albums" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-lg">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors" data-icon="notifications">notifications</button>
+<div class="flex items-center gap-md px-sm py-1 bg-white/5 rounded-full border border-white/10">
+<img class="w-8 h-8 rounded-full object-cover" data-alt="A professional close-up headshot of a minimalist tech user, soft cinematic lighting, dark studio background with emerald green accent lights, high resolution, 8k quality, reflecting the premium Vibe music app aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMJ2PsPlUd6zQ4rZtbNsUco9VCR1AaQ-XRGADv0JZ-nzZgPj_EEwhodBCUtZJMnPobD3YGQ4jO1RkdjoeuCjLcx776cbkrxb6Zq5PK1XF2JAgtOeI6vrFXttu2pWNl9mY-mqwp8ZiauqN7myL5p17FSnctgL88j9TNTYb670YsveRMepX50ghp5pJH6O2_U3ZsR_24YtRjQB1kzVzDYV5efpXpzRDufg5qN3Z9jXI-yNqTMmwxAYovMoDHP_xtpocwseK254QE9IGK"/>
+<span class="text-label-md font-label-md text-on-surface pr-2">Alex Thorne</span>
+</div>
+</div>
+</header>
+<!-- Hero Section -->
+<section class="relative h-[614px] w-full overflow-hidden">
+<div class="absolute inset-0 w-full h-full" data-alt="A cinematic wide-angle shot of a mysterious music artist performing in a fog-filled, dark arena. Beams of emerald green and deep violet light cut through the haze. The artist is silhouetted against a massive LED screen displaying abstract ethereal patterns. Atmosphere is epic, professional, and atmospheric." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDiMFxJe3YjN4yMNpmkJdsp89l-YHaqZtEKSfQpDXt3iGIjUdCEMwqQNI6D6Vo_qeI9hySBgbZ5aZq73XwA81lKYmEPcZPhoY_nKtnCjXuMlYdL3X5n8EBAA4b9wjuTUqJZbnGNpnh6qPCtC6skQ_FmIBjV_6TWVqo-fswEuHlnZOWmK5hnIx8oWjuV2jXVVAI4HMEhEvC4bcGRYsg_8dKLolXVuqk7evJkh7_3WfiJG5jNerIuN-qgcC8UWr049fs2zTjmqugII5aF')">
+<div class="absolute inset-0 bg-gradient-to-t from-[#0d150d] via-transparent to-black/40"></div>
+</div>
+<div class="absolute bottom-0 left-0 w-full px-margin-desktop pb-xl flex items-end gap-xl">
+<div class="relative">
+<div class="w-48 h-48 rounded-full border-4 border-primary p-1 glass-card overflow-hidden">
+<img class="w-full h-full rounded-full object-cover" data-alt="A close-up portrait of the artist Aether, featuring futuristic makeup with subtle glowing lines on the cheekbones. The lighting is cool-toned with highlights of mint green and lavender. The artist has a calm, confident expression, looking slightly off-camera. High fashion aesthetic, 8k digital photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkO-BKAvQbPBYkK7Cm7LcFdxuN88FVlkl8BvlwuYxjLsQLufrJhxshkHhv-6vxzG6b8ySHONlhBr0AoZzRii-oU3C_hjnhhmjyRinB0H4tubgQGq1KzMZqlLT-fFEnmMTo2BRI5lpndg79FcqRkji6ZBrnuPFPlk24HM_2dlYu9B9G3Juj57Lf8hCN0j3t7BrDLO40H37XYsWS9HF3IIPke3kyrQFjp0xC1LoZ4yFf_JY_wCBshZppquf-k4tidaGiKE2xB4D6sxP3"/>
+</div>
+</div>
+<div class="flex-1 mb-md">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-label-md font-label-md tracking-widest uppercase text-on-surface-variant">Verified Artist</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-2 tracking-tighter">Aether</h1>
+<div class="flex items-center gap-lg">
+<span class="text-body-lg font-body-lg text-on-surface-variant">3,842,910 monthly listeners</span>
+<button class="bg-primary-container text-on-primary-container px-xl py-3 rounded-full font-label-md text-label-md neon-glow-primary transition-all active:scale-95 flex items-center gap-sm">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                            Follow
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Content Sections -->
+<div class="px-margin-desktop py-xl grid grid-cols-12 gap-gutter">
+<!-- Popular Songs (8 Columns) -->
+<div class="col-span-12 lg:col-span-8">
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-lg">Popular</h2>
+<div class="glass-card rounded-xl overflow-hidden p-md">
+<table class="w-full text-left">
+<thead>
+<tr class="text-on-surface-variant/60 font-label-md text-label-md border-b border-white/5">
+<th class="pb-md px-md w-12 text-center">#</th>
+<th class="pb-md px-md">Title</th>
+<th class="pb-md px-md text-right">Plays</th>
+<th class="pb-md px-md text-right"><span class="material-symbols-outlined text-sm">schedule</span></th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Track 1 -->
+<tr class="track-row group cursor-pointer transition-colors">
+<td class="py-md px-md text-center text-on-surface-variant group-hover:text-primary">1</td>
+<td class="py-md px-md flex items-center gap-md">
+<img class="w-10 h-10 rounded shadow-lg" data-alt="Album art for track 'Neon Pulse', featuring abstract 3D ribbons of emerald and teal light on a deep black background, glass-like textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlSktoG17HY57vH2yP16e7imgQFRcoHtHCXIckf2YupwaZ6_1HuFQ00bof62_5tI1dLUbS5__3qFh3HrRLMdNSlRxZNpXtjDfmWTEQCGZQNl8chRjQNupY1ae1ABWYyVQO69hwDv5VdrkjI4FUln2CIhuW3vjFEtid_zcv2Pqtc7T8i4q8sY-rYoUOej0E97g2bA929EQx4pg273r1Vat4ziqNBzVWYclsaSEchGglacdIT55_5yxoFE2IG4YxNMRT3JZ3p0G7nB7e"/>
+<div>
+<div class="text-on-surface font-semibold group-hover:text-primary transition-colors">Neon Pulse</div>
+<div class="text-label-sm text-on-surface-variant">Single</div>
+</div>
+</td>
+<td class="py-md px-md text-right text-on-surface-variant">12,401,922</td>
+<td class="py-md px-md text-right text-on-surface-variant">3:42</td>
+</tr>
+<!-- Track 2 -->
+<tr class="track-row group cursor-pointer transition-colors">
+<td class="py-md px-md text-center text-on-surface-variant group-hover:text-primary">2</td>
+<td class="py-md px-md flex items-center gap-md">
+<img class="w-10 h-10 rounded shadow-lg" data-alt="Album art for 'Void Dreams', showing a minimalist dark sphere floating above a glowing purple digital sea, misty atmospheric lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAkYZj7urgdjn97ziajF2SxjbHv6uHQMoahEYI5tpxjry5-1U5A8US0ga8pwWXkN6WjvKXVdzPh8GggV6BucKBxw_LEJ8AJBNsXmGlCZS9GdxT7kZ6P_1RToaX4H6cx623Dotki3sl9CxIong3pnf41MlatDN0UsxWo1I9DIznvyVQ_D9QBieLb2YDS8gQ0JkIjnNXIqc69_Ka4ThSAvcqYXQkpPDgr5N_edJa7dfCoDK4T4pzJ_Yqv_p9Y6oMq6lfV2TANtAchKW5m"/>
+<div>
+<div class="text-on-surface font-semibold group-hover:text-primary transition-colors">Void Dreams</div>
+<div class="text-label-sm text-on-surface-variant">Echo Chamber</div>
+</div>
+</td>
+<td class="py-md px-md text-right text-on-surface-variant">9,112,054</td>
+<td class="py-md px-md text-right text-on-surface-variant">4:15</td>
+</tr>
+<!-- Track 3 -->
+<tr class="track-row group cursor-pointer transition-colors">
+<td class="py-md px-md text-center text-on-surface-variant group-hover:text-primary">3</td>
+<td class="py-md px-md flex items-center gap-md">
+<img class="w-10 h-10 rounded shadow-lg" data-alt="Album art for 'Starlight Echo', featuring a long-exposure shot of light trails in a dense forest, colors of cyan and white." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNBWMIgoZdwCUjQ3i059cshKrBLdYJYzWH-oYCcYuKtvDmg_sOmk52tCARWmMqrjMXVICRn_yXN4HXeV9uX2IcWUtT6UOSFa2Px0mFweOedg1TmCHHFad8hlwuDMYKpc1WmmwI6XlNCU8Jc1oEScw5LiuX0Mbn-3m5GB6xzZtVmcC1DCbQ7GLK-YvB8IDAozz4Ela4FAJN8TVZMNVa-V16JEU4sHkQ1Rc-x09NEvkVyAaPKaq-ZB0LHIFXCd8Y9uPGc6DIk-KFF74c"/>
+<div>
+<div class="text-on-surface font-semibold group-hover:text-primary transition-colors">Starlight Echo</div>
+<div class="text-label-sm text-on-surface-variant">Echo Chamber</div>
+</div>
+</td>
+<td class="py-md px-md text-right text-on-surface-variant">8,450,221</td>
+<td class="py-md px-md text-right text-on-surface-variant">3:58</td>
+</tr>
+<!-- Track 4 -->
+<tr class="track-row group cursor-pointer transition-colors">
+<td class="py-md px-md text-center text-on-surface-variant group-hover:text-primary">4</td>
+<td class="py-md px-md flex items-center gap-md">
+<img class="w-10 h-10 rounded shadow-lg" data-alt="Album art for 'Subzero', a macro shot of ice crystals illuminated by a sharp green laser light, crisp details and high contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhIBqpaRPzT8i3tWhmb76sJ9Z5H-BEy1P88NE58IZhV3VBXNWv3SAC3V68JkDPuUWa8nF4w5fnXwxP8S7EQWq3V_iUBTJ6vkUU7kAIIS7jXUU5_WMEph8Pu765VSuAlq9eyqBcYKEV0sum1CTHCw9T8ehJ07fwt2OEAiqgVWucjufZYZi2K0XLoQd7zBhYJwjjEfXtjqwaGoWEep5cvDLsjRN8YVSKAbr-FfFOAJWd0Tdh0xtQ9xMhnocrbwBxRQ_WryG6fFEuZM1X"/>
+<div>
+<div class="text-on-surface font-semibold group-hover:text-primary transition-colors">Subzero</div>
+<div class="text-label-sm text-on-surface-variant">Absolute Zero</div>
+</div>
+</td>
+<td class="py-md px-md text-right text-on-surface-variant">7,221,009</td>
+<td class="py-md px-md text-right text-on-surface-variant">5:10</td>
+</tr>
+<!-- Track 5 -->
+<tr class="track-row group cursor-pointer transition-colors">
+<td class="py-md px-md text-center text-on-surface-variant group-hover:text-primary">5</td>
+<td class="py-md px-md flex items-center gap-md">
+<img class="w-10 h-10 rounded shadow-lg" data-alt="Album art for 'Kinetic', featuring a blurred motion effect of a dancer in a vibrant green bodysuit, dark studio setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDe8gYGYB3nL7N9CmQkLfBl2I1m1jGkHwUj5GxkpQvdAI8Q4LOrN4BU9Bm7CxjE1TNyDA9pe1uMTA_4NvUuWWTnRAUYK5nqwGukaPf_fTec3SxliSg7qPNtKSjC5EFYFlcNVkVhCtyh2cHGorWsBYfIzXiS2xzQljtWhzxsvT2uJr-dIKtli9zZJaAl-6Q22MUQw20gaGFF_bRDx0rdDZBA00kK2xggSuKH8bh8cbLVx0Fo6N-X5flzfCgyttm85whuxAxpzPemnmWK"/>
+<div>
+<div class="text-on-surface font-semibold group-hover:text-primary transition-colors">Kinetic</div>
+<div class="text-label-sm text-on-surface-variant">Single</div>
+</div>
+</td>
+<td class="py-md px-md text-right text-on-surface-variant">6,892,340</td>
+<td class="py-md px-md text-right text-on-surface-variant">2:55</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Latest Album & Concerts (4 Columns) -->
+<div class="col-span-12 lg:col-span-4 space-y-xl">
+<!-- Latest Album -->
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-lg">Latest Album</h2>
+<div class="glass-card rounded-xl p-lg group cursor-pointer overflow-hidden relative">
+<div class="relative z-10">
+<div class="w-full aspect-square rounded-lg overflow-hidden mb-lg shadow-2xl transition-transform duration-500 group-hover:scale-[1.04]">
+<img class="w-full h-full object-cover" data-alt="The cover of the album 'Echo Chamber' by Aether. It depicts a surreal hallway of mirrors stretching into infinity, with glowing green geometric shapes floating in the center. The aesthetic is high-fidelity, futuristic, and moody." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0pyj-CL9GP6ISZljYTk8NRxxfsjK_DGJvAZxUZ8JOBIoBK5_qWF4byiZSTNB74g6rYSzQ-uw1I48r-BN-DMR_WJYAgYp2j2TVCKvwl4aU8xFoc5X9cfi7sSVZTXGQUwYjtt7Dy6kX34F-uCqYHXvqCvuUbYRhVfs2BoJgf1fgESV5Ewv4hMZxkuYlsoaNg3oY5-x5_l9CNSFimgW3IAGlDA-YWtXg40FrkIP9n-2VcjPHyXO_Aj8acyLf29CH8OSi1_1JCCj6OpOk"/>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">Echo Chamber</h3>
+<p class="text-body-md text-on-surface-variant">Full Album • 2024 • 12 Tracks</p>
+<button class="mt-lg w-full bg-white/5 border border-white/10 hover:bg-white/10 text-on-surface py-3 rounded-full font-label-md text-label-md transition-all">
+                                View Full Album
+                            </button>
+</div>
+<div class="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors"></div>
+</div>
+</div>
+<!-- Concerts -->
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-lg">Concerts</h2>
+<div class="space-y-md">
+<!-- Concert 1 -->
+<div class="glass-card rounded-xl p-md flex items-center gap-lg hover:bg-white/5 transition-all cursor-pointer group">
+<div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-16 h-16 border border-white/10">
+<span class="text-label-sm font-label-sm text-primary uppercase">Nov</span>
+<span class="text-headline-md font-headline-md text-on-surface">12</span>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">London, UK</h4>
+<p class="text-label-sm text-on-surface-variant">The O2 Arena</p>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="confirmation_number">confirmation_number</button>
+</div>
+<!-- Concert 2 -->
+<div class="glass-card rounded-xl p-md flex items-center gap-lg hover:bg-white/5 transition-all cursor-pointer group">
+<div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-16 h-16 border border-white/10">
+<span class="text-label-sm font-label-sm text-primary uppercase">Nov</span>
+<span class="text-headline-md font-headline-md text-on-surface">15</span>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Paris, FR</h4>
+<p class="text-label-sm text-on-surface-variant">Accor Arena</p>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="confirmation_number">confirmation_number</button>
+</div>
+<!-- Concert 3 -->
+<div class="glass-card rounded-xl p-md flex items-center gap-lg hover:bg-white/5 transition-all cursor-pointer group">
+<div class="flex flex-col items-center justify-center bg-white/5 rounded-lg w-16 h-16 border border-white/10">
+<span class="text-label-sm font-label-sm text-primary uppercase">Nov</span>
+<span class="text-headline-md font-headline-md text-on-surface">18</span>
+</div>
+<div class="flex-1">
+<h4 class="font-label-md text-label-md text-on-surface">Berlin, DE</h4>
+<p class="text-label-sm text-on-surface-variant">Uber Arena</p>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="confirmation_number">confirmation_number</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Playback Footer Shell -->
+<footer class="fixed bottom-0 left-0 w-full h-24 z-50 bg-surface/80 backdrop-blur-2xl border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.4)] flex items-center justify-between px-lg">
+<!-- Current Track Info -->
+<div class="flex items-center gap-md w-1/3">
+<img class="w-14 h-14 rounded-lg object-cover" data-alt="Thumbnail for currently playing track 'Neon Pulse', featuring electric green and blue neon aesthetics on a dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3341y5kUxR3Ia0AoiSzxCygcRlQPp1KBdzuKGLCfvLYKABd_8rmsq_OzyVGqFcBdOLkHDLlHxWS-NbAcPecqBobVvE84Lt6K69Vuz7cp0-WuoB_uaUdLLJqT88MCyu4PegKkp83OeebnRsWmEk2hl1-TuYWC4c2SS1-xJsM1GdVPnIzVa1pEK436oU8aJzjYD0lEsMAv5kjAzBTa_eY5jRzCh2xVOdTaZI6rQUfWyaC3cg90JQClYjd-Ks8IFnaVV66pvPUiY5kzR"/>
+<div>
+<h4 class="font-label-md text-label-md text-on-surface">Neon Pulse</h4>
+<p class="text-label-sm text-on-surface-variant hover:text-primary cursor-pointer transition-colors">Aether</p>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-primary ml-md" data-icon="favorite">favorite</button>
+</div>
+<!-- Player Controls -->
+<div class="flex flex-col items-center w-1/3">
+<div class="flex items-center gap-lg mb-sm">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface" data-icon="shuffle">shuffle</button>
+<button class="material-symbols-outlined text-on-surface" data-icon="skip_previous">skip_previous</button>
+<button class="w-10 h-10 rounded-full bg-on-surface text-background flex items-center justify-center hover:scale-105 active:scale-95 transition-all" data-icon="play_arrow">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</button>
+<button class="material-symbols-outlined text-on-surface" data-icon="skip_next">skip_next</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface" data-icon="repeat">repeat</button>
+</div>
+<div class="flex items-center gap-sm w-full">
+<span class="text-[10px] text-on-surface-variant">1:45</span>
+<div class="flex-1 h-1 bg-white/10 rounded-full relative group cursor-pointer">
+<div class="absolute left-0 top-0 h-full w-[45%] bg-gradient-to-r from-secondary to-primary rounded-full group-hover:shadow-[0_0_8px_rgba(76,244,121,0.5)]"></div>
+<div class="absolute left-[45%] top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+</div>
+<span class="text-[10px] text-on-surface-variant">3:42</span>
+</div>
+</div>
+<!-- Volume/Queue Controls -->
+<div class="flex items-center justify-end gap-md w-1/3">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface" data-icon="queue_music">queue_music</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface" data-icon="devices">devices</button>
+<div class="flex items-center gap-sm group">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-on-surface" data-icon="volume_up">volume_up</span>
+<div class="w-24 h-1 bg-white/10 rounded-full overflow-hidden">
+<div class="h-full w-2/3 bg-on-surface-variant group-hover:bg-primary transition-colors"></div>
+</div>
+</div>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface" data-icon="fullscreen">fullscreen</button>
+</div>
+</footer>
+<script>
+        // Micro-interactions and subtle effects
+        document.querySelectorAll('.track-row').forEach(row => {
+            row.addEventListener('click', () => {
+                // Subtle feedback for clicking a track
+                row.classList.add('scale-[0.99]');
+                setTimeout(() => row.classList.remove('scale-[0.99]'), 100);
+            });
+        });
+
+        // Floating orb mouse movement effect (very subtle)
+        window.addEventListener('mousemove', (e) => {
+            const orbs = document.querySelectorAll('.ambient-orb');
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            orbs.forEach((orb, index) => {
+                const moveFactor = (index + 1) * 20;
+                orb.style.transform = `translate(${mouseX * moveFactor}px, ${mouseY * moveFactor}px)`;
+            });
+        });
+    </script>
+</body></html>

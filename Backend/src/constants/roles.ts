@@ -1,0 +1,85 @@
+export const ROLES = {
+  USER: 'USER',
+  ARTIST: 'ARTIST',
+  ADMIN: 'ADMIN',
+  SUPERADMIN: 'SUPERADMIN',
+} as const;
+
+export type Role = (typeof ROLES)[keyof typeof ROLES];
+
+export const PERMISSIONS = {
+  // Auth
+  READ_OWN_PROFILE: 'read:own_profile',
+  UPDATE_OWN_PROFILE: 'update:own_profile',
+  DELETE_OWN_ACCOUNT: 'delete:own_account',
+
+  // Music
+  READ_MUSIC: 'read:music',
+  STREAM_MUSIC: 'stream:music',
+  LIKE_MUSIC: 'like:music',
+
+  // Playlists
+  CREATE_PLAYLIST: 'create:playlist',
+  READ_OWN_PLAYLIST: 'read:own_playlist',
+  UPDATE_OWN_PLAYLIST: 'update:own_playlist',
+  DELETE_OWN_PLAYLIST: 'delete:own_playlist',
+
+  // Artists
+  FOLLOW_ARTIST: 'follow:artist',
+
+  // Premium
+  ACCESS_PREMIUM: 'access:premium',
+  DOWNLOAD_MUSIC: 'download:music',
+
+  // Admin
+  ADMIN_READ: 'admin:read',
+  ADMIN_CREATE: 'admin:create',
+  ADMIN_UPDATE: 'admin:update',
+  ADMIN_DELETE: 'admin:delete',
+  MANAGE_USERS: 'admin:manage_users',
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+// Role → permissions mapping
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  USER: [
+    PERMISSIONS.READ_OWN_PROFILE,
+    PERMISSIONS.UPDATE_OWN_PROFILE,
+    PERMISSIONS.DELETE_OWN_ACCOUNT,
+    PERMISSIONS.READ_MUSIC,
+    PERMISSIONS.STREAM_MUSIC,
+    PERMISSIONS.LIKE_MUSIC,
+    PERMISSIONS.CREATE_PLAYLIST,
+    PERMISSIONS.READ_OWN_PLAYLIST,
+    PERMISSIONS.UPDATE_OWN_PLAYLIST,
+    PERMISSIONS.DELETE_OWN_PLAYLIST,
+    PERMISSIONS.FOLLOW_ARTIST,
+  ],
+  ARTIST: [
+    PERMISSIONS.READ_OWN_PROFILE,
+    PERMISSIONS.UPDATE_OWN_PROFILE,
+    PERMISSIONS.DELETE_OWN_ACCOUNT,
+    PERMISSIONS.READ_MUSIC,
+    PERMISSIONS.STREAM_MUSIC,
+    PERMISSIONS.LIKE_MUSIC,
+    PERMISSIONS.CREATE_PLAYLIST,
+    PERMISSIONS.READ_OWN_PLAYLIST,
+    PERMISSIONS.UPDATE_OWN_PLAYLIST,
+    PERMISSIONS.DELETE_OWN_PLAYLIST,
+    PERMISSIONS.FOLLOW_ARTIST,
+  ],
+  ADMIN: [
+    PERMISSIONS.READ_OWN_PROFILE,
+    PERMISSIONS.UPDATE_OWN_PROFILE,
+    PERMISSIONS.READ_MUSIC,
+    PERMISSIONS.STREAM_MUSIC,
+    PERMISSIONS.ADMIN_READ,
+    PERMISSIONS.ADMIN_CREATE,
+    PERMISSIONS.ADMIN_UPDATE,
+    PERMISSIONS.ADMIN_DELETE,
+    PERMISSIONS.MANAGE_USERS,
+  ],
+  SUPERADMIN: Object.values(PERMISSIONS),
+};
+
