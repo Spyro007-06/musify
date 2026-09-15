@@ -205,7 +205,7 @@ export class MusicService {
     });
 
     if (!existingLike) {
-      throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_LIKED);
+      return; // already not liked — idempotent no-op
     }
 
     await prisma.likedTrack.delete({

@@ -172,10 +172,11 @@ describe('POST/DELETE /api/artists/:id/follow — toggle + auth boundary', () =>
     });
   });
 
-  it('unfollowing an artist you do not follow returns 404', async () => {
+  it('was not following: unfollowing is an idempotent no-op — 200, not 404, no update call', async () => {
     prismaMock.artistAffinity.findUnique.mockResolvedValue(null);
     const res = await authedMutation('delete', '/api/artists/artist-1/follow');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(prismaMock.artistAffinity.update).not.toHaveBeenCalled();
   });
 });
 

@@ -90,7 +90,13 @@ export class AIService {
       const finalTracks = uniqueTracks.slice(0, 30);
 
       if (finalTracks.length === 0) {
-        throw new Error('No tracks found for this prompt.');
+        return {
+          playlistId: null,
+          title: null,
+          trackCount: 0,
+          tracks: [],
+          message: 'No tracks matched this prompt — try adjusting it.',
+        };
       }
 
       // 3. Persist to Prisma

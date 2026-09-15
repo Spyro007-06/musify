@@ -244,13 +244,25 @@ describe('POST/DELETE /api/music/tracks/:trackId/like — toggle + idempotency +
     expect(prismaMock.likedTrack.delete).toHaveBeenCalledWith({ where: { id: 'like-1' } });
   });
 
-  it('FINDING: unliking a track that is not liked returns 404, not a silent no-op — not idempotent in the strict sense', async () => {
+  it('was liked, now unliked: deletes the LikedTrack row and returns 200', async () => {
+    prismaMock.likedTrack.findUnique.mockResolvedValue({ id: 'like-1' } as any);
+    prismaMock.likedTrack.delete.mockResolvedValue({} as any);
+    const { agent, csrfToken, authHeader: h } = await authedAgent();
+
+    const res = await agent.delete('/api/music/tracks/track-1/like').set('x-csrf-token', csrfToken).set('Authorization', h);
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.likedTrack.delete).toHaveBeenCalledWith({ where: { id: 'like-1' } });
+  });
+
+  it('was not liked: unliking is an idempotent no-op — 200, not 404, no delete call', async () => {
     prismaMock.likedTrack.findUnique.mockResolvedValue(null);
     const { agent, csrfToken, authHeader: h } = await authedAgent();
 
     const res = await agent.delete('/api/music/tracks/track-1/like').set('x-csrf-token', csrfToken).set('Authorization', h);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(prismaMock.likedTrack.delete).not.toHaveBeenCalled();
   });
 });
 

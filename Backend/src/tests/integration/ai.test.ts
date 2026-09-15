@@ -159,7 +159,7 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(prismaMock.playlist.create).not.toHaveBeenCalled();
   });
 
-  it('FINDING: a prompt that matches no tracks at all also surfaces as a generic 500, not a 404/422 — the service wraps every failure mode (including "no results", a legitimate non-server-error case) in the same generic Error before it reaches the controller', async () => {
+  it('a prompt that matches no tracks returns 200 with an empty tracks array and a message, not an error', async () => {
     saavnMock.getRecommendationsByGenres.mockResolvedValue([]); // no matches for any search query
     const { agent, csrfToken } = await authedAgent();
 
@@ -169,6 +169,11 @@ describe('POST /api/ai/playlist/generate', () => {
       .set('Authorization', authHeader())
       .send({ prompt: 'a prompt with no matches' });
 
-    expect(res.status).toBe(500); // documents current behavior — arguably should be 404/422
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toEqual(
+      expect.objectContaining({ playlistId: null, tracks: [], message: expect.any(String) })
+    );
+    expect(prismaMock.playlist.create).not.toHaveBeenCalled();
   });
 });

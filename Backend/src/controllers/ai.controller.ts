@@ -53,6 +53,16 @@ export class AIController {
 
       const playlistData = await AIService.generatePlaylistFromPrompt(authReq.user.id, prompt, playlistName);
 
+      if (playlistData.playlistId === null) {
+        sendSuccess({
+          res,
+          statusCode: HTTP_STATUS.OK,
+          message: playlistData.message!,
+          data: playlistData,
+        });
+        return;
+      }
+
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.CREATED,

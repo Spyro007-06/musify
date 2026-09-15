@@ -174,7 +174,7 @@ export class ArtistService {
     });
 
     if (!existingFollow || !existingFollow.isFollowed) {
-      throw ApiError.notFound(ERROR_MESSAGES.NOT_FOLLOWING);
+      return; // already not following — idempotent no-op
     }
 
     await prisma.artistAffinity.update({
