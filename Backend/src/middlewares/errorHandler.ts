@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { ApiError } from '@utils/ApiError';
+import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 import { sendError } from '@utils/ApiResponse';
-import { logError } from '@utils/logger';
+import { logger, logError } from '@utils/logger';
 import { captureException } from '@config/sentry';
 import { env } from '@config/env';
 import { HTTP_STATUS } from '@constants/httpCodes';
@@ -85,7 +86,26 @@ export const errorHandler = (
     return;
   }
 
-  // 6. Unknown/programming errors — log, report, and return 500
+  // 6. JioSaavn (external catalog) is down/degraded — this is an expected,
+  // operational failure mode of a third-party dependency, not a bug in our
+  // code, so it gets its own status (not 404 "not found", not a Sentry-
+  // reported 500) and its own log line for on-call to distinguish "upstream
+  // is having a bad day" from "we broke something".
+  if (err instanceof SaavnUpstreamError) {
+    logger.warn(`Saavn upstream failure: ${err.message}`, {
+      url: req.originalUrl,
+      method: req.method,
+      cause: err.cause instanceof Error ? err.cause.message : err.cause,
+    });
+    sendError({
+      res,
+      statusCode: HTTP_STATUS.SERVICE_UNAVAILABLE,
+      message: 'Music catalog is temporarily unavailable. Please try again shortly.',
+    });
+    return;
+  }
+
+  // 7. Unknown/programming errors — log, report, and return 500
   logError(err, { url: req.originalUrl, method: req.method });
   captureException(err, { url: req.originalUrl, method: req.method });
 

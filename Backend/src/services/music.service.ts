@@ -252,7 +252,10 @@ export class MusicService {
   }
 
   public static async getStreamUrl(trackId: string, userId?: string): Promise<string> {
-    const track = await this.saavn.getTrack(trackId);
+    // Uses a dedicated breaker (SAAVN_BREAKER.STREAM) — a playback outage is
+    // isolated from a "view track details" outage even though today both
+    // hit the same underlying JioSaavn call.
+    const track = await this.saavn.getTrackForStream(trackId);
     if (!track) {
       throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_FOUND);
     }

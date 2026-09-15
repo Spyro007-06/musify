@@ -1,8 +1,49 @@
 import { SearchService, SongService, DiscoverService, ArtistService, AlbumService, PlaylistService } from 'jiosaavn-sdk';
 import { logger } from '@utils/logger';
 import { resilientCall } from '@utils/resilience';
+import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 
-const JIOSAAVN = 'jiosaavn';
+/**
+ * Per-operation circuit breakers, so a burst of failures in one feature
+ * (e.g. search) doesn't also fail-fast every other feature (track lookup,
+ * artist pages, streaming) for the duration of that breaker's cooldown.
+ * Cooldown/threshold config stays centralized in resilientCall/getBreaker
+ * (resilience.ts) — only the breaker *name* (and therefore its state)
+ * differs per call site here.
+ */
+const SAAVN_BREAKER = {
+  SEARCH: 'jiosaavn:search', // searchSongs/Albums/Artists/Playlists — search, suggestions, genre/mood/vibe queries
+  TRACK: 'jiosaavn:track', // getSongByIds — track lookup
+  ARTIST: 'jiosaavn:artist', // getArtistById — artist profile, top tracks, albums, related artists
+  STREAM: 'jiosaavn:stream', // the specific call backing playback — isolated from browsing a track's details
+  CATALOG: 'jiosaavn:catalog', // charts, new releases, album lookup, playlist lookup
+} as const;
+
+/**
+ * Runs a batch of independent Saavn calls in parallel. If at least one
+ * succeeds, returns the successful results (a partial failure among many
+ * queries shouldn't fail the whole request). Only throws — as a classified
+ * upstream failure — when every call in the batch failed, since that's the
+ * signal the upstream itself is down rather than "no results for this
+ * particular sub-query".
+ */
+async function allOrThrow<T>(promises: Promise<T>[], errorMessage: string): Promise<Awaited<T>[]> {
+  if (promises.length === 0) return [];
+  const settled = await Promise.allSettled(promises);
+  const fulfilled: Awaited<T>[] = [];
+  let firstFailureReason: unknown;
+  for (const result of settled) {
+    if (result.status === 'fulfilled') {
+      fulfilled.push(result.value);
+    } else if (firstFailureReason === undefined) {
+      firstFailureReason = result.reason;
+    }
+  }
+  if (fulfilled.length === 0) {
+    throw new SaavnUpstreamError(errorMessage, firstFailureReason);
+  }
+  return fulfilled;
+}
 
 function unescapeHtml(str: string): string {
   if (!str) return str;
@@ -146,19 +187,18 @@ export class SaavnService {
   // ─── Public API ───────────────────────────────────────────────────────────
 
   public async getTrendingTracks(languages?: string[], artists?: string[]): Promise<any[]> {
-    try {
-      if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
-        const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
-        const artistQueries = (artists || []).slice(0, 3);
-        const languageQueries = (languages || []).map(lang => `${lang} hits`).slice(0, 2);
-        const queries = [...languageQueries, ...artistQueries];
-        
-        const searchPromises = queries.map(q =>
-          resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
-        );
-        const results = await Promise.all(searchPromises);
+    if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
+      const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
+      const artistQueries = (artists || []).slice(0, 3);
+      const languageQueries = (languages || []).map(lang => `${lang} hits`).slice(0, 2);
+      const queries = [...languageQueries, ...artistQueries];
 
-        const tracks: any[] = [];
+      const searchPromises = queries.map(q =>
+        resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
+      );
+      const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
+
+      const tracks: any[] = [];
         const seen = new Set<string>();
 
         results.forEach(res => {
@@ -194,39 +234,40 @@ export class SaavnService {
           return true;
         });
 
-        return filteredTracks;
-      }
+      return filteredTracks;
+    }
 
-      const charts = await resilientCall(JIOSAAVN, () => this.discoverService.getCharts());
+    try {
+      const charts = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.discoverService.getCharts());
       if (charts && charts.length > 0) {
         const firstChart = charts[0];
-        const playlist = await resilientCall(JIOSAAVN, () =>
+        const playlist = await resilientCall(SAAVN_BREAKER.CATALOG, () =>
           this.playlistService.getPlaylistById({ id: firstChart.id, page: 0, limit: 20 })
         );
         if (playlist && playlist.songs) {
           return playlist.songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
         }
       }
+      return [];
     } catch (error) {
-      logger.error('❌ JioSaavn failed to fetch trending tracks, using empty fallback:', error);
+      logger.error('❌ JioSaavn failed to fetch trending tracks (charts):', error);
+      throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
     }
-    return [];
   }
 
   public async getNewReleases(languages?: string[], artists?: string[]): Promise<any[]> {
-    try {
-      if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
-        const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
-        const artistQueries = (artists || []).slice(0, 3);
-        const languageQueries = (languages || []).map(lang => `${lang} new release`).slice(0, 2);
-        const queries = [...languageQueries, ...artistQueries];
+    if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
+      const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
+      const artistQueries = (artists || []).slice(0, 3);
+      const languageQueries = (languages || []).map(lang => `${lang} new release`).slice(0, 2);
+      const queries = [...languageQueries, ...artistQueries];
 
-        const searchPromises = queries.map(q =>
-          resilientCall(JIOSAAVN, () => this.searchService.searchAlbums({ query: q, page: 0, limit: 30 }))
-        );
-        const results = await Promise.all(searchPromises);
+      const searchPromises = queries.map(q =>
+        resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchAlbums({ query: q, page: 0, limit: 30 }))
+      );
+      const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
 
-        const albums: any[] = [];
+      const albums: any[] = [];
         const seen = new Set<string>();
 
         results.forEach(res => {
@@ -265,17 +306,16 @@ export class SaavnService {
           return true;
         });
 
-        return filteredAlbums;
-      }
+      return filteredAlbums;
+    }
 
-      const newReleases = await resilientCall(JIOSAAVN, () => this.discoverService.getNewReleases());
-      if (newReleases && newReleases.length > 0) {
-        return newReleases.map((a: any) => this.mapAlbum(a)).filter(Boolean);
-      }
+    try {
+      const newReleases = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.discoverService.getNewReleases());
+      return newReleases && newReleases.length > 0 ? newReleases.map((a: any) => this.mapAlbum(a)).filter(Boolean) : [];
     } catch (error) {
       logger.error('❌ JioSaavn failed to fetch new releases:', error);
+      throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
     }
-    return [];
   }
 
   public async getRecommendedTracks(): Promise<any[]> {
@@ -286,57 +326,70 @@ export class SaavnService {
   public async getRecommendationsByGenres(genres: string[], limit = 20): Promise<any[]> {
     try {
       const query = genres.join(' ');
-      const results = await resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit }));
-      if (results.results) {
-        return results.results.map((s: any) => this.mapTrack(s)).filter(Boolean);
-      }
+      const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit }));
+      return results.results ? results.results.map((s: any) => this.mapTrack(s)).filter(Boolean) : [];
     } catch (error) {
       logger.error('❌ JioSaavn recommendations by genres failed:', error);
+      throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
     }
-    return [];
   }
 
+  /** Genuinely not-found: call succeeded, no such track. Upstream failure: throws SaavnUpstreamError. */
   public async getTrack(id: string): Promise<any> {
     try {
-      const songs = await resilientCall(JIOSAAVN, () => this.songService.getSongByIds({ songIds: id }));
-      if (songs && songs.length > 0) {
-        return this.mapTrack(songs[0]);
-      }
+      const songs = await resilientCall(SAAVN_BREAKER.TRACK, () => this.songService.getSongByIds({ songIds: id }));
+      return songs && songs.length > 0 ? this.mapTrack(songs[0]) : null;
     } catch (error) {
       logger.error(`❌ JioSaavn getTrack failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (track ${id}).`, error);
     }
-    return null;
   }
 
+  /** Same distinction as getTrack: only throws on a genuine upstream failure, not on missing ids. */
   public async getTracks(ids: string[]): Promise<any[]> {
     if (ids.length === 0) return [];
     try {
       const songIdsParam = ids.join(',');
-      const songs = await resilientCall(JIOSAAVN, () => this.songService.getSongByIds({ songIds: songIdsParam }));
-      if (songs) {
-        // Preserve input order
-        const mapped = songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
-        return ids.map(id => mapped.find((t: any) => t && t.id === id)).filter(Boolean);
-      }
+      const songs = await resilientCall(SAAVN_BREAKER.TRACK, () => this.songService.getSongByIds({ songIds: songIdsParam }));
+      if (!songs) return [];
+      // Preserve input order
+      const mapped = songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
+      return ids.map(id => mapped.find((t: any) => t && t.id === id)).filter(Boolean);
     } catch (error) {
       logger.error('❌ JioSaavn getTracks failed:', error);
+      throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
     }
-    return [];
+  }
+
+  /**
+   * Serves playback specifically (GET /tracks/:id/stream) under its own
+   * breaker, isolated from browsing a track's details (getTrack) — a
+   * playback outage and a "view details" outage are different severities
+   * and shouldn't trip each other's breaker.
+   */
+  public async getTrackForStream(id: string): Promise<any> {
+    try {
+      const songs = await resilientCall(SAAVN_BREAKER.STREAM, () => this.songService.getSongByIds({ songIds: id }));
+      return songs && songs.length > 0 ? this.mapTrack(songs[0]) : null;
+    } catch (error) {
+      logger.error(`❌ JioSaavn getTrackForStream failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn streaming is currently unavailable (track ${id}).`, error);
+    }
   }
 
   public async getAlbum(id: string): Promise<any> {
     try {
-      const album = await resilientCall(JIOSAAVN, () => this.albumService.getAlbumById(id));
+      const album = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.albumService.getAlbumById(id));
       return this.mapAlbum(album);
     } catch (error) {
       logger.error(`❌ JioSaavn getAlbum failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (album ${id}).`, error);
     }
-    return null;
   }
 
   public async getArtist(id: string): Promise<any> {
     try {
-      const artist = await resilientCall(JIOSAAVN, () =>
+      const artist = await resilientCall(SAAVN_BREAKER.ARTIST, () =>
         this.artistService.getArtistById({
           artistId: id,
           page: 0,
@@ -349,13 +402,13 @@ export class SaavnService {
       return this.mapArtist(artist);
     } catch (error) {
       logger.error(`❌ JioSaavn getArtist failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
     }
-    return null;
   }
 
   public async getArtistTopTracks(id: string): Promise<any[]> {
     try {
-      const artist = await resilientCall(JIOSAAVN, () =>
+      const artist = await resilientCall(SAAVN_BREAKER.ARTIST, () =>
         this.artistService.getArtistById({
           artistId: id,
           page: 0,
@@ -365,18 +418,16 @@ export class SaavnService {
           sortOrder: 'desc'
         })
       );
-      if (artist.topSongs) {
-        return artist.topSongs.map((s: any) => this.mapTrack(s)).filter(Boolean);
-      }
+      return artist.topSongs ? artist.topSongs.map((s: any) => this.mapTrack(s)).filter(Boolean) : [];
     } catch (error) {
       logger.error(`❌ JioSaavn getArtistTopTracks failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
     }
-    return [];
   }
 
   public async getArtistAlbums(id: string): Promise<any[]> {
     try {
-      const artist = await resilientCall(JIOSAAVN, () =>
+      const artist = await resilientCall(SAAVN_BREAKER.ARTIST, () =>
         this.artistService.getArtistById({
           artistId: id,
           page: 0,
@@ -386,18 +437,16 @@ export class SaavnService {
           sortOrder: 'desc'
         })
       );
-      if (artist.topAlbums) {
-        return artist.topAlbums.map((a: any) => this.mapAlbum(a)).filter(Boolean);
-      }
+      return artist.topAlbums ? artist.topAlbums.map((a: any) => this.mapAlbum(a)).filter(Boolean) : [];
     } catch (error) {
       logger.error(`❌ JioSaavn getArtistAlbums failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
     }
-    return [];
   }
 
   public async getRelatedArtists(id: string): Promise<any[]> {
     try {
-      const artist = await resilientCall(JIOSAAVN, () =>
+      const artist = await resilientCall(SAAVN_BREAKER.ARTIST, () =>
         this.artistService.getArtistById({
           artistId: id,
           page: 0,
@@ -407,13 +456,11 @@ export class SaavnService {
           sortOrder: 'desc'
         })
       );
-      if (artist.similarArtists) {
-        return artist.similarArtists.map((a: any) => this.mapArtist(a)).filter(Boolean).slice(0, 5);
-      }
+      return artist.similarArtists ? artist.similarArtists.map((a: any) => this.mapArtist(a)).filter(Boolean).slice(0, 5) : [];
     } catch (error) {
       logger.error(`❌ JioSaavn getRelatedArtists failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
     }
-    return [];
   }
 
   public async getCategories(): Promise<any[]> {
@@ -429,24 +476,24 @@ export class SaavnService {
   public async getMoodPlaylists(moodId: string): Promise<any[]> {
     try {
       // Find charts or playlists related to this mood
-      const searchPlaylists = await resilientCall(JIOSAAVN, () =>
+      const searchPlaylists = await resilientCall(SAAVN_BREAKER.SEARCH, () =>
         this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 5 })
       );
-      if (searchPlaylists.results) {
-        return searchPlaylists.results.map((p: any) => ({
-          id: p.id,
-          title: unescapeHtml(p.name || ''),
-          description: unescapeHtml(p.subtitle || p.description || `${moodId} playlist`),
-          cover: p.image?.[p.image.length - 1]?.url || null,
-          tracksCount: p.songCount ? Number(p.songCount) : 10,
-          owner: 'JioSaavn',
-          isPublic: true
-        }));
-      }
+      return searchPlaylists.results
+        ? searchPlaylists.results.map((p: any) => ({
+            id: p.id,
+            title: unescapeHtml(p.name || ''),
+            description: unescapeHtml(p.subtitle || p.description || `${moodId} playlist`),
+            cover: p.image?.[p.image.length - 1]?.url || null,
+            tracksCount: p.songCount ? Number(p.songCount) : 10,
+            owner: 'JioSaavn',
+            isPublic: true
+          }))
+        : [];
     } catch (error) {
       logger.error(`❌ JioSaavn getMoodPlaylists failed for ${moodId}:`, error);
+      throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
     }
-    return [];
   }
 
   public async search(query: string): Promise<any> {
@@ -454,33 +501,34 @@ export class SaavnService {
       return { tracks: [], albums: [], artists: [], playlists: [] };
     }
 
-    try {
-      const [tracksRes, albumsRes, artistsRes, playlistsRes] = await Promise.all([
-        resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit: 10 })),
-        resilientCall(JIOSAAVN, () => this.searchService.searchAlbums({ query, page: 0, limit: 10 })),
-        resilientCall(JIOSAAVN, () => this.searchService.searchArtists({ query, page: 0, limit: 10 })),
-        resilientCall(JIOSAAVN, () => this.searchService.searchPlaylists({ query, page: 0, limit: 10 })),
-      ]);
+    const [tracksRes, albumsRes, artistsRes, playlistsRes] = await Promise.allSettled([
+      resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 10 })),
+      resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchAlbums({ query, page: 0, limit: 10 })),
+      resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchArtists({ query, page: 0, limit: 10 })),
+      resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchPlaylists({ query, page: 0, limit: 10 })),
+    ]);
 
-      return {
-        tracks: tracksRes.results?.map((t: any) => this.mapTrack(t)).filter(Boolean) || [],
-        albums: albumsRes.results?.map((a: any) => this.mapAlbum(a)).filter(Boolean) || [],
-        artists: artistsRes.results?.map((a: any) => this.mapArtist(a)).filter(Boolean) || [],
-        playlists: playlistsRes.results?.map((p: any) => ({
-          id: p.id,
-          title: unescapeHtml(p.name || ''),
-          description: unescapeHtml(p.subtitle || p.description || ''),
-          cover: p.image?.[p.image.length - 1]?.url || null,
-          tracksCount: p.songCount ? Number(p.songCount) : 0,
-          owner: 'JioSaavn',
-          isPublic: true
-        })).filter(Boolean) || []
-      };
-    } catch (error) {
-      logger.error(`❌ JioSaavn search failed for query "${query}":`, error);
+    if ([tracksRes, albumsRes, artistsRes, playlistsRes].every((r) => r.status === 'rejected')) {
+      logger.error(`❌ JioSaavn search failed for query "${query}": all categories failed`);
+      throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', (tracksRes as PromiseRejectedResult).reason);
     }
 
-    return { tracks: [], albums: [], artists: [], playlists: [] };
+    const value = <T,>(r: PromiseSettledResult<T>): T | undefined => (r.status === 'fulfilled' ? r.value : undefined);
+
+    return {
+      tracks: value(tracksRes)?.results?.map((t: any) => this.mapTrack(t)).filter(Boolean) || [],
+      albums: value(albumsRes)?.results?.map((a: any) => this.mapAlbum(a)).filter(Boolean) || [],
+      artists: value(artistsRes)?.results?.map((a: any) => this.mapArtist(a)).filter(Boolean) || [],
+      playlists: value(playlistsRes)?.results?.map((p: any) => ({
+        id: p.id,
+        title: unescapeHtml(p.name || ''),
+        description: unescapeHtml(p.subtitle || p.description || ''),
+        cover: p.image?.[p.image.length - 1]?.url || null,
+        tracksCount: p.songCount ? Number(p.songCount) : 0,
+        owner: 'JioSaavn',
+        isPublic: true
+      })).filter(Boolean) || []
+    };
   }
 
   public async getRecommendations(languages: string[], artists: string[], limit = 20): Promise<any[]> {
@@ -495,9 +543,9 @@ export class SaavnService {
       }
 
       const searchPromises = searchQueries.map(q =>
-        resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
+        resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
       );
-      const results = await Promise.all(searchPromises);
+      const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
 
       const tracks: any[] = [];
       const seen = new Set<string>();
@@ -539,18 +587,19 @@ export class SaavnService {
       return shuffledTracks.slice(0, limit);
     } catch (error) {
       logger.error('❌ JioSaavn getRecommendations failed:', error);
+      if (error instanceof SaavnUpstreamError) throw error;
+      throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
     }
-    return [];
   }
 
   public async getSuggestions(query: string): Promise<string[]> {
     if (!query.trim()) return [];
     try {
-      const results = await resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
+      const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
       return results.results?.map((t: any) => t.name) || [];
     } catch (error) {
       logger.error(`❌ JioSaavn getSuggestions failed for "${query}":`, error);
+      throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
     }
-    return [];
   }
 }
