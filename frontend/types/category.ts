@@ -1,7 +1,8 @@
 export interface Category {
   id: string;
   name: string;
-  slug: string;
+  slug?: string;
   coverUrl?: string | null;
+  cover?: string | null;
   gradient?: string | null;
 }

@@ -1,3 +1,5 @@
+'use client';
+
 import { usePlayerStore } from '@/stores/player-store';
 
 export function usePlayer() {

@@ -72,7 +72,7 @@ export const musicApi = {
     return apiClient.delete<{ liked: boolean }>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
   },
 
-  getStream: async (trackId: string): Promise<ApiResponse<{ streamUrl: string }>> => {
-    return apiClient.get<{ streamUrl: string }>(`/music/tracks/${encodeURIComponent(trackId)}/stream`);
+  getStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
+    return apiClient.get<{ url: string; streamUrl?: string }>(`/music/tracks/${encodeURIComponent(trackId)}/stream`);
   },
 };

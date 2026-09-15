@@ -5,7 +5,7 @@ import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { MobileDrawer } from './mobile-drawer';
-import { ReservedPlayerSlot } from './reserved-player-slot';
+import { GlobalPlayer } from '@/components/player/global-player';
 import { cn } from '@/lib/utils/cn';
 
 export interface AppShellProps {
@@ -26,14 +26,14 @@ export function AppShell({ children, className }: AppShellProps) {
           role="main"
           id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 md:pb-6 focus:outline-none"
+          className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-6 focus:outline-none"
         >
           {children}
         </main>
       </div>
 
-      {/* 3. Bottom: Reserved Player Slot */}
-      <ReservedPlayerSlot />
+      {/* 3. Bottom: Global Audio Player */}
+      <GlobalPlayer />
 
       {/* 4. Mobile Bottom Navigation (< md) */}
       <MobileNav />
