@@ -1,11 +1,16 @@
 /**
- * Seeds a realistic volume of data for load testing (not a general dev
- * seed — see prisma/seed.ts for that... except that one is currently
- * broken against the post-Supabase-Auth schema: it references a `password`
- * field on User and imports `bcrypt`, neither of which exist anymore.
- * That's a separate finding, not fixed here).
+ * LOAD-TEST DATA ONLY — seeds ~1000 synthetic users with realistic volumes
+ * of listening history, likes, playlists, and affinities, so DB indexes,
+ * N+1 queries, and caching actually get exercised under load. This is NOT
+ * general dev seed data; don't run this against a database you care about
+ * without cleaning up afterwards (email `%@loadtest.local` identifies every
+ * row this script creates, cascaded from the User rows it makes).
  *
- * Users are NOT created in Supabase Auth — they're local `User` rows with
+ * For basic local-dev seed data (a couple of reference categories + one
+ * ready-to-use test login), use `npm run prisma:seed` (prisma/seed.ts)
+ * instead — that's the small, idempotent, safe-to-rerun one.
+ *
+ * Users here are NOT created in Supabase Auth — they're local `User` rows with
  * a random `supabaseId`, and this script mints JWTs for them directly
  * using SUPABASE_JWT_SECRET (which `authenticate` middleware only checks
  * the signature and `sub` claim of — no issuer/audience check — so a
