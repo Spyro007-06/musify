@@ -22,7 +22,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "recommendations:compute": "ts-node -r tsconfig-paths/register src/scripts/computeRecommendations.ts",
     "recommendations:evaluate": "ts-node -r tsconfig-paths/register src/scripts/evaluateRecommendations.ts",
-    "loadtest": "ts-node -r tsconfig-paths/register src/scripts/loadTest.ts"
+    "loadtest": "ts-node -r tsconfig-paths/register src/scripts/loadTest.ts",
+    "seed:loadtest": "ts-node -r tsconfig-paths/register src/scripts/seedLoadTestData.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
