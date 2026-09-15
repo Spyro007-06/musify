@@ -11,6 +11,7 @@ import { globalLimiter } from '@middlewares/rateLimiter';
 
 import { env } from '@config/env';
 import { swaggerSpec } from '@config/swagger';
+import { requestContext } from '@middlewares/requestContext';
 import { requestLogger } from '@middlewares/requestLogger';
 import { errorHandler, notFoundHandler } from '@middlewares/errorHandler';
 
@@ -23,8 +24,13 @@ import searchRoutes from '@routes/search.routes';
 import recommendationsRoutes from '@routes/recommendation.routes';
 import userRoutes from '@routes/user.routes';
 import aiRoutes from '@routes/ai.routes';
+import healthRoutes from '@routes/health.routes';
 
 const app: Express = express();
+
+// Request tracing — must be first so every subsequent middleware/log line
+// (including errors) has a request id available.
+app.use(requestContext);
 
 // Utility Middlewares (must be before CSRF so cookies can be parsed)
 app.use(compression());
@@ -99,10 +105,8 @@ app.use(`${env.API_PREFIX}/recommendations`, recommendationsRoutes);
 app.use(`${env.API_PREFIX}/user`, userRoutes);
 app.use(`${env.API_PREFIX}/ai`, aiRoutes);
 
-// Health check endpoint
-app.get(`${env.API_PREFIX}/health`, (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
-});
+// Health check endpoints (basic, liveness, readiness — see health.routes.ts)
+app.use(`${env.API_PREFIX}/health`, healthRoutes);
 
 // Catch 404
 app.use(notFoundHandler);

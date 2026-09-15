@@ -46,6 +46,9 @@ const envSchema = z.object({
   // Spotify
   SPOTIFY_CLIENT_ID: z.string().optional(),
   SPOTIFY_CLIENT_SECRET: z.string().optional(),
+
+  // Error tracking (optional — Sentry is disabled entirely if unset)
+  SENTRY_DSN: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

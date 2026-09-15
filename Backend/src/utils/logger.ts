@@ -2,17 +2,29 @@ import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import { env } from '@config/env';
 import path from 'path';
+import { getRequestId } from '@middlewares/requestContext';
 
 const { combine, timestamp, printf, colorize, errors, json } = winston.format;
 
+// Attaches the current request's id (see requestContext.ts) to every log
+// line emitted while handling that request, so a single failing request can
+// be traced through the logs.
+const withRequestId = winston.format((info) => {
+  const requestId = getRequestId();
+  if (requestId) info.requestId = requestId;
+  return info;
+})();
+
 // Custom log format for development
-const devFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
+const devFormat = printf(({ level, message, timestamp, stack, requestId, ...meta }) => {
   const metaStr = Object.keys(meta).length ? `\n${JSON.stringify(meta, null, 2)}` : '';
-  return `${timestamp} [${level}]: ${stack || message}${metaStr}`;
+  const reqIdStr = requestId ? ` [${requestId}]` : '';
+  return `${timestamp}${reqIdStr} [${level}]: ${stack || message}${metaStr}`;
 });
 
 // Production JSON format
 const prodFormat = combine(
+  withRequestId,
   errors({ stack: true }),
   timestamp(),
   json(),
@@ -20,6 +32,7 @@ const prodFormat = combine(
 
 // Development console format
 const consoleFormat = combine(
+  withRequestId,
   colorize({ all: true }),
   timestamp({ format: 'HH:mm:ss' }),
   errors({ stack: true }),

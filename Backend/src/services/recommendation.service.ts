@@ -5,6 +5,14 @@ import { getPrecomputedScores } from './recommendation/engine';
 import { contentBasedScore, type AffinityMaps } from './recommendation/contentBased';
 
 export class RecommendationService {
+  // Dedupes concurrent cold-cache dashboard requests for the same user so a
+  // burst of requests (e.g. several tabs, or just page-load + a retry)
+  // doesn't fan out into N independent copies of the same expensive
+  // candidate-pool/scoring work. Found via load testing: a cold cache with
+  // even a handful of concurrent requests multiplied external API calls
+  // and DB queries by the concurrency level.
+  private static inFlightDashboardRequests = new Map<string, Promise<any[]>>();
+
   private static saavn = SaavnService.getInstance();
 
   /**
@@ -63,13 +71,8 @@ export class RecommendationService {
       }
     }
 
-    queries.push(
-      prisma.recommendationCache.deleteMany({
-        where: { userId },
-      })
-    );
-
     await prisma.$transaction(queries);
+    this.invalidateCache(userId).catch((err) => logger.error('Failed to invalidate recommendation cache:', err));
   }
 
   /**
@@ -164,13 +167,8 @@ export class RecommendationService {
        );
     }
 
-    queries.push(
-      prisma.recommendationCache.deleteMany({
-        where: { userId },
-      })
-    );
-
     await prisma.$transaction(queries);
+    this.invalidateCache(userId).catch((err) => logger.error('Failed to invalidate recommendation cache:', err));
   }
 
   /**
@@ -204,13 +202,8 @@ export class RecommendationService {
       );
     }
 
-    queries.push(
-      prisma.recommendationCache.deleteMany({
-        where: { userId },
-      })
-    );
-
     await prisma.$transaction(queries);
+    this.invalidateCache(userId).catch((err) => logger.error('Failed to invalidate recommendation cache:', err));
   }
 
   /**
@@ -226,12 +219,10 @@ export class RecommendationService {
       prisma.likedTrack.deleteMany({ // deleteMany won't throw if not found
         where: { userId, spotifyTrackId },
       }),
-      prisma.recommendationCache.deleteMany({
-        where: { userId },
-      })
     ];
 
     await prisma.$transaction(queries);
+    this.invalidateCache(userId).catch((err) => logger.error('Failed to invalidate recommendation cache:', err));
   }
 
   /**
@@ -239,7 +230,7 @@ export class RecommendationService {
    */
   public static async logSkip(userId: string, spotifyTrackId: string, skipTime: number, duration: number): Promise<void> {
     const listenPercentage = duration > 0 ? (skipTime / duration) * 100 : 0;
-    
+
     const queries = [
       prisma.listeningHistory.create({
         data: {
@@ -256,12 +247,10 @@ export class RecommendationService {
           skipTime
         }
       }),
-      prisma.recommendationCache.deleteMany({
-        where: { userId },
-      })
     ];
 
     await prisma.$transaction(queries);
+    this.invalidateCache(userId).catch((err) => logger.error('Failed to invalidate recommendation cache:', err));
   }
 
   /**
@@ -440,6 +429,19 @@ export class RecommendationService {
       }));
     }
 
+    // 2. Cache miss — join an in-flight computation for this user if one's
+    // already running, instead of starting a duplicate.
+    const inFlight = this.inFlightDashboardRequests.get(userId);
+    if (inFlight) return inFlight;
+
+    const computation = this.computeDashboardRecommendations(userId).finally(() => {
+      this.inFlightDashboardRequests.delete(userId);
+    });
+    this.inFlightDashboardRequests.set(userId, computation);
+    return computation;
+  }
+
+  private static async computeDashboardRecommendations(userId: string): Promise<any[]> {
     const prefs = await this.getUserPreferences(userId);
     const selectedLanguages = prefs?.favouriteLanguages || ['english'];
     const selectedArtists = prefs?.favouriteArtists || [];

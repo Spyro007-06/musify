@@ -1,4 +1,9 @@
 import http from 'http';
+import { initSentry, captureException } from '@config/sentry';
+
+// Must run before anything else can throw.
+initSentry();
+
 import app from './app';
 import { env } from '@config/env';
 import { connectDatabase, disconnectDatabase } from '@config/database';
@@ -7,6 +12,18 @@ import { startRecommendationCron, stopRecommendationCron } from '@jobs/recommend
 
 const port = env.PORT;
 const server = http.createServer(app);
+
+// Last line of defense: log + report to Sentry rather than let the process
+// crash silently or with an unhandled promise rejection warning.
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception:', error);
+  captureException(error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection:', reason);
+  captureException(reason);
+});
 
 const startServer = async () => {
   try {

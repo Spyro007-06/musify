@@ -19,7 +19,8 @@ async function runRecompute(): Promise<void> {
     const summary = await recomputeAllUserScores();
     logger.info(
       `Recommendation recompute finished in ${Date.now() - startedAt}ms — ` +
-        `${summary.usersProcessed} users, ${summary.candidatePoolSize} candidate tracks.`
+        `${summary.usersProcessed} users, ${summary.candidatePoolSize} candidate tracks, ` +
+        `cleaned up ${summary.staleScoreUsersCleaned} churned users' scores and ${summary.expiredCacheRowsCleaned} expired cache rows.`
     );
   } catch (err) {
     logger.error('Recommendation recompute job failed:', err);

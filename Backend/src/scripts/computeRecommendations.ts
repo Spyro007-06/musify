@@ -10,7 +10,8 @@ async function main() {
   console.log('Recomputing recommendation scores for all users...');
   const summary = await recomputeAllUserScores();
   console.log(
-    `Done. Processed ${summary.usersProcessed} users against a ${summary.candidatePoolSize}-track candidate pool.`
+    `Done. Processed ${summary.usersProcessed} users against a ${summary.candidatePoolSize}-track candidate pool. ` +
+    `Cleaned up ${summary.staleScoreUsersCleaned} churned users' scores and ${summary.expiredCacheRowsCleaned} expired cache rows.`
   );
 }
 
