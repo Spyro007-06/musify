@@ -62,6 +62,19 @@ describe('GET /api/music/trending', () => {
     expect(res.status).toBe(200);
     expect(res.body.data[0].isLiked).toBe(true);
   });
+
+  it('populateLikes: a rejected like-lookup degrades to isLiked:false, not a 500 — the underlying track data is preserved', async () => {
+    saavnMock.getTrendingTracks.mockResolvedValue([track()]);
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+    prismaMock.likedTrack.findMany.mockRejectedValue(new Error('db hiccup'));
+
+    const res = await request(app).get('/api/music/trending').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([
+      expect.objectContaining({ id: 'track-1', title: 'Test Song', isLiked: false }),
+    ]);
+  });
 });
 
 describe('GET /api/music/new-releases', () => {
@@ -115,14 +128,15 @@ describe('GET /api/music/recommended', () => {
     expect(res.body.data[0].id).toBe('fallback-1');
   });
 
-  it('FINDING: a transient DB failure while annotating isLiked fails the whole response, even though the core recommendation data was already fetched successfully — populateLikes() has no error handling of its own', async () => {
+  it('FIXED: a transient DB failure while annotating isLiked degrades to isLiked:false instead of failing the whole response', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     saavnMock.getRecommendedTracks.mockResolvedValue([track()]);
     prismaMock.likedTrack.findMany.mockRejectedValue(new Error('db hiccup')); // every call rejects, including populateLikes'
 
     const res = await request(app).get('/api/music/recommended').set('Authorization', authHeader());
 
-    expect(res.status).toBe(500); // documents current behavior — arguably should degrade to isLiked:false instead
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).toEqual(expect.objectContaining({ id: 'track-1', isLiked: false }));
   });
 });
 
