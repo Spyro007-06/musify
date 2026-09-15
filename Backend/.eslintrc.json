@@ -20,5 +20,15 @@
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-namespace": ["error", { "allowDeclarations": true }]
   },
-  "ignorePatterns": ["dist", "node_modules", "coverage"]
+  "ignorePatterns": ["dist", "node_modules", "coverage"],
+  "overrides": [
+    {
+      "files": ["src/tests/setup/*.ts"],
+      "rules": {
+        // ts-jest doesn't hoist `jest.mock()` above ES imports the way babel-jest
+        // does, so mock setup files use `require()` after `jest.mock()` by design.
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    }
+  ]
 }

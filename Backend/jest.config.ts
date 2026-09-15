@@ -40,7 +40,11 @@ const config: Config = {
   testTimeout: 30000,
   clearMocks: true,
   restoreMocks: true,
-  setupFilesAfterEnv: [],
+  setupFiles: ['<rootDir>/src/tests/setup/env.ts'],
+  setupFilesAfterEnv: [
+    '<rootDir>/src/tests/setup/prismaMock.ts',
+    '<rootDir>/src/tests/setup/supabaseMock.ts',
+  ],
 };
 
 export default config;
