@@ -43,10 +43,6 @@ const envSchema = z.object({
   DEFAULT_PAGE_SIZE: z.string().default('20').transform(Number),
   MAX_PAGE_SIZE: z.string().default('100').transform(Number),
 
-  // Spotify
-  SPOTIFY_CLIENT_ID: z.string().optional(),
-  SPOTIFY_CLIENT_SECRET: z.string().optional(),
-
   // Error tracking (optional — Sentry is disabled entirely if unset)
   SENTRY_DSN: z.string().optional(),
 });
