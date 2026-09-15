@@ -5,7 +5,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import hpp from 'hpp';
 import { doubleCsrf } from 'csrf-csrf';
-const xss = require('xss-clean');
+import xss from 'xss-clean';
 import swaggerUi from 'swagger-ui-express';
 import { globalLimiter } from '@middlewares/rateLimiter';
 

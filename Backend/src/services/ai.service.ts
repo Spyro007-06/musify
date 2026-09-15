@@ -6,16 +6,9 @@ export class AIService {
   /**
    * Generates dynamic recommendations based on user history and mood.
    */
-  static async getRecommendations(userId: string, mood?: string) {
+  static async getRecommendations(_userId: string, _mood?: string) {
     try {
-      // 1. Fetch user history
-      const history = await prisma.listeningHistory.findMany({
-        where: { userId },
-        orderBy: { timestamp: 'desc' },
-        take: 20
-      });
-
-      // 2. TODO: Call AI Model (e.g., Gemini / OpenAI)
+      // TODO: Fetch user history and call AI Model (e.g., Gemini / OpenAI) once implemented.
       // Mocking AI response for now
       const mockRecommendedTracks = [
         { spotifyTrackId: 'mock-1', score: 0.95, reason: 'Matches your vibe' },
@@ -32,7 +25,7 @@ export class AIService {
   /**
    * Analyzes lyrics to provide semantic meaning and mood.
    */
-  static async analyzeLyrics(trackId: string, lyrics: string) {
+  static async analyzeLyrics(_trackId: string, _lyrics: string) {
     try {
       // TODO: Call AI Model to summarize lyrics and determine mood
       return {

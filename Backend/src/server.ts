@@ -3,6 +3,7 @@ import app from './app';
 import { env } from '@config/env';
 import { connectDatabase, disconnectDatabase } from '@config/database';
 import { logger } from '@utils/logger';
+import { startRecommendationCron, stopRecommendationCron } from '@jobs/recommendationCron';
 
 const port = env.PORT;
 const server = http.createServer(app);
@@ -17,6 +18,11 @@ const startServer = async () => {
       logger.info(`🚀 Server running in ${env.NODE_ENV} mode on port ${port}`);
       logger.info(`📖 Swagger docs: ${env.APP_URL}/api/docs`);
     });
+
+    // 3. Start the periodic recommendation recompute job (not in tests)
+    if (env.NODE_ENV !== 'test') {
+      startRecommendationCron();
+    }
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -26,6 +32,8 @@ const startServer = async () => {
 // Graceful Shutdown
 const handleShutdown = async (signal: string) => {
   logger.info(`⚠️ Received ${signal}. Shutting down gracefully...`);
+
+  stopRecommendationCron();
 
   server.close(async () => {
     logger.info('HTTP server closed.');

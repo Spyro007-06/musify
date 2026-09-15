@@ -276,20 +276,12 @@ export class RecommendationController {
     try {
       const authReq = req as AuthenticatedRequest;
       const { trackId, artistName, genre, mood } = req.body;
-      
-      if (!trackId || !artistName) {
-        res.status(HTTP_STATUS.BAD_REQUEST).json({
-          success: false,
-          message: 'trackId and artistName are required'
-        });
-        return;
-      }
 
       const queue = await RecommendationService.generateSmartQueue(authReq.user.id, {
-        trackId: String(trackId),
-        artistName: String(artistName),
-        genre: genre ? String(genre) : undefined,
-        mood: mood ? String(mood) : undefined
+        trackId,
+        artistName,
+        genre,
+        mood,
       });
 
       sendSuccess({

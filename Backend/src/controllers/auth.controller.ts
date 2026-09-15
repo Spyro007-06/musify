@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '@services/auth.service';
-import { signupSchema, loginSchema, refreshSchema } from '@validators/auth.validator';
+import { signupSchema, loginSchema } from '@validators/auth.validator';
 import { sendSuccess } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
