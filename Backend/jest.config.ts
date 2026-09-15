@@ -40,7 +40,7 @@ const config: Config = {
   testTimeout: 30000,
   clearMocks: true,
   restoreMocks: true,
-  setupFilesAfterFramework: [],
+  setupFilesAfterEnv: [],
 };
 
 export default config;

@@ -370,7 +370,7 @@ export class SpotifyService {
     const mockIds = ids.filter(id => id.startsWith('rec-') || id.startsWith('hero-'));
     const spotifyIds = ids.filter(id => !id.startsWith('rec-') && !id.startsWith('hero-'));
 
-    let results: any[] = [];
+    const results: any[] = [];
 
     // Map mocks directly
     mockIds.forEach(id => {

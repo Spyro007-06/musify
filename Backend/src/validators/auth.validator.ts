@@ -9,7 +9,9 @@ export const signupSchema = z.object({
     .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   displayName: z.string().optional(),
-  role: z.enum(['USER', 'ARTIST', 'ADMIN', 'SUPERADMIN']).optional().default('USER'),
+  // ADMIN/SUPERADMIN are never selectable at public signup — only USER/ARTIST.
+  // Elevating a user to ADMIN/SUPERADMIN must go through a separate admin-only action.
+  role: z.enum(['USER', 'ARTIST']).optional().default('USER'),
 });
 
 export const loginSchema = z.object({

@@ -11,6 +11,13 @@ export class SearchService {
       return { tracks: [], albums: [], artists: [], playlists: [] };
     }
 
+    if (userId) {
+      // Fire-and-log: don't let history logging fail the actual search request.
+      prisma.searchHistory.create({ data: { userId, query: query.trim() } }).catch((err) => {
+        console.error('Failed to log search history:', err);
+      });
+    }
+
     // --- Intent Parsing ---
 
     // 1. Personal Library Intent

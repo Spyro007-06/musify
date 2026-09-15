@@ -1,63 +1,66 @@
 import { Request, Response, NextFunction } from 'express';
-import { AIService } from '../services/ai.service';
+import { AIService } from '@services/ai.service';
+import { ApiError } from '@utils/ApiError';
+import { sendSuccess } from '@utils/ApiResponse';
+import { HTTP_STATUS } from '@constants/httpCodes';
 import type { AuthenticatedRequest } from '@/types/express';
 
 export class AIController {
-  static async getRecommendations(req: Request, res: Response, next: NextFunction) {
+  static async getRecommendations(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
       const mood = req.query.mood as string | undefined;
-      const recommendations = await AIService.getRecommendations(userId, mood);
+      const recommendations = await AIService.getRecommendations(authReq.user.id, mood);
 
-      res.status(200).json({ success: true, data: recommendations });
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: 'AI recommendations retrieved successfully.',
+        data: recommendations,
+      });
     } catch (error) {
       next(error);
     }
   }
 
-  static async analyzeLyrics(req: Request, res: Response, next: NextFunction) {
+  static async analyzeLyrics(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { trackId, lyrics } = req.body;
       if (!trackId || !lyrics) {
-        res.status(400).json({ error: 'trackId and lyrics are required' });
-        return;
+        throw ApiError.badRequest('trackId and lyrics are required');
       }
 
       const analysis = await AIService.analyzeLyrics(trackId, lyrics);
 
-      res.status(200).json({ success: true, data: analysis });
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: 'Lyrics analyzed successfully.',
+        data: analysis,
+      });
     } catch (error) {
       next(error);
     }
   }
 
-  static async generatePlaylist(req: Request, res: Response, next: NextFunction) {
+  static async generatePlaylist(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const userId = authReq.user?.id;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
       const { prompt, playlistName } = req.body;
       if (!prompt) {
-        res.status(400).json({ error: 'prompt is required' });
-        return;
+        throw ApiError.badRequest('prompt is required');
       }
 
-      const playlistData = await AIService.generatePlaylistFromPrompt(userId, prompt, playlistName);
+      const playlistData = await AIService.generatePlaylistFromPrompt(authReq.user.id, prompt, playlistName);
 
-      res.status(201).json({ success: true, data: playlistData });
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.CREATED,
+        message: 'AI playlist generated successfully.',
+        data: playlistData,
+      });
     } catch (error) {
       next(error);
     }
   }
 }
-

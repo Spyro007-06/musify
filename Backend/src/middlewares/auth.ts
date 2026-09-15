@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { supabaseAdmin } from '@config/supabase';
 import { prisma } from '@config/database';
 import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';

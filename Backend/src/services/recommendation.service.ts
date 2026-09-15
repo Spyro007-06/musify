@@ -1,6 +1,8 @@
 import { prisma } from '@config/database';
 import { SaavnService } from './saavn.service';
 import { logger } from '@utils/logger';
+import { getPrecomputedScores } from './recommendation/engine';
+import { contentBasedScore, type AffinityMaps } from './recommendation/contentBased';
 
 export class RecommendationService {
   private static saavn = SaavnService.getInstance();
@@ -26,11 +28,13 @@ export class RecommendationService {
         update: {
           favouriteLanguages: favouriteLanguages || [],
           favouriteAlbums: favouriteAlbums || [],
+          favouriteMoods: favouriteMoods || [],
         },
         create: {
           userId,
           favouriteLanguages: favouriteLanguages || [],
           favouriteAlbums: favouriteAlbums || [],
+          favouriteMoods: favouriteMoods || [],
         },
       })
     ];
@@ -91,7 +95,7 @@ export class RecommendationService {
       favouriteAlbums: prefs?.favouriteAlbums || [],
       favouriteGenres: genres.map((g: any) => g.genre),
       favouriteArtists: artists.map((a: any) => a.spotifyArtistId),
-      favouriteMoods: []
+      favouriteMoods: prefs?.favouriteMoods || []
     };
   }
 
@@ -109,7 +113,6 @@ export class RecommendationService {
       sessionDuration?: number;
       listenPercentage?: number;
       completedSong?: boolean;
-      skipTime?: number;
       numberOfReplays?: number;
     }
   ): Promise<void> {
@@ -122,7 +125,6 @@ export class RecommendationService {
       sessionDuration,
       listenPercentage,
       completedSong,
-      skipTime,
       numberOfReplays,
     } = historyData;
     const queries: any[] = [
@@ -303,7 +305,7 @@ export class RecommendationService {
   public static async getRecommendedSongs(userId: string, limit = 50): Promise<any[]> {
     const candidates = await this.getCandidatePool(userId);
     const scored = await this.scoreCandidates(userId, candidates);
-    const sorted = scored.sort((a, b) => b.score - a.score).map(s => s.track);
+    const sorted = scored.sort((a, b) => b.score - a.score).map(s => s.track).slice(0, limit);
     return this.populateLikes(sorted, userId);
   }
 
@@ -318,23 +320,21 @@ export class RecommendationService {
       orderBy: { timestamp: 'desc' },
     });
 
-    const artistNames = new Set<string>(prefs?.favouriteArtists || []);
+    // favouriteArtists / h.artistId are Saavn artist IDs, not names — match by id.
+    const artistIds = new Set<string>(prefs?.favouriteArtists || []);
     const languages = prefs?.favouriteLanguages || ['english', 'hindi'];
 
     history.forEach((h: any) => {
-      if (h.artistId) artistNames.add(h.artistId);
+      if (h.artistId) artistIds.add(h.artistId);
     });
 
     const releases = await this.saavn.getNewReleases(languages);
-    
+
     const scoredAlbums = releases.map(album => {
       let score = 0;
-      const albumArtist = (album.artist?.name || '').toLowerCase();
-      artistNames.forEach((art: any) => {
-        if (albumArtist.includes(art.toLowerCase())) {
-          score += 15;
-        }
-      });
+      if (album.artist?.id && artistIds.has(album.artist.id)) {
+        score += 15;
+      }
 
       if (prefs?.favouriteLanguages.some((lang: any) => (album.genre || '').toLowerCase().includes(lang.toLowerCase()))) {
         score += 5;
@@ -355,8 +355,10 @@ export class RecommendationService {
   public static async getRecommendedArtists(userId: string, limit = 10): Promise<any[]> {
     const prefs = await this.getUserPreferences(userId);
     const followed = await prisma.artistAffinity.findMany({ where: { userId } });
-    
-    const seedArtistNames = new Set<string>([
+
+    // favouriteArtists / spotifyArtistId are real Saavn artist IDs — use them directly,
+    // no need to search by name first.
+    const seedArtistIds = new Set<string>([
       ...(prefs?.favouriteArtists || []),
       ...followed.map((f: any) => f.spotifyArtistId)
     ]);
@@ -364,20 +366,14 @@ export class RecommendationService {
     const similarArtistsPool: any[] = [];
     const seen = new Set<string>();
 
-    const topSeedArtists = Array.from(seedArtistNames).slice(0, 3);
-    const searchPromises = topSeedArtists.map(async (artistName) => {
-      const searchRes = await this.saavn.search(artistName);
-      if (searchRes.artists && searchRes.artists[0]) {
-        return this.saavn.getRelatedArtists(searchRes.artists[0].id);
-      }
-      return [];
-    });
+    const topSeedArtists = Array.from(seedArtistIds).slice(0, 3);
+    const relatedPromises = topSeedArtists.map((artistId) => this.saavn.getRelatedArtists(artistId));
 
-    const relatedResults = await Promise.all(searchPromises);
+    const relatedResults = await Promise.all(relatedPromises);
     relatedResults.forEach((related: any[]) => {
       related.forEach((art: any) => {
-        if (art && !seen.has(art.name) && !seedArtistNames.has(art.name)) {
-          seen.add(art.name);
+        if (art && !seen.has(art.id) && !seedArtistIds.has(art.id)) {
+          seen.add(art.id);
           similarArtistsPool.push(art);
         }
       });
@@ -392,8 +388,8 @@ export class RecommendationService {
       langResults.forEach(searchRes => {
         if (searchRes && searchRes.artists) {
           searchRes.artists.forEach((art: any) => {
-            if (art && !seen.has(art.name)) {
-              seen.add(art.name);
+            if (art && !seen.has(art.id)) {
+              seen.add(art.id);
               similarArtistsPool.push(art);
             }
           });
@@ -457,7 +453,7 @@ export class RecommendationService {
       reasonGenerator: (s: any) => string,
       limit = 10
     ) => {
-      let available = scored.filter(filterFn).map(c => ({ ...c }));
+      const available = scored.filter(filterFn).map(c => ({ ...c }));
       const diverse: any[] = [];
       const artistCounts = new Map<string, number>();
 
@@ -639,50 +635,6 @@ export class RecommendationService {
     return sections;
   }
 
-
-  /**
-   * Helper to fetch tracks for onboarding artists (Priority 1, 4)
-   */
-  private static async getOnboardingArtistTracks(languages: string[], artists: string[]): Promise<any[]> {
-    const tracks: any[] = [];
-    const seen = new Set<string>();
-
-    const addTrack = (t: any) => {
-      if (t && !seen.has(t.id)) {
-        seen.add(t.id);
-        tracks.push(t);
-      }
-    };
-
-    for (const artistName of artists) {
-      const searchRes = await this.saavn.search(artistName);
-      if (searchRes.artists && searchRes.artists[0]) {
-        const topTracks = await this.saavn.getArtistTopTracks(searchRes.artists[0].id);
-        
-        // Filter by language (Priority 2)
-        const langFiltered = topTracks.filter((t: any) => 
-          languages.some((lang: any) => (t.genre || '').toLowerCase().includes(lang.toLowerCase()))
-        );
-
-        langFiltered.forEach(addTrack);
-
-        // Fallback: If we have less than 5 tracks, find similar artists (Priority 4)
-        if (langFiltered.length < 5) {
-          const similar = await this.saavn.getRelatedArtists(searchRes.artists[0].id);
-          for (const simArtist of similar) {
-            const simTopTracks = await this.saavn.getArtistTopTracks(simArtist.id);
-            const simLangFiltered = simTopTracks.filter((t: any) => 
-              languages.some((lang: any) => (t.genre || '').toLowerCase().includes(lang.toLowerCase()))
-            );
-            simLangFiltered.forEach(addTrack);
-          }
-        }
-      }
-    }
-
-    return tracks;
-  }
-
   /**
    * Helper to cache dashboard sections
    */
@@ -827,39 +779,51 @@ export class RecommendationService {
    * - 5% Time of Day
    * - 5% Trending Songs
    */
+  /**
+   * Scores candidate tracks for a user.
+   *
+   * Primary signal is the precomputed blended CF + content-based score from
+   * `RecommendationScores` (written periodically by the recommendation
+   * cron — see src/jobs/recommendationCron.ts and RECOMMENDATIONS.md). This
+   * is where the actual "learning" happens; nothing heavy runs in this
+   * request path.
+   *
+   * Candidates outside the precomputed set (e.g. brand new tracks, or a
+   * user the cron hasn't scored yet) fall back to a light live
+   * content-based score. On top of whichever base score applies, we still
+   * apply small real-time adjustments — liked/recently-played nudges, time
+   * of day, and live trending — since those reflect "right now" rather than
+   * a learned preference and don't belong in a periodically-refreshed model.
+   */
   private static async scoreCandidates(userId: string, candidates: any[]): Promise<any[]> {
     const scored: any[] = [];
 
     try {
-      const prefs = await this.getUserPreferences(userId);
-      const likes = await prisma.likedTrack.findMany({ where: { userId } });
-      const history = await prisma.listeningHistory.findMany({ where: { userId } });
-      const recentlyPlayed = await prisma.listeningHistory.findMany({ 
-        where: { userId },
-        orderBy: { timestamp: 'desc' },
-        take: 50
-      });
+      const [precomputed, likes, recentlyPlayed, genreRows, artistRows] = await Promise.all([
+        getPrecomputedScores(userId, 1000),
+        prisma.likedTrack.findMany({ where: { userId } }),
+        prisma.listeningHistory.findMany({
+          where: { userId },
+          orderBy: { timestamp: 'desc' },
+          take: 50,
+        }),
+        prisma.genreAffinity.findMany({ where: { userId } }),
+        prisma.artistAffinity.findMany({ where: { userId } }),
+      ]);
 
-      const likedIds = new Set(likes.map(l => l.spotifyTrackId));
+      const precomputedMap = new Map(precomputed.map((p) => [p.spotifyTrackId, p]));
+      const likedIds = new Set(likes.map((l) => l.spotifyTrackId));
       const recentIds = new Set(recentlyPlayed.map((r: any) => r.spotifyTrackId));
-      
-      const favouriteGenres = (prefs?.favouriteGenres || []).map((g: any) => g.toLowerCase());
-      const favouriteArtists = (prefs?.favouriteArtists || []).map((a: any) => a.toLowerCase());
-      
-      const historyCounts = new Map<string, number>();
-      history.forEach((h: any) => {
-        historyCounts.set(h.spotifyTrackId, (historyCounts.get(h.spotifyTrackId) || 0) + 1);
-        if (h.artistId) {
-          historyCounts.set(`artist_${h.artistId}`, (historyCounts.get(`artist_${h.artistId}`) || 0) + 1);
-        }
-      });
+      const affinities: AffinityMaps = {
+        genreAffinity: new Map(genreRows.map((g) => [g.genre.toLowerCase(), g.score])),
+        artistAffinity: new Map(artistRows.map((a) => [a.spotifyArtistId, a.score])),
+      };
 
       const currentHour = new Date().getHours();
-      // Define time-of-day mood/genre mappings (simplified)
-      const isMorning = currentHour >= 5 && currentHour < 12; // Energy, Pop, Workout
-      const isEvening = currentHour >= 18 || currentHour < 5; // Chill, Lofi, Acoustic
+      const isMorning = currentHour >= 5 && currentHour < 12;
+      const isEvening = currentHour >= 18 || currentHour < 5;
 
-      // Global trending query: most frequently played tracks globally in the last 24 hours
+      // Live trending, kept as a real-time signal (last 24h), separate from the periodic model.
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const trendingGroups = await prisma.listeningHistory.groupBy({
         by: ['spotifyTrackId'],
@@ -871,93 +835,52 @@ export class RecommendationService {
       const globalTrendingIds = new Set(trendingGroups.map((g: any) => g.spotifyTrackId));
 
       for (const track of candidates) {
-        let score = 0;
-        let reasons: string[] = [];
+        const precomputedEntry = precomputedMap.get(track.id);
+        let baseScore: number; // 0..1
+        let reason: string;
 
-        // 1. Listening History (Max 35 points)
-        // Check if track or its artist is in history
-        const trackPlays = historyCounts.get(track.id) || 0;
-        const trackArtists = (track.artists || []).map((a: any) => a.name.toLowerCase());
-        
-        let artistPlays = 0;
-        trackArtists.forEach((aName: string) => {
-           artistPlays += (historyCounts.get(`artist_${aName}`) || 0);
-        });
-
-        let historyScore = 0;
-        if (trackPlays > 0) historyScore += Math.min(trackPlays * 5, 20);
-        if (artistPlays > 0) historyScore += Math.min(artistPlays * 3, 15);
-        
-        if (historyScore > 35) historyScore = 35;
-        score += historyScore;
-        if (historyScore > 0) reasons.push("Based on your listening history");
-
-        // 2. Favorite Genres (Max 20 points)
-        const genre = (track.genre || '').toLowerCase();
-        let genreScore = 0;
-        if (favouriteGenres.some((g: any) => genre.includes(g) || g.includes(genre))) {
-          genreScore = 20;
-          score += genreScore;
-          reasons.push("Matches your favorite genres");
-        }
-
-        // 3. Favorite Artists (Max 15 points)
-        let artistScore = 0;
-        if (trackArtists.some((name: string) => favouriteArtists.some((fav: any) => name.includes(fav) || fav.includes(name)))) {
-          artistScore = 15;
-          score += artistScore;
-          reasons.push("By one of your favorite artists");
-        }
-
-        // 4. Liked Songs (Max 10 points)
-        let likedScore = 0;
-        if (likedIds.has(track.id)) {
-          likedScore = 10;
-          score += likedScore;
-          reasons.push("From your liked songs");
-        }
-
-        // 5. Recently Played (Max 10 points)
-        let recentScore = 0;
-        if (recentIds.has(track.id)) {
-          recentScore = 10;
-          score += recentScore;
-          reasons.push("Recently played");
-        }
-
-        // 6. Time of Day (Max 5 points)
-        let timeScore = 0;
-        if (isMorning && (genre.includes('pop') || genre.includes('energy') || genre.includes('workout') || genre.includes('dance'))) {
-          timeScore = 5;
-          score += timeScore;
-          reasons.push("Great for your morning");
-        } else if (isEvening && (genre.includes('lofi') || genre.includes('chill') || genre.includes('acoustic') || genre.includes('jazz'))) {
-          timeScore = 5;
-          score += timeScore;
-          reasons.push("Perfect for the evening");
+        if (precomputedEntry) {
+          baseScore = precomputedEntry.score;
+          reason = precomputedEntry.reason || 'Recommended for you';
         } else {
-          // Default baseline if no specific match
-          timeScore = 2;
-          score += timeScore;
+          const contentScore = contentBasedScore(track, affinities);
+          baseScore = contentScore * 0.6; // discount vs. a model-backed pick
+          reason = contentScore > 0 ? 'Matches your favorite genres and artists' : 'Popular pick for you';
         }
 
-        // 7. Trending Songs (Max 5 points)
-        let trendingScore = 0;
-        if (globalTrendingIds.has(track.id) || track.isTrending || track.playCount > 1000000) {
-          trendingScore = 5;
-          score += trendingScore;
-          if (trendingScore === 5 && reasons.length < 2) reasons.push("Trending globally right now");
+        let score = baseScore * 100;
+        const reasons = [reason];
+
+        if (likedIds.has(track.id)) {
+          score += 10;
+          reasons.unshift('From your liked songs');
+        }
+        if (recentIds.has(track.id)) {
+          score += 5;
         }
 
-        // Ensure score caps at 100
-        score = Math.min(score, 100);
+        const genre = (track.genre || '').toLowerCase();
+        if (isMorning && (genre.includes('pop') || genre.includes('energy') || genre.includes('workout') || genre.includes('dance'))) {
+          score += 5;
+          reasons.push('Great for your morning');
+        } else if (isEvening && (genre.includes('lofi') || genre.includes('chill') || genre.includes('acoustic') || genre.includes('jazz'))) {
+          score += 5;
+          reasons.push('Perfect for the evening');
+        }
+
+        const isTrending = globalTrendingIds.has(track.id) || track.isTrending || track.playCount > 1000000;
+        if (isTrending) {
+          score += 5;
+        }
+
+        score = Math.min(100, Math.max(0, score));
 
         scored.push({
           track,
           score,
-          reason: reasons[0] || "Recommended for you",
+          reason: reasons[0] || 'Recommended for you',
           isNewRelease: track.year === new Date().getFullYear(),
-          isTrending: trendingScore === 5,
+          isTrending,
         });
       }
     } catch (err) {
@@ -1024,7 +947,7 @@ export class RecommendationService {
     currentContext: { trackId: string, artistName: string, genre?: string, mood?: string }
   ): Promise<any[]> {
     const { trackId, artistName, genre, mood } = currentContext;
-    let candidates: any[] = [];
+    const candidates: any[] = [];
     const seen = new Set<string>();
 
     const addTrack = (t: any) => {
@@ -1062,10 +985,13 @@ export class RecommendationService {
       pool.forEach(addTrack);
 
       // --- Scoring ---
-      let scored = [];
+      const scored = [];
       const history = await prisma.listeningHistory.findMany({ where: { userId } });
       const historyIds = new Set(history.map((h: any) => h.spotifyTrackId));
-      
+      const precomputedScores = new Map(
+        (await getPrecomputedScores(userId, 1000)).map((p) => [p.spotifyTrackId, p.score])
+      );
+
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const trendingGroups = await prisma.listeningHistory.groupBy({
         by: ['spotifyTrackId'],
@@ -1078,7 +1004,7 @@ export class RecommendationService {
 
       for (const track of candidates) {
         let score = 0;
-        let reasons = [];
+        const reasons = [];
 
         // Current Artist & Related (30%)
         const trackArtists = (track.artists || []).map((a: any) => a.name.toLowerCase());
@@ -1112,6 +1038,12 @@ export class RecommendationService {
         if (globalTrendingIds.has(track.id) || track.playCount > 500000) {
           score += 10;
           if (reasons.length === 0) reasons.push(`Popular choice`);
+        }
+
+        // Learned baseline preference (up to +15), from the periodically-recomputed model
+        const learnedScore = precomputedScores.get(track.id);
+        if (learnedScore !== undefined) {
+          score += learnedScore * 15;
         }
 
         scored.push({
