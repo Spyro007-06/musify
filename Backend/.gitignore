@@ -18,6 +18,10 @@ npm-debug.log*
 
 # Prisma
 prisma/migrations/*.sql
+prisma/*.js
+prisma/*.js.map
+prisma/*.d.ts
+prisma/*.d.ts.map
 
 # OS files
 .DS_Store

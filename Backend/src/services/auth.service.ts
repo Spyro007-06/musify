@@ -65,7 +65,14 @@ export class AuthService {
     });
 
     if (authError) {
-      if (authError.message.toLowerCase().includes('already registered')) {
+      // Supabase's real message is "...has already been registered" — a plain
+      // `.includes('already registered')` never matches it, which let a
+      // duplicate-email signup (e.g. an orphaned Supabase Auth user with no
+      // matching public.User row — the first check above only catches
+      // duplicates that already have a public.User row) fall through to a
+      // raw 500 that leaked Supabase's internal error message to the client.
+      const lowerMessage = authError.message.toLowerCase();
+      if (lowerMessage.includes('already') && lowerMessage.includes('registered')) {
         throw ApiError.conflict(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
       }
       throw ApiError.internal(authError.message);

@@ -105,6 +105,33 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
   });
+
+  it('FIXED: returns a clean 409 (not a 500 leaking the raw Supabase message) when Supabase Auth itself rejects the email as already registered', async () => {
+    // Simulates an email that exists in Supabase Auth but has no matching
+    // public.User row yet (e.g. an orphaned signup attempt) — the DB-side
+    // findUnique checks both pass (no row found), so this can only be
+    // caught via Supabase's own error message.
+    const agent = request.agent(app);
+    const csrfToken = await getCsrfToken(agent);
+
+    prismaMock.user.findUnique.mockResolvedValueOnce(null); // email check
+    prismaMock.user.findUnique.mockResolvedValueOnce(null); // username check
+    supabaseAdminAuthMock.createUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'A user with this email address has already been registered' },
+    });
+
+    const res = await agent
+      .post('/api/auth/signup')
+      .set('x-csrf-token', csrfToken)
+      .send({ email: 'orphaned@example.com', username: 'orphaned', password: 'password123' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).not.toContain('Supabase');
+    expect(JSON.stringify(res.body)).not.toContain('A user with this email address');
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /api/auth/login', () => {

@@ -923,22 +923,30 @@ export class RecommendationService {
   }
 
   /**
-   * Helper to attach isLiked state to track objects
+   * Helper to attach isLiked state to track objects.
+   * The core recommendation data has already been fetched successfully by
+   * the time this runs — a transient DB failure here should degrade to
+   * isLiked: false, not fail the whole response.
    */
   private static async populateLikes(tracks: any[], userId?: string): Promise<any[]> {
     if (!userId || tracks.length === 0) return tracks.map(t => ({ ...t, isLiked: false }));
 
-    const trackIds = tracks.map(t => t.id);
-    const liked = await prisma.likedTrack.findMany({
-      where: { userId, spotifyTrackId: { in: trackIds } },
-      select: { spotifyTrackId: true }
-    });
+    try {
+      const trackIds = tracks.map(t => t.id);
+      const liked = await prisma.likedTrack.findMany({
+        where: { userId, spotifyTrackId: { in: trackIds } },
+        select: { spotifyTrackId: true }
+      });
 
-    const likedSet = new Set(liked.map(l => l.spotifyTrackId));
-    return tracks.map(t => ({
-      ...t,
-      isLiked: likedSet.has(t.id),
-    }));
+      const likedSet = new Set(liked.map(l => l.spotifyTrackId));
+      return tracks.map(t => ({
+        ...t,
+        isLiked: likedSet.has(t.id),
+      }));
+    } catch (error) {
+      logger.error('Failed to annotate isLiked — degrading to isLiked: false:', error);
+      return tracks.map(t => ({ ...t, isLiked: false }));
+    }
   }
 
   /**

@@ -7,7 +7,12 @@ actually likely to happen.
 ## Prerequisites
 
 - A reachable Postgres database (Supabase-hosted or otherwise), with
-  `DATABASE_URL` pointed at it.
+  `DATABASE_URL` pointed at it. `DATABASE_URL` carries an explicit
+  `connection_limit=10`, sized for **one** app instance against this
+  project's current tier (`max_connections=60`). Before running multiple
+  instances or scaling up, review and likely lower this per instance —
+  N instances each holding 10 connections will exhaust the database well
+  before N gets very large. See `.env.example` for the full reasoning.
 - A Supabase Auth project (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`) — auth is delegated to
   Supabase, this service never stores passwords itself.

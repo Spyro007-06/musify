@@ -5,6 +5,7 @@ import app from '../../app';
 import { prismaMock } from '../setup/prismaMock';
 import { saavnMock } from '../setup/saavnMock';
 import { getCsrfToken } from '../helpers/csrf';
+import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 
 const user = {
   id: 'user-1',
@@ -61,6 +62,19 @@ describe('GET /api/music/trending', () => {
     expect(res.status).toBe(200);
     expect(res.body.data[0].isLiked).toBe(true);
   });
+
+  it('populateLikes: a rejected like-lookup degrades to isLiked:false, not a 500 — the underlying track data is preserved', async () => {
+    saavnMock.getTrendingTracks.mockResolvedValue([track()]);
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+    prismaMock.likedTrack.findMany.mockRejectedValue(new Error('db hiccup'));
+
+    const res = await request(app).get('/api/music/trending').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([
+      expect.objectContaining({ id: 'track-1', title: 'Test Song', isLiked: false }),
+    ]);
+  });
 });
 
 describe('GET /api/music/new-releases', () => {
@@ -114,14 +128,15 @@ describe('GET /api/music/recommended', () => {
     expect(res.body.data[0].id).toBe('fallback-1');
   });
 
-  it('FINDING: a transient DB failure while annotating isLiked fails the whole response, even though the core recommendation data was already fetched successfully — populateLikes() has no error handling of its own', async () => {
+  it('FIXED: a transient DB failure while annotating isLiked degrades to isLiked:false instead of failing the whole response', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     saavnMock.getRecommendedTracks.mockResolvedValue([track()]);
     prismaMock.likedTrack.findMany.mockRejectedValue(new Error('db hiccup')); // every call rejects, including populateLikes'
 
     const res = await request(app).get('/api/music/recommended').set('Authorization', authHeader());
 
-    expect(res.status).toBe(500); // documents current behavior — arguably should degrade to isLiked:false instead
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).toEqual(expect.objectContaining({ id: 'track-1', isLiked: false }));
   });
 });
 
@@ -143,7 +158,7 @@ describe('GET /api/music/tracks/:id', () => {
 
 describe('GET /api/music/tracks/:trackId/stream', () => {
   it('logs a play in ListeningHistory for an authenticated user and returns the stream url', async () => {
-    saavnMock.getTrack.mockResolvedValue(track({ audioUrl: 'https://example.com/stream.mp3' }));
+    saavnMock.getTrackForStream.mockResolvedValue(track({ audioUrl: 'https://example.com/stream.mp3' }));
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     prismaMock.listeningHistory.create.mockResolvedValue({} as any);
 
@@ -157,16 +172,23 @@ describe('GET /api/music/tracks/:trackId/stream', () => {
   });
 
   it('does not log a play for an unauthenticated request', async () => {
-    saavnMock.getTrack.mockResolvedValue(track());
+    saavnMock.getTrackForStream.mockResolvedValue(track());
     const res = await request(app).get('/api/music/tracks/track-1/stream');
     expect(res.status).toBe(200);
     expect(prismaMock.listeningHistory.create).not.toHaveBeenCalled();
   });
 
   it('degrades to a clean 404 (not a crash) when the external source has no track', async () => {
-    saavnMock.getTrack.mockResolvedValue(null);
+    saavnMock.getTrackForStream.mockResolvedValue(null);
     const res = await request(app).get('/api/music/tracks/gone/stream');
     expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('degrades to a 503 (not a 404) when the external source itself is failing, not just missing this track', async () => {
+    saavnMock.getTrackForStream.mockRejectedValue(new SaavnUpstreamError('JioSaavn streaming is currently unavailable.'));
+    const res = await request(app).get('/api/music/tracks/track-1/stream');
+    expect(res.status).toBe(503);
     expect(res.body.success).toBe(false);
   });
 });

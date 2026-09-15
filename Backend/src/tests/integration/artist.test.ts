@@ -193,7 +193,7 @@ describe('GET /api/artists/recommendations', () => {
     expect(res.body.data.length).toBeGreaterThan(0);
   });
 
-  it('FINDING: does not filter the queried artist out of its own "related" results — can return the exact artist you searched for', async () => {
+  it('FIXED: filters the queried artist out of its own "related" results — never returns the artist you searched for', async () => {
     // Searching for "Test Artist" resolves to artist-1; the related-artists lookup for
     // artist-1 (as some real catalog APIs occasionally do) includes artist-1 itself.
     saavnMock.search.mockResolvedValue({ artists: [artist({ id: 'artist-1' })], tracks: [], albums: [], playlists: [] });
@@ -202,10 +202,10 @@ describe('GET /api/artists/recommendations', () => {
     const res = await request(app).get('/api/artists/recommendations').query({ artists: 'Test Artist' });
 
     expect(res.status).toBe(200);
-    // Unlike RecommendationService.getRecommendedArtists (fixed to exclude seed ids),
-    // ArtistService.getRecommendedArtists has no such filter — this currently passes,
-    // documenting the gap rather than a fixed behavior.
+    // Same fix as RecommendationService.getRecommendedArtists: exclude the
+    // seed artist's own id from the related-artists output.
     const ids = res.body.data.map((a: any) => a.id);
-    expect(ids).toContain('artist-1');
+    expect(ids).not.toContain('artist-1');
+    expect(ids).toContain('artist-2');
   });
 });

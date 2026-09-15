@@ -2,32 +2,41 @@ import { SaavnService } from './saavn.service';
 import { prisma } from '@config/database';
 import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';
+import { logger } from '@utils/logger';
 
 export class MusicService {
   private static saavn = SaavnService.getInstance();
 
   /**
-   * Helper to attach isLiked = true/false to a list of tracks
+   * Helper to attach isLiked = true/false to a list of tracks.
+   * The core data (tracks/recommendations/etc.) has already been fetched
+   * successfully by the time this runs — a transient DB failure here should
+   * degrade to isLiked: false, not fail the whole response.
    */
   public static async populateLikes(tracks: any[], userId?: string): Promise<any[]> {
     if (!userId || tracks.length === 0) {
       return tracks.map(t => ({ ...t, isLiked: false }));
     }
 
-    const trackIds = tracks.map(t => t.id);
-    const liked = await prisma.likedTrack.findMany({
-      where: {
-        userId,
-        spotifyTrackId: { in: trackIds },
-      },
-      select: { spotifyTrackId: true },
-    });
+    try {
+      const trackIds = tracks.map(t => t.id);
+      const liked = await prisma.likedTrack.findMany({
+        where: {
+          userId,
+          spotifyTrackId: { in: trackIds },
+        },
+        select: { spotifyTrackId: true },
+      });
 
-    const likedIdsSet = new Set(liked.map(l => l.spotifyTrackId));
-    return tracks.map(t => ({
-      ...t,
-      isLiked: likedIdsSet.has(t.id),
-    }));
+      const likedIdsSet = new Set(liked.map(l => l.spotifyTrackId));
+      return tracks.map(t => ({
+        ...t,
+        isLiked: likedIdsSet.has(t.id),
+      }));
+    } catch (error) {
+      logger.error('Failed to annotate isLiked — degrading to isLiked: false:', error);
+      return tracks.map(t => ({ ...t, isLiked: false }));
+    }
   }
 
   public static async getTrending(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
@@ -252,7 +261,10 @@ export class MusicService {
   }
 
   public static async getStreamUrl(trackId: string, userId?: string): Promise<string> {
-    const track = await this.saavn.getTrack(trackId);
+    // Uses a dedicated breaker (SAAVN_BREAKER.STREAM) — a playback outage is
+    // isolated from a "view track details" outage even though today both
+    // hit the same underlying JioSaavn call.
+    const track = await this.saavn.getTrackForStream(trackId);
     if (!track) {
       throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_FOUND);
     }
