@@ -74,7 +74,17 @@ export const errorHandler = (
     return;
   }
 
-  // 5. Unknown/programming errors — log and return 500
+  // 5. CSRF token errors (csrf-csrf, thrown as an http-errors instance with code EBADCSRFTOKEN)
+  if ((err as { code?: string }).code === 'EBADCSRFTOKEN') {
+    sendError({
+      res,
+      statusCode: HTTP_STATUS.FORBIDDEN,
+      message: 'Invalid or missing CSRF token.',
+    });
+    return;
+  }
+
+  // 6. Unknown/programming errors — log and return 500
   logError(err, { url: req.originalUrl, method: req.method });
 
   sendError({
