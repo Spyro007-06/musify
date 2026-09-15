@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { HTTP_STATUS, HttpStatus } from '@constants/httpCodes';
+import { getRequestId } from '@middlewares/requestContext';
 
 interface SuccessPayload<T> {
   res: Response;
@@ -45,6 +46,8 @@ export const sendError = ({
 }: ErrorPayload): Response => {
   const body: Record<string, unknown> = { success: false, message };
   if (errors && errors.length > 0) body.errors = errors;
+  const requestId = getRequestId();
+  if (requestId) body.requestId = requestId;
   return res.status(statusCode).json(body);
 };
 

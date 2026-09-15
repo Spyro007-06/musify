@@ -1,5 +1,8 @@
 import { SearchService, SongService, DiscoverService, ArtistService, AlbumService, PlaylistService } from 'jiosaavn-sdk';
 import { logger } from '@utils/logger';
+import { resilientCall } from '@utils/resilience';
+
+const JIOSAAVN = 'jiosaavn';
 
 function unescapeHtml(str: string): string {
   if (!str) return str;
@@ -150,14 +153,14 @@ export class SaavnService {
         const languageQueries = (languages || []).map(lang => `${lang} hits`).slice(0, 2);
         const queries = [...languageQueries, ...artistQueries];
         
-        const searchPromises = queries.map(q => 
-          this.searchService.searchSongs({ query: q, page: 0, limit: 50 })
+        const searchPromises = queries.map(q =>
+          resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
         );
         const results = await Promise.all(searchPromises);
-        
+
         const tracks: any[] = [];
         const seen = new Set<string>();
-        
+
         results.forEach(res => {
           if (res.results) {
             res.results.forEach((song: any) => {
@@ -194,10 +197,12 @@ export class SaavnService {
         return filteredTracks;
       }
 
-      const charts = await this.discoverService.getCharts();
+      const charts = await resilientCall(JIOSAAVN, () => this.discoverService.getCharts());
       if (charts && charts.length > 0) {
         const firstChart = charts[0];
-        const playlist = await this.playlistService.getPlaylistById({ id: firstChart.id, page: 0, limit: 20 });
+        const playlist = await resilientCall(JIOSAAVN, () =>
+          this.playlistService.getPlaylistById({ id: firstChart.id, page: 0, limit: 20 })
+        );
         if (playlist && playlist.songs) {
           return playlist.songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
         }
@@ -217,7 +222,7 @@ export class SaavnService {
         const queries = [...languageQueries, ...artistQueries];
 
         const searchPromises = queries.map(q =>
-          this.searchService.searchAlbums({ query: q, page: 0, limit: 30 })
+          resilientCall(JIOSAAVN, () => this.searchService.searchAlbums({ query: q, page: 0, limit: 30 }))
         );
         const results = await Promise.all(searchPromises);
 
@@ -263,7 +268,7 @@ export class SaavnService {
         return filteredAlbums;
       }
 
-      const newReleases = await this.discoverService.getNewReleases();
+      const newReleases = await resilientCall(JIOSAAVN, () => this.discoverService.getNewReleases());
       if (newReleases && newReleases.length > 0) {
         return newReleases.map((a: any) => this.mapAlbum(a)).filter(Boolean);
       }
@@ -281,7 +286,7 @@ export class SaavnService {
   public async getRecommendationsByGenres(genres: string[], limit = 20): Promise<any[]> {
     try {
       const query = genres.join(' ');
-      const results = await this.searchService.searchSongs({ query, page: 0, limit });
+      const results = await resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit }));
       if (results.results) {
         return results.results.map((s: any) => this.mapTrack(s)).filter(Boolean);
       }
@@ -293,7 +298,7 @@ export class SaavnService {
 
   public async getTrack(id: string): Promise<any> {
     try {
-      const songs = await this.songService.getSongByIds({ songIds: id });
+      const songs = await resilientCall(JIOSAAVN, () => this.songService.getSongByIds({ songIds: id }));
       if (songs && songs.length > 0) {
         return this.mapTrack(songs[0]);
       }
@@ -307,7 +312,7 @@ export class SaavnService {
     if (ids.length === 0) return [];
     try {
       const songIdsParam = ids.join(',');
-      const songs = await this.songService.getSongByIds({ songIds: songIdsParam });
+      const songs = await resilientCall(JIOSAAVN, () => this.songService.getSongByIds({ songIds: songIdsParam }));
       if (songs) {
         // Preserve input order
         const mapped = songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
@@ -321,7 +326,7 @@ export class SaavnService {
 
   public async getAlbum(id: string): Promise<any> {
     try {
-      const album = await this.albumService.getAlbumById(id);
+      const album = await resilientCall(JIOSAAVN, () => this.albumService.getAlbumById(id));
       return this.mapAlbum(album);
     } catch (error) {
       logger.error(`❌ JioSaavn getAlbum failed for ID ${id}:`, error);
@@ -331,14 +336,16 @@ export class SaavnService {
 
   public async getArtist(id: string): Promise<any> {
     try {
-      const artist = await this.artistService.getArtistById({
-        artistId: id,
-        page: 0,
-        songCount: 1,
-        albumCount: 1,
-        sortBy: 'popularity',
-        sortOrder: 'desc'
-      });
+      const artist = await resilientCall(JIOSAAVN, () =>
+        this.artistService.getArtistById({
+          artistId: id,
+          page: 0,
+          songCount: 1,
+          albumCount: 1,
+          sortBy: 'popularity',
+          sortOrder: 'desc'
+        })
+      );
       return this.mapArtist(artist);
     } catch (error) {
       logger.error(`❌ JioSaavn getArtist failed for ID ${id}:`, error);
@@ -348,14 +355,16 @@ export class SaavnService {
 
   public async getArtistTopTracks(id: string): Promise<any[]> {
     try {
-      const artist = await this.artistService.getArtistById({
-        artistId: id,
-        page: 0,
-        songCount: 20,
-        albumCount: 1,
-        sortBy: 'popularity',
-        sortOrder: 'desc'
-      });
+      const artist = await resilientCall(JIOSAAVN, () =>
+        this.artistService.getArtistById({
+          artistId: id,
+          page: 0,
+          songCount: 20,
+          albumCount: 1,
+          sortBy: 'popularity',
+          sortOrder: 'desc'
+        })
+      );
       if (artist.topSongs) {
         return artist.topSongs.map((s: any) => this.mapTrack(s)).filter(Boolean);
       }
@@ -367,14 +376,16 @@ export class SaavnService {
 
   public async getArtistAlbums(id: string): Promise<any[]> {
     try {
-      const artist = await this.artistService.getArtistById({
-        artistId: id,
-        page: 0,
-        songCount: 1,
-        albumCount: 15,
-        sortBy: 'popularity',
-        sortOrder: 'desc'
-      });
+      const artist = await resilientCall(JIOSAAVN, () =>
+        this.artistService.getArtistById({
+          artistId: id,
+          page: 0,
+          songCount: 1,
+          albumCount: 15,
+          sortBy: 'popularity',
+          sortOrder: 'desc'
+        })
+      );
       if (artist.topAlbums) {
         return artist.topAlbums.map((a: any) => this.mapAlbum(a)).filter(Boolean);
       }
@@ -386,14 +397,16 @@ export class SaavnService {
 
   public async getRelatedArtists(id: string): Promise<any[]> {
     try {
-      const artist = await this.artistService.getArtistById({
-        artistId: id,
-        page: 0,
-        songCount: 1,
-        albumCount: 1,
-        sortBy: 'popularity',
-        sortOrder: 'desc'
-      });
+      const artist = await resilientCall(JIOSAAVN, () =>
+        this.artistService.getArtistById({
+          artistId: id,
+          page: 0,
+          songCount: 1,
+          albumCount: 1,
+          sortBy: 'popularity',
+          sortOrder: 'desc'
+        })
+      );
       if (artist.similarArtists) {
         return artist.similarArtists.map((a: any) => this.mapArtist(a)).filter(Boolean).slice(0, 5);
       }
@@ -416,7 +429,9 @@ export class SaavnService {
   public async getMoodPlaylists(moodId: string): Promise<any[]> {
     try {
       // Find charts or playlists related to this mood
-      const searchPlaylists = await this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 5 });
+      const searchPlaylists = await resilientCall(JIOSAAVN, () =>
+        this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 5 })
+      );
       if (searchPlaylists.results) {
         return searchPlaylists.results.map((p: any) => ({
           id: p.id,
@@ -441,10 +456,10 @@ export class SaavnService {
 
     try {
       const [tracksRes, albumsRes, artistsRes, playlistsRes] = await Promise.all([
-        this.searchService.searchSongs({ query, page: 0, limit: 10 }),
-        this.searchService.searchAlbums({ query, page: 0, limit: 10 }),
-        this.searchService.searchArtists({ query, page: 0, limit: 10 }),
-        this.searchService.searchPlaylists({ query, page: 0, limit: 10 })
+        resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit: 10 })),
+        resilientCall(JIOSAAVN, () => this.searchService.searchAlbums({ query, page: 0, limit: 10 })),
+        resilientCall(JIOSAAVN, () => this.searchService.searchArtists({ query, page: 0, limit: 10 })),
+        resilientCall(JIOSAAVN, () => this.searchService.searchPlaylists({ query, page: 0, limit: 10 })),
       ]);
 
       return {
@@ -480,7 +495,7 @@ export class SaavnService {
       }
 
       const searchPromises = searchQueries.map(q =>
-        this.searchService.searchSongs({ query: q, page: 0, limit: 50 })
+        resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query: q, page: 0, limit: 50 }))
       );
       const results = await Promise.all(searchPromises);
 
@@ -531,7 +546,7 @@ export class SaavnService {
   public async getSuggestions(query: string): Promise<string[]> {
     if (!query.trim()) return [];
     try {
-      const results = await this.searchService.searchSongs({ query, page: 0, limit: 5 });
+      const results = await resilientCall(JIOSAAVN, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
       return results.results?.map((t: any) => t.name) || [];
     } catch (error) {
       logger.error(`❌ JioSaavn getSuggestions failed for "${query}":`, error);

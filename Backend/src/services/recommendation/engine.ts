@@ -135,9 +135,40 @@ async function inChunks<T>(items: T[], size: number, fn: (item: T) => Promise<vo
   }
 }
 
+/**
+ * Deletes precomputed data left behind by users who are no longer active:
+ * - RecommendationScores rows for a userId that didn't show up in this
+ *   run's rating matrix at all (their signals aged out of the 20k-event
+ *   window this run pulled, or their account has gone quiet) — these rows
+ *   are otherwise immortal, since the per-user loop above only ever
+ *   touches userIds it actually recomputed for.
+ * - RecommendationCache rows past their own expiresAt, which today are
+ *   just ignored by reads (`expiresAt: { gt: now }`) rather than removed.
+ */
+async function cleanupStaleData(activeUserIds: string[]): Promise<{ staleScoreUsers: number; expiredCacheRows: number }> {
+  const [staleScoreOwners, expiredCache] = await Promise.all([
+    prisma.recommendationScores.findMany({
+      where: { userId: { notIn: activeUserIds } },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
+    prisma.recommendationCache.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+  ]);
+
+  if (staleScoreOwners.length > 0) {
+    await prisma.recommendationScores.deleteMany({
+      where: { userId: { in: staleScoreOwners.map((s) => s.userId) } },
+    });
+  }
+
+  return { staleScoreUsers: staleScoreOwners.length, expiredCacheRows: expiredCache.count };
+}
+
 export interface RecomputeSummary {
   usersProcessed: number;
   candidatePoolSize: number;
+  staleScoreUsersCleaned: number;
+  expiredCacheRowsCleaned: number;
 }
 
 /**
@@ -203,7 +234,14 @@ export async function recomputeAllUserScores(): Promise<RecomputeSummary> {
     }
   });
 
-  return { usersProcessed, candidatePoolSize: candidateTrackIds.length };
+  const { staleScoreUsers, expiredCacheRows } = await cleanupStaleData(userIds);
+
+  return {
+    usersProcessed,
+    candidatePoolSize: candidateTrackIds.length,
+    staleScoreUsersCleaned: staleScoreUsers,
+    expiredCacheRowsCleaned: expiredCacheRows,
+  };
 }
 
 export interface PrecomputedScore {

@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { ApiError } from '@utils/ApiError';
 import { sendError } from '@utils/ApiResponse';
 import { logError } from '@utils/logger';
+import { captureException } from '@config/sentry';
 import { env } from '@config/env';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { ERROR_MESSAGES } from '@constants/messages';
@@ -84,8 +85,9 @@ export const errorHandler = (
     return;
   }
 
-  // 6. Unknown/programming errors — log and return 500
+  // 6. Unknown/programming errors — log, report, and return 500
   logError(err, { url: req.originalUrl, method: req.method });
+  captureException(err, { url: req.originalUrl, method: req.method });
 
   sendError({
     res,
