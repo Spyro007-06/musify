@@ -1,65 +1,54 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '@/stores/player-store';
-import { AudioEngine } from '@/lib/player/audio-engine';
+import { getAudioEngine } from '@/lib/audio/audio-engine';
 
+/**
+ * useAudio wires the singleton AudioEngine to the Zustand player store.
+ * It should be mounted once at the top level of the player (in GlobalPlayer).
+ */
 export function useAudio() {
-  const engineRef = useRef<AudioEngine | null>(null);
+  const isInitialized = useRef(false);
+
   const {
-    currentTrack,
-    isPlaying,
-    volume,
-    isMuted,
-    setProgress,
+    setCurrentTime,
     setDuration,
+    setIsPlaying,
+    setError,
     nextTrack,
-    play,
-    pause,
   } = usePlayerStore();
 
   useEffect(() => {
-    engineRef.current = new AudioEngine({
-      onTimeUpdate: (time) => setProgress(time),
-      onDurationChange: (dur) => setDuration(dur),
-      onEnded: () => nextTrack(),
-      onPlay: () => play(),
-      onPause: () => pause(),
+    if (isInitialized.current) return;
+    isInitialized.current = true;
+
+    const engine = getAudioEngine({
+      onTimeUpdate: (time) => {
+        setCurrentTime(time);
+      },
+      onDurationChange: (dur) => {
+        if (dur > 0 && isFinite(dur)) {
+          setDuration(dur);
+        }
+      },
+      onEnded: () => {
+        nextTrack();
+      },
+      onPlay: () => {
+        setIsPlaying(true);
+      },
+      onPause: () => {
+        setIsPlaying(false);
+      },
+      onError: (err) => {
+        setError(err.message || 'Audio playback error occurred.');
+      },
     });
 
+    // Cleanup on unmount
     return () => {
-      engineRef.current?.destroy();
-      engineRef.current = null;
+      // Keep persistent audio engine across soft navigation, but release listeners if destroyed
     };
-  }, [setProgress, setDuration, nextTrack, play, pause]);
-
-  // Load and play track changes
-  useEffect(() => {
-    if (!engineRef.current || !currentTrack) return;
-    const src = currentTrack.audioUrl;
-    if (src) {
-      engineRef.current.load(src);
-      if (isPlaying) {
-        engineRef.current.play();
-      }
-    }
-  }, [currentTrack]);
-
-  // Control play/pause
-  useEffect(() => {
-    if (!engineRef.current) return;
-    if (isPlaying) {
-      engineRef.current.play();
-    } else {
-      engineRef.current.pause();
-    }
-  }, [isPlaying]);
-
-  // Control volume
-  useEffect(() => {
-    if (!engineRef.current) return;
-    engineRef.current.setVolume(isMuted ? 0 : volume);
-  }, [volume, isMuted]);
-
-  return {
-    seek: (time: number) => engineRef.current?.seek(time),
-  };
+  }, [setCurrentTime, setDuration, setIsPlaying, setError, nextTrack]);
 }
