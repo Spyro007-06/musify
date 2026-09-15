@@ -1,5 +1,5 @@
 # --- build stage: install all deps, generate Prisma client, compile TS ---
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -15,9 +15,15 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # --- runtime stage: minimal image, non-root user ---
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Prisma's engine-selection at startup shells out to `openssl version` to
+# pick the right query engine binary; without the CLI present it can't
+# detect OpenSSL 3 on Alpine and silently falls back to the wrong (1.1.x)
+# engine, which then fails to load libssl.so.3.
+RUN apk add --no-cache openssl
 
 RUN addgroup -S app && adduser -S app -G app
 
@@ -25,6 +31,11 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY package.json ./
+
+# winston's DailyRotateFile transport (src/utils/logger.ts) writes to
+# LOG_DIR (default ./logs) at runtime — needs to exist and be writable
+# by the non-root user before we drop root.
+RUN mkdir -p logs && chown -R app:app logs
 
 USER app
 EXPOSE 3001
