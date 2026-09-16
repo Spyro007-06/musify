@@ -83,7 +83,6 @@ jobs:
             -e SUPABASE_URL="https://placeholder.supabase.co" \
             -e SUPABASE_ANON_KEY="placeholder-anon-key" \
             -e SUPABASE_SERVICE_ROLE_KEY="placeholder-service-role-key" \
-            -e SUPABASE_JWT_SECRET="placeholder-jwt-secret" \
             musify-backend:ci
 
       - name: Wait for /api/health/ready

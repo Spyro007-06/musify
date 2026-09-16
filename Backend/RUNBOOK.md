@@ -14,8 +14,11 @@ actually likely to happen.
   N instances each holding 10 connections will exhaust the database well
   before N gets very large. See `.env.example` for the full reasoning.
 - A Supabase Auth project (`SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`) — auth is delegated to
-  Supabase, this service never stores passwords itself.
+  `SUPABASE_SERVICE_ROLE_KEY`) — auth is delegated to Supabase, this
+  service never stores passwords itself. Bearer tokens are verified via
+  `supabase.auth.getClaims()` against the project's JWKS
+  (`/.well-known/jwks.json`), not a shared secret — no
+  `SUPABASE_JWT_SECRET` is needed or read.
 - See `.env.example` for the full list; `src/config/env.ts` validates all of
   it at boot and refuses to start with anything missing/malformed.
 
@@ -23,14 +26,14 @@ actually likely to happen.
 
 Today, config comes from a `.env` file (gitignored, never committed) or
 whatever env vars the deploy target injects. Before this handles real user
-data at scale, move `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`,
-`DATABASE_URL`, and `CSRF_SECRET` into a real secrets manager (AWS
-Secrets Manager / SSM Parameter Store, GCP Secret Manager, HashiCorp Vault,
-or your platform's equivalent) rather than plain env vars on the host —
-`env.ts` doesn't care where the values come from, so this is purely a
-deploy-pipeline change, not a code change. At minimum:
-- Rotate `SUPABASE_JWT_SECRET` and `CSRF_SECRET` if they were ever
-  committed, logged, or shared outside the team.
+data at scale, move `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`, and
+`CSRF_SECRET` into a real secrets manager (AWS Secrets Manager / SSM
+Parameter Store, GCP Secret Manager, HashiCorp Vault, or your platform's
+equivalent) rather than plain env vars on the host — `env.ts` doesn't care
+where the values come from, so this is purely a deploy-pipeline change,
+not a code change. At minimum:
+- Rotate `CSRF_SECRET` if it was ever committed, logged, or shared outside
+  the team.
 - Never put secrets in a Dockerfile `ENV`/`ARG` — inject at container
   runtime (`docker run -e`, your orchestrator's secret mount, etc.).
 
