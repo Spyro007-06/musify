@@ -14,7 +14,6 @@ export const ROUTES = {
       LIKED: '/library/liked',
       RECENTLY_PLAYED: '/library/recently-played',
       PLAYLISTS: '/library/playlists',
-      ALBUMS: '/library/albums',
     },
     ARTIST: (id: string) => `/artists/${id}`,
     ALBUM: (id: string) => `/albums/${id}`,

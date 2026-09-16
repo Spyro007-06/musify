@@ -21,7 +21,6 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/library/liked') return 'Liked Songs';
   if (pathname === '/library/recently-played') return 'Recently Played';
   if (pathname === '/library/playlists') return 'Playlists';
-  if (pathname === '/library/albums') return 'Albums';
   if (pathname.startsWith('/artists/')) return 'Artist Profile';
   if (pathname.startsWith('/albums/')) return 'Album';
   if (pathname.startsWith('/playlists/')) return 'Playlist';

@@ -1,41 +1,43 @@
-import { useState } from 'react';
+'use client';
+
 import { useQuery } from '@tanstack/react-query';
-import { useDebounce } from './use-debounce';
-import { searchApi } from '@/lib/api/search';
+import { searchApi, SearchResults } from '@/lib/api/search';
 
-export function useSearch(initialQuery = '', debounceMs = 300) {
-  const [query, setQuery] = useState(initialQuery);
-  const debouncedQuery = useDebounce(query, debounceMs);
+/**
+ * Hook to query full search results for a submitted or debounced search query.
+ */
+export function useSearchQuery(query: string) {
+  const trimmed = query.trim();
 
-  const searchResultsQuery = useQuery({
-    queryKey: ['search', debouncedQuery],
+  return useQuery<SearchResults | null>({
+    queryKey: ['search', trimmed],
     queryFn: async () => {
-      if (!debouncedQuery.trim()) return null;
-      const res = await searchApi.search(debouncedQuery);
-      return res.data;
+      if (!trimmed) return null;
+      const res = await searchApi.search(trimmed);
+      return res.data || { tracks: [], artists: [], albums: [], playlists: [] };
     },
-    enabled: !!debouncedQuery.trim(),
-    staleTime: 1000 * 60 * 2, // 2 mins
+    enabled: !!trimmed,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1,
   });
+}
 
-  const suggestionsQuery = useQuery({
-    queryKey: ['suggestions', debouncedQuery],
+/**
+ * Hook to query autocomplete suggestions while typing.
+ * Only triggers if query length is >= 2 chars.
+ */
+export function useSearchSuggestions(query: string) {
+  const trimmed = query.trim();
+
+  return useQuery<string[]>({
+    queryKey: ['search-suggestions', trimmed],
     queryFn: async () => {
-      if (!debouncedQuery.trim()) return [];
-      const res = await searchApi.getSuggestions(debouncedQuery);
+      if (!trimmed || trimmed.length < 2) return [];
+      const res = await searchApi.getSuggestions(trimmed);
       return res.data || [];
     },
-    enabled: !!debouncedQuery.trim(),
-    staleTime: 1000 * 60 * 5,
+    enabled: trimmed.length >= 2,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    retry: false,
   });
-
-  return {
-    query,
-    setQuery,
-    debouncedQuery,
-    results: searchResultsQuery.data,
-    suggestions: suggestionsQuery.data || [],
-    isLoading: searchResultsQuery.isLoading,
-    isError: searchResultsQuery.isError,
-  };
 }
