@@ -43,7 +43,7 @@ export function TrackRow({
   const isCurrentTrack = currentTrack?.id === track.id;
   const isTrackPlaying = isCurrentTrack && isPlaying;
 
-  const artwork = track.artwork || track.artworkUrl;
+  const artwork = track.artwork;
   const artistNames = track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist';
   const durationSecs =
     track.duration ?? (track.durationMs ? track.durationMs / 1000 : track.durationSeconds ?? 0);

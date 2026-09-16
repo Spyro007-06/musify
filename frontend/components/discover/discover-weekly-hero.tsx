@@ -121,7 +121,7 @@ export function DiscoverWeeklyHero({
           {/* Cover */}
           <div className="relative aspect-square w-44 sm:w-52 shrink-0 overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10 group">
             <ImageWithFallback
-              src={leadTrack?.artwork || leadTrack?.artworkUrl}
+              src={leadTrack?.artwork}
               alt="Discover Weekly"
               fallbackIcon={<Disc3 className="h-1/2 w-1/2 text-neutral-600 animate-spin-slow" />}
               fill
@@ -199,7 +199,7 @@ export function DiscoverWeeklyHero({
                     <div className="flex items-center gap-2.5 overflow-hidden">
                       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
                         <ImageWithFallback
-                          src={track.artwork || track.artworkUrl}
+                          src={track.artwork}
                           alt={track.title}
                           fill
                           sizes="36px"

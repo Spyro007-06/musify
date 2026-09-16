@@ -34,9 +34,9 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
   const [copied, setCopied] = React.useState(false);
 
   const followMutation = useToggleFollowArtist(artist.id);
-  const isFollowing = Boolean(artist.isFollowing ?? artist.isFollowed);
-  const followers = artist.followers ?? artist.followerCount ?? 0;
-  const imageUrl = artist.imageUrl || artist.image;
+  const isFollowing = Boolean(artist.isFollowing);
+  const followers = artist.followers ?? 0;
+  const imageUrl = artist.image;
 
   // Check if currently playing this artist
   const isCurrentArtistPlaying =

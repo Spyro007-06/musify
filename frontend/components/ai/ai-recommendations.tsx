@@ -243,11 +243,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
     track?.artists?.map((a) => a.name).join(', ') ||
     'Unknown Artist';
 
-  const artworkUrl =
-    track?.artworkUrl ||
-    track?.artwork ||
-    track?.album?.artworkUrl ||
-    track?.album?.artwork;
+  const artworkUrl = track?.artwork || track?.album?.artwork;
 
   return (
     <div

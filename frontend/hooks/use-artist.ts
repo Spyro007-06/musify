@@ -124,7 +124,7 @@ export function useToggleFollowArtist(artistId: string) {
         (old) => {
           if (!old) return old;
           const nextFollowing = !isFollowing;
-          const currentFollowers = old.followers ?? old.followerCount ?? 0;
+          const currentFollowers = old.followers ?? 0;
           const updatedFollowers = nextFollowing
             ? currentFollowers + 1
             : Math.max(0, currentFollowers - 1);
@@ -132,9 +132,7 @@ export function useToggleFollowArtist(artistId: string) {
           return {
             ...old,
             isFollowing: nextFollowing,
-            isFollowed: nextFollowing,
             followers: updatedFollowers,
-            followerCount: updatedFollowers,
           };
         }
       );

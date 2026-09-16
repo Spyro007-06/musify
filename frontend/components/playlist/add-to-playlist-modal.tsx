@@ -169,7 +169,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
               userPlaylists.map((playlist) => {
                 const isSelected = selectedPlaylistId === playlist.id;
                 const isSuccess = successPlaylistId === playlist.id;
-                const cover = playlist.cover || playlist.coverUrl;
+                const cover = playlist.cover;
 
                 return (
                   <button

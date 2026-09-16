@@ -37,7 +37,7 @@ export function MiniPlayer() {
     likeMutation.mutate({ trackId: currentTrack.id, isLiked: !nextState });
   };
 
-  const artwork = currentTrack?.artwork || currentTrack?.artworkUrl;
+  const artwork = currentTrack?.artwork;
   const artists = currentTrack?.artists?.map((a) => a.name).join(', ') || 'Unknown Artist';
 
   return (

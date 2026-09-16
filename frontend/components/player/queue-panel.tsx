@@ -98,7 +98,7 @@ export function QueuePanel() {
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-neutral-800">
                     <ImageWithFallback
-                      src={currentTrack.artwork || currentTrack.artworkUrl}
+                      src={currentTrack.artwork}
                       alt={currentTrack.title}
                       fill
                       sizes="48px"
@@ -153,7 +153,7 @@ export function QueuePanel() {
                         </span>
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
                           <ImageWithFallback
-                            src={track.artwork || track.artworkUrl}
+                            src={track.artwork}
                             alt={track.title}
                             fill
                             sizes="40px"

@@ -9,7 +9,6 @@ export interface Track {
   duration?: number;
   durationMs?: number;
   audioUrl?: string | null;
-  artworkUrl?: string | null;
   artwork?: string | null;
   lyricsUrl?: string | null;
   genre?: string;

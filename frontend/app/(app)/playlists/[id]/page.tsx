@@ -50,8 +50,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
     if (playlist.id.startsWith('movie-') || playlist.owner === 'Movie Soundtrack') {
       return false;
     }
-    const ownerName = typeof playlist.owner === 'string' ? playlist.owner : playlist.owner?.username;
-    return ownerName === user.username;
+    return playlist.owner === user.username;
   }, [user, playlist]);
 
   const tracks = React.useMemo(() => playlist?.tracks || [], [playlist?.tracks]);
@@ -213,11 +212,8 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
     );
   }
 
-  const coverSrc = playlist.cover || playlist.coverUrl;
-  const ownerName =
-    typeof playlist.owner === 'string'
-      ? playlist.owner
-      : playlist.owner?.displayName || playlist.owner?.username || 'MUSIFY';
+  const coverSrc = playlist.cover;
+  const ownerName = playlist.owner || 'MUSIFY';
 
   const isSoundtrack = playlist.id.startsWith('movie-') || playlist.owner === 'Movie Soundtrack';
 

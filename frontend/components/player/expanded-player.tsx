@@ -43,7 +43,7 @@ export function ExpandedPlayer() {
 
   if (!isExpanded || !currentTrack) return null;
 
-  const artwork = currentTrack.artwork || currentTrack.artworkUrl;
+  const artwork = currentTrack.artwork;
   const artists = currentTrack.artists?.map((a) => a.name).join(', ') || 'Unknown Artist';
 
   const handleLikeToggle = () => {

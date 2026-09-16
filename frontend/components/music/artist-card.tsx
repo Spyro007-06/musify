@@ -13,7 +13,7 @@ export interface ArtistCardProps {
 }
 
 export function ArtistCard({ artist, className }: ArtistCardProps) {
-  const imageUrl = artist.imageUrl || artist.image;
+  const imageUrl = artist.image;
 
   return (
     <Link

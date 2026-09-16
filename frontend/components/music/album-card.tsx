@@ -14,8 +14,8 @@ export interface AlbumCardProps {
 }
 
 export function AlbumCard({ album, onPlay, className }: AlbumCardProps) {
-  const artwork = album.artwork || album.artworkUrl;
-  const artistName = album.artist?.name || album.artists?.[0]?.name || 'Various Artists';
+  const artwork = album.artwork;
+  const artistName = album.artist?.name || 'Various Artists';
 
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();

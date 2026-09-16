@@ -34,8 +34,8 @@ export function ArtistAboutModal({
 
   if (!isOpen) return null;
 
-  const imageUrl = artist.imageUrl || artist.image;
-  const followers = artist.followers ?? artist.followerCount ?? 0;
+  const imageUrl = artist.image;
+  const followers = artist.followers ?? 0;
   const formattedFollowers = new Intl.NumberFormat('en-US').format(followers);
 
   return (

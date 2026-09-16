@@ -14,10 +14,8 @@ export interface PlaylistCardProps {
 }
 
 export function PlaylistCard({ playlist, onPlay, className }: PlaylistCardProps) {
-  const coverSrc = playlist.cover || playlist.coverUrl;
-  const ownerName = typeof playlist.owner === 'string'
-    ? playlist.owner
-    : playlist.owner?.displayName || playlist.owner?.username || 'MUSIFY';
+  const coverSrc = playlist.cover;
+  const ownerName = playlist.owner || 'MUSIFY';
 
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();

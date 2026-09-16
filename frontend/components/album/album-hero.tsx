@@ -20,7 +20,7 @@ export function AlbumHero({ album }: AlbumHeroProps) {
 
   const [copied, setCopied] = React.useState(false);
 
-  const artwork = album.artwork || album.artworkUrl;
+  const artwork = album.artwork;
   const tracks = React.useMemo(() => album.tracks || [], [album.tracks]);
   const hasTracks = tracks.length > 0;
 
@@ -84,33 +84,8 @@ export function AlbumHero({ album }: AlbumHeroProps) {
     }
   };
 
-  // Artist rendering helper: supporting single artist, various artists, and multiple artists
+  // Artist rendering helper
   const renderArtistLink = () => {
-    if (album.artists && album.artists.length > 0) {
-      return (
-        <span className="font-semibold text-white">
-          {album.artists.map((artist, idx) => {
-            const hasLink = artist.id && artist.id !== 'various-artists';
-            return (
-              <React.Fragment key={artist.id || idx}>
-                {idx > 0 && <span className="text-neutral-400 font-normal">, </span>}
-                {hasLink ? (
-                  <Link
-                    href={`/artists/${artist.id}`}
-                    className="hover:text-emerald-400 hover:underline transition-colors"
-                  >
-                    {artist.name}
-                  </Link>
-                ) : (
-                  <span>{artist.name}</span>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </span>
-      );
-    }
-
     const artistName = album.artist?.name || 'Various Artists';
     const artistId = album.artist?.id;
     const hasValidArtistId = artistId && artistId !== 'various-artists';
