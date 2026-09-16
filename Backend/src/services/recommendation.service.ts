@@ -1,5 +1,6 @@
 import { prisma } from '@config/database';
 import { SaavnService } from './saavn.service';
+import { MusicService } from './music.service';
 import { logger } from '@utils/logger';
 import { getPrecomputedScores } from './recommendation/engine';
 import { contentBasedScore, type AffinityMaps } from './recommendation/contentBased';
@@ -295,7 +296,7 @@ export class RecommendationService {
     const candidates = await this.getCandidatePool(userId);
     const scored = await this.scoreCandidates(userId, candidates);
     const sorted = scored.sort((a, b) => b.score - a.score).map(s => s.track).slice(0, limit);
-    return this.populateLikes(sorted, userId);
+    return MusicService.populateLikes(sorted, userId);
   }
 
   /**
@@ -408,7 +409,7 @@ export class RecommendationService {
       .map(s => s.track)
       .slice(0, 30);
 
-    return this.populateLikes(discoveryTracks, userId);
+    return MusicService.populateLikes(discoveryTracks, userId);
   }
 
   /**
@@ -520,7 +521,7 @@ export class RecommendationService {
       title: timeTitle,
       subtitle: 'Personalized picks to start right',
       type: 'tracks',
-      items: await this.populateLikes(finalTimeTracks, userId),
+      items: await MusicService.populateLikes(finalTimeTracks, userId),
     });
 
     // 2. Recently Played
@@ -532,7 +533,7 @@ export class RecommendationService {
         title: 'Recently Played',
         subtitle: 'Jump back in',
         type: 'tracks',
-        items: await this.populateLikes(recentTracks, userId),
+        items: await MusicService.populateLikes(recentTracks, userId),
       });
     }
 
@@ -554,7 +555,7 @@ export class RecommendationService {
           title: `Because You Like ${targetArtist}`,
           subtitle: 'Dive deeper into their sound',
           type: 'tracks',
-          items: await this.populateLikes(artistRecs, userId),
+          items: await MusicService.populateLikes(artistRecs, userId),
         });
       }
     }
@@ -569,7 +570,7 @@ export class RecommendationService {
         title: 'Continue Listening',
         subtitle: 'Pick up where you left off',
         type: 'tracks',
-        items: await this.populateLikes(incTracks, userId),
+        items: await MusicService.populateLikes(incTracks, userId),
       });
     }
 
@@ -585,7 +586,7 @@ export class RecommendationService {
         title: 'Hidden Gems',
         subtitle: 'Lesser known tracks tailored to your taste',
         type: 'tracks',
-        items: await this.populateLikes(hiddenGems, userId),
+        items: await MusicService.populateLikes(hiddenGems, userId),
       });
     }
 
@@ -601,7 +602,7 @@ export class RecommendationService {
         title: 'Trending Near You',
         subtitle: 'Hot tracks right now',
         type: 'tracks',
-        items: await this.populateLikes(trendingLocal, userId),
+        items: await MusicService.populateLikes(trendingLocal, userId),
       });
     }
 
@@ -617,7 +618,7 @@ export class RecommendationService {
         title: 'New Releases',
         subtitle: 'Fresh drops',
         type: 'tracks',
-        items: await this.populateLikes(freshReleases, userId),
+        items: await MusicService.populateLikes(freshReleases, userId),
       });
     }
 
@@ -922,32 +923,6 @@ export class RecommendationService {
     return topArtist;
   }
 
-  /**
-   * Helper to attach isLiked state to track objects.
-   * The core recommendation data has already been fetched successfully by
-   * the time this runs — a transient DB failure here should degrade to
-   * isLiked: false, not fail the whole response.
-   */
-  private static async populateLikes(tracks: any[], userId?: string): Promise<any[]> {
-    if (!userId || tracks.length === 0) return tracks.map(t => ({ ...t, isLiked: false }));
-
-    try {
-      const trackIds = tracks.map(t => t.id);
-      const liked = await prisma.likedTrack.findMany({
-        where: { userId, spotifyTrackId: { in: trackIds } },
-        select: { spotifyTrackId: true }
-      });
-
-      const likedSet = new Set(liked.map(l => l.spotifyTrackId));
-      return tracks.map(t => ({
-        ...t,
-        isLiked: likedSet.has(t.id),
-      }));
-    } catch (error) {
-      logger.error('Failed to annotate isLiked — degrading to isLiked: false:', error);
-      return tracks.map(t => ({ ...t, isLiked: false }));
-    }
-  }
 
   /**
    * Smart Queue Generator
@@ -1100,7 +1075,7 @@ export class RecommendationService {
         });
       }
 
-      return await this.populateLikes(finalQueue, userId);
+      return await MusicService.populateLikes(finalQueue, userId);
 
     } catch (err) {
       return [];
