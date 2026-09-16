@@ -1,23 +1,18 @@
 import { apiClient } from './client';
-import { User, UserPreferences } from '@/types/user';
-import { Track } from '@/types/track';
-import { Album } from '@/types/album';
 import { ApiResponse } from '@/types/api';
 
+export interface UserPreferences {
+  favouriteLanguages?: string[];
+  favouriteAlbums?: string[];
+  favouriteGenres?: string[];
+  favouriteArtists?: string[];
+  favouriteMoods?: string[];
+}
+
 export const userApi = {
-  getProfile: () => apiClient<ApiResponse<User>>('/user/profile'),
-  updateProfile: (data: Partial<User>) =>
-    apiClient<ApiResponse<User>>('/user/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  getPreferences: () => apiClient<ApiResponse<UserPreferences>>('/user/preferences'),
-  updatePreferences: (data: Partial<UserPreferences>) =>
-    apiClient<ApiResponse<UserPreferences>>('/user/preferences', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-  getLikedSongs: () => apiClient<ApiResponse<Track[]>>('/user/liked-tracks'),
-  getLikedAlbums: () => apiClient<ApiResponse<Album[]>>('/user/liked-albums'),
-  getRecentlyPlayed: () => apiClient<ApiResponse<Track[]>>('/user/recently-played'),
+  getUserPreferences: (): Promise<ApiResponse<UserPreferences>> =>
+    apiClient.get<UserPreferences>('/user/preferences'),
+
+  updateUserPreferences: (preferences: UserPreferences): Promise<ApiResponse<void>> =>
+    apiClient.post<void>('/user/preferences', preferences),
 };

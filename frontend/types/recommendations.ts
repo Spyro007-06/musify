@@ -1,19 +1,30 @@
 import { Track } from './track';
 import { Album } from './album';
 import { Artist } from './artist';
+import { Category } from './category';
 
-export type RecommendationSectionType = 
-  | 'continue-listening' 
-  | 'recently-played' 
-  | 'daily-mix' 
-  | 'discover-weekly' 
-  | 'mood-boost' 
-  | 'top-artists';
+export type RecommendationSectionType = 'tracks' | 'albums' | 'artists' | 'categories';
 
-export interface RecommendationSection {
+export interface DashboardRecommendationSection {
   id: string;
-  type: RecommendationSectionType;
   title: string;
   subtitle?: string;
-  items: (Track | Album | Artist)[];
+  type: RecommendationSectionType;
+  items: (Track | Album | Artist | Category)[];
+}
+
+export type RecommendationSection = DashboardRecommendationSection;
+
+export interface RecommendationFeedbackPayload {
+  trackId: string;
+  action: 'complete' | 'skip' | 'replay';
+  duration?: number;
+  skipTime?: number;
+}
+
+export interface SmartQueuePayload {
+  trackId: string;
+  artistName: string;
+  genre?: string;
+  mood?: string;
 }

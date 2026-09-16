@@ -12,6 +12,7 @@ export interface Artist {
   followers?: number;
   popularity?: number;
   isFollowed?: boolean;
+  isFollowing?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -56,20 +56,20 @@ export const musicApi = {
     return apiClient.get<Album[]>(`/music/albums?page=${page}`, { requiresAuth: false });
   },
 
-  getLiked: async (): Promise<ApiResponse<Track[]>> => {
-    return apiClient.get<Track[]>('/music/liked');
+  getLiked: async (page = 1, limit = 50): Promise<ApiResponse<Track[]>> => {
+    return apiClient.get<Track[]>(`/music/liked?page=${page}&limit=${limit}`);
   },
 
-  getRecentlyPlayed: async (): Promise<ApiResponse<Track[]>> => {
-    return apiClient.get<Track[]>('/music/recently-played');
+  getRecentlyPlayed: async (page = 1, limit = 20): Promise<ApiResponse<Track[]>> => {
+    return apiClient.get<Track[]>(`/music/recently-played?page=${page}&limit=${limit}`);
   },
 
-  likeTrack: async (trackId: string): Promise<ApiResponse<{ liked: boolean }>> => {
-    return apiClient.post<{ liked: boolean }>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
+  likeTrack: async (trackId: string): Promise<ApiResponse<unknown>> => {
+    return apiClient.post<unknown>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
   },
 
-  unlikeTrack: async (trackId: string): Promise<ApiResponse<{ liked: boolean }>> => {
-    return apiClient.delete<{ liked: boolean }>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
+  unlikeTrack: async (trackId: string): Promise<ApiResponse<unknown>> => {
+    return apiClient.delete<unknown>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
   },
 
   getStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
