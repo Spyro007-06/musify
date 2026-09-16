@@ -44,3 +44,65 @@ jobs:
 
       - name: Audit (production dependencies only, non-blocking)
         run: npm audit --omit=dev || true
+
+  docker-build:
+    name: Docker build & container health check
+    runs-on: ubuntu-latest
+    # Kept separate from build-lint-test so a Dockerfile/image regression
+    # (e.g. the log-dir permissions, Node version, and Prisma/OpenSSL 3
+    # bugs found in an earlier session, none of which the plain test suite
+    # catches) shows up as its own red job, not folded into a generic
+    # "CI failed".
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: musify
+          POSTGRES_PASSWORD: musify
+          POSTGRES_DB: musify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U musify"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t musify-backend:ci ./Backend
+
+      - name: Run container against the Postgres service
+        run: |
+          docker run -d --name musify-backend-ci \
+            --network host \
+            -e NODE_ENV=production \
+            -e PORT=3001 \
+            -e DATABASE_URL="postgresql://musify:musify@localhost:5432/musify" \
+            -e SUPABASE_URL="https://placeholder.supabase.co" \
+            -e SUPABASE_ANON_KEY="placeholder-anon-key" \
+            -e SUPABASE_SERVICE_ROLE_KEY="placeholder-service-role-key" \
+            -e SUPABASE_JWT_SECRET="placeholder-jwt-secret" \
+            musify-backend:ci
+
+      - name: Wait for /api/health/ready
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:3001/api/health/ready; then
+              echo "Container is healthy."
+              exit 0
+            fi
+            echo "Waiting for container to become healthy... ($i/20)"
+            sleep 3
+          done
+          echo "Container never became healthy."
+          exit 1
+
+      - name: Container logs
+        if: always()
+        run: docker logs musify-backend-ci || true
+
+      - name: Clean up
+        if: always()
+        run: docker rm -f musify-backend-ci || true
