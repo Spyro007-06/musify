@@ -396,7 +396,18 @@ export class RecommendationService {
   public static async getDiscoverWeekly(userId: string): Promise<any[]> {
     const candidates = await this.getCandidatePool(userId);
     const scored = await this.scoreCandidates(userId, candidates);
-    
+    return this.buildDiscoverWeekly(userId, scored);
+  }
+
+  /**
+   * Shared by getDiscoverWeekly (which builds its own scored candidate
+   * pool) and computeDashboardRecommendations' "Discover Weekly" section
+   * (which already has one from earlier in the same computation) — avoids
+   * a redundant getCandidatePool + scoreCandidates pass (up to ~9 Saavn
+   * calls and 6 Prisma queries) when the caller already scored candidates
+   * moments earlier in the same request.
+   */
+  private static async buildDiscoverWeekly(userId: string, scored: any[]): Promise<any[]> {
     const userHistory = await prisma.listeningHistory.findMany({
       where: { userId },
       select: { spotifyTrackId: true }
@@ -622,8 +633,9 @@ export class RecommendationService {
       });
     }
 
-    // 8. Discover Weekly
-    const discoverTracks = await this.getDiscoverWeekly(userId);
+    // 8. Discover Weekly — reuses the `scored` pool already built above
+    // instead of rebuilding it (see buildDiscoverWeekly's docstring).
+    const discoverTracks = await this.buildDiscoverWeekly(userId, scored);
     if (discoverTracks.length > 0) {
       sections.push({
         id: 'discover-weekly',
@@ -970,7 +982,7 @@ export class RecommendationService {
       pool.forEach(addTrack);
 
       // --- Scoring ---
-      const scored = [];
+      const scored: any[] = [];
       const history = await prisma.listeningHistory.findMany({ where: { userId } });
       const historyIds = new Set(history.map((h: any) => h.spotifyTrackId));
       const precomputedScores = new Map(
@@ -1038,40 +1050,39 @@ export class RecommendationService {
         });
       }
 
-      // Anti-Repetition Penalty
+      // Anti-Repetition Penalty — recompute each artist's running penalty
+      // before every pick (same pattern as the reference implementation in
+      // computeDashboardRecommendations' getDiverseTracksForSection), so an
+      // already-picked artist's remaining tracks actually drop in the
+      // ranking instead of the penalty being calculated once against an
+      // empty count map and then discarded.
       const finalQueue = [];
       const artistCounts = new Map<string, number>();
+      const remaining = [...scored];
 
-      // Sort descending
-      scored.sort((a, b) => b.score - a.score);
-
-      for (const item of scored) {
-        if (finalQueue.length >= 20) break;
-        
-        let penalty = 0;
-        const trackArtists = item.track.artists || [];
-        trackArtists.forEach((a: any) => {
-          const count = artistCounts.get(a.name) || 0;
-          penalty += (count * 25); // -25 penalty for each previous play
+      while (finalQueue.length < 20 && remaining.length > 0) {
+        remaining.forEach((item) => {
+          let penalty = 0;
+          const trackArtists = item.track.artists || [];
+          trackArtists.forEach((a: any) => {
+            const count = artistCounts.get(a.name) || 0;
+            penalty += (count * 25); // -25 penalty for each previous play
+          });
+          item.currentScore = item.score - penalty;
         });
 
-        item.score -= penalty;
-      }
-      
-      // Re-sort after penalty
-      scored.sort((a, b) => b.score - a.score);
-      
-      for (const item of scored) {
-        if (finalQueue.length >= 20) break;
-        
-        const trackArtists = item.track.artists || [];
+        remaining.sort((a, b) => b.currentScore - a.currentScore);
+        const picked = remaining.shift();
+        if (!picked) break;
+
+        const trackArtists = picked.track.artists || [];
         trackArtists.forEach((a: any) => {
           artistCounts.set(a.name, (artistCounts.get(a.name) || 0) + 1);
         });
 
         finalQueue.push({
-          ...item.track,
-          explanation: item.explanation
+          ...picked.track,
+          explanation: picked.explanation
         });
       }
 

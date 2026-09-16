@@ -253,14 +253,18 @@ describe('getDashboardRecommendations — cache behavior', () => {
     computeSpy.mockRestore();
   });
 
-  it('FINDING: a single dashboard computation fetches the candidate pool twice — computeDashboardRecommendations builds one for its main sections, then getDiscoverWeekly (called for the "Discover Weekly" section) independently rebuilds its own instead of reusing the already-scored candidates', async () => {
+  it('a single dashboard computation fetches the candidate pool once, not twice — Discover Weekly reuses the already-scored candidates', async () => {
     prismaMock.recommendationCache.findMany.mockResolvedValue([]);
     prismaMock.recommendationCache.upsert.mockResolvedValue({} as any);
 
     await svc.getDashboardRecommendations('user-4');
 
-    // Documents current behavior: one dashboard render = two full external candidate-pool fetches.
-    expect(saavnMock.getTrendingTracks).toHaveBeenCalledTimes(2);
+    // Previously 2: computeDashboardRecommendations built one candidate
+    // pool for its main sections, then getDiscoverWeekly (called for the
+    // "Discover Weekly" section) independently rebuilt its own. Fixed by
+    // routing that section through buildDiscoverWeekly(userId, scored)
+    // instead of the public getDiscoverWeekly wrapper.
+    expect(saavnMock.getTrendingTracks).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -305,31 +309,31 @@ describe('generateSmartQueue', () => {
     expect(strongIdx).toBeLessThan(noMatchIdx); // higher-scored track ranks earlier
   });
 
-  it('FINDING: the anti-repetition artist penalty is computed but never actually applied — a queue can still be dominated by a single artist', async () => {
-    // The penalty loop reads/writes `artistCounts`, but the loop that computes
-    // `item.score -= penalty` runs BEFORE `artistCounts` is ever populated (that
-    // happens in a separate, later loop that doesn't re-apply the penalty).
-    // Net effect: penalty is always 0 and has no influence on the final order,
-    // unlike the equivalent (correct) logic in getDiverseTracksForSection.
+  it('anti-repetition penalty pushes variety above a repeated high-scoring artist', async () => {
+    // Context: artistName 'The Artist', genre 'pop'. Same-artist+genre-match
+    // tracks score 30 (artist) + 25 (genre) = 55; different-artist tracks
+    // that still match genre score 10 (related-artist fallback) + 25
+    // (genre) = 35. A 25-point-per-repeat penalty means after one
+    // same-artist pick, its remaining tracks (55 - 25 = 30) score BELOW the
+    // different-artist tracks (35) — so the second pick should be variety,
+    // not another same-artist track back to back.
     saavnMock.search.mockResolvedValue({ artists: [], tracks: [], albums: [], playlists: [] });
     saavnMock.getArtistTopTracks.mockResolvedValue([]);
     saavnMock.getRelatedArtists.mockResolvedValue([]);
     mockSmartQueueDeps();
     mockCandidatePoolDeps();
-    // 5 tracks all by the same artist, all strongly matching context — if the
-    // anti-repetition penalty worked, later same-artist tracks would be pushed
-    // down/out in favour of variety.
     const sameArtistTracks = Array.from({ length: 5 }, (_, i) =>
       track({ id: `same-artist-${i}`, genre: 'pop', artists: [{ id: 'a1', name: 'The Artist' }] })
     );
-    saavnMock.getTrendingTracks.mockResolvedValue(sameArtistTracks);
+    const otherArtistTracks = Array.from({ length: 3 }, (_, i) =>
+      track({ id: `other-artist-${i}`, genre: 'pop', artists: [{ id: 'a2', name: 'Someone Else' }] })
+    );
+    saavnMock.getTrendingTracks.mockResolvedValue([...sameArtistTracks, ...otherArtistTracks]);
 
     const queue = await svc.generateSmartQueue('user-1', context);
 
-    // Documents current (buggy) behavior: all 5 same-artist tracks make it into
-    // the queue unpenalized, back to back, instead of being diversified.
-    const sameArtistInQueue = queue.filter((t: any) => t.artists?.[0]?.id === 'a1');
-    expect(sameArtistInQueue.length).toBe(5);
+    expect(queue[0].artists[0].name).toBe('The Artist'); // highest raw score picked first
+    expect(queue[1].artists[0].name).not.toBe('The Artist'); // repeat penalty pushed variety up
   });
 
   it('returns an empty array (not a crash) when an unexpected error occurs mid-computation', async () => {
