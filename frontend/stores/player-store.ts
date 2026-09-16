@@ -1,9 +1,43 @@
 import { create } from 'zustand';
 import { Track } from '@/types/track';
-import { DEFAULT_VOLUME, PREVIOUS_TRACK_THRESHOLD } from '@/lib/player/player-constants';
+import { DEFAULT_VOLUME, PREVIOUS_TRACK_THRESHOLD, SKIP_LOG_THRESHOLD } from '@/lib/player/player-constants';
 import { shuffleArray } from '@/lib/player/player-utils';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
 import { musicApi } from '@/lib/api/music';
+import { userSignalsApi } from '@/lib/api/user-signals';
+
+// Reports how a track was left (naturally finished vs. skipped away from) to
+// the recommendation engine. Fire-and-forget: never let a logging failure
+// affect playback, and don't log for guests (endpoints require auth).
+function logOutgoingTrack(track: Track, currentTime: number, duration: number, completed: boolean) {
+  if (typeof window === 'undefined') return;
+
+  if (completed) {
+    userSignalsApi
+      .logPlayHistory({
+        spotifyTrackId: track.id,
+        albumId: track.album?.id,
+        artistId: track.artists?.[0]?.id,
+        genre: track.genre,
+        sessionDuration: Math.round(currentTime),
+        completedSong: true,
+        listenPercentage: 100,
+      })
+      .catch(() => {
+        // Best-effort signal; playback is unaffected by failures here.
+      });
+  } else if (currentTime > SKIP_LOG_THRESHOLD) {
+    userSignalsApi
+      .logSkip({
+        trackId: track.id,
+        skipTime: Math.round(currentTime),
+        duration: Math.round(duration) || undefined,
+      })
+      .catch(() => {
+        // Best-effort signal; playback is unaffected by failures here.
+      });
+  }
+}
 
 export type RepeatMode = 'off' | 'all' | 'one';
 
@@ -68,11 +102,11 @@ export interface PlayerState {
   isQueueOpen: boolean;
 
   // Actions
-  playTrack: (track: Track, contextQueue?: Track[]) => Promise<void>;
+  playTrack: (track: Track, contextQueue?: Track[], transitionReason?: 'skip' | 'completed') => Promise<void>;
   pause: () => void;
   resume: () => void;
   togglePlay: () => void;
-  nextTrack: () => Promise<void>;
+  nextTrack: (reason?: 'manual' | 'ended') => Promise<void>;
   previousTrack: () => Promise<void>;
   seek: (seconds: number) => void;
   setVolume: (volume: number) => void;
@@ -111,12 +145,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isExpanded: false,
   isQueueOpen: false,
 
-  playTrack: async (track: Track, contextQueue?: Track[]) => {
+  playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip') => {
     // 1. Race-condition protection: increment generation counter
     const requestGen = ++activePlaybackGeneration;
 
-    const { shuffle, originalQueue, queue } = get();
+    const { shuffle, originalQueue, queue, currentTrack, currentTime, duration } = get();
     const engine = getAudioEngine();
+
+    // Report how the outgoing track was left before switching to the new one.
+    if (currentTrack && currentTrack.id !== track.id) {
+      logOutgoingTrack(currentTrack, currentTime, duration, transitionReason === 'completed');
+    }
 
     // 2. Determine queue context
     let nextOriginalQueue = originalQueue;
@@ -228,12 +267,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
-  nextTrack: async () => {
-    const { queue, currentIndex, repeat, playTrack, currentTrack } = get();
+  nextTrack: async (reason = 'manual') => {
+    const { queue, currentIndex, repeat, playTrack, currentTrack, currentTime, duration } = get();
     if (queue.length === 0) return;
 
     if (repeat === 'one' && currentTrack) {
-      // Replay current track: reset to 0
+      // Replay current track: reset to 0. A natural "ended" here is still a
+      // completed listen even though the track itself doesn't change.
+      if (reason === 'ended') {
+        logOutgoingTrack(currentTrack, currentTime, duration, true);
+      }
       const engine = getAudioEngine();
       engine.seek(0);
       engine.play();
@@ -242,12 +285,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     const nextIndex = currentIndex + 1;
+    const transitionReason = reason === 'ended' ? 'completed' : 'skip';
     if (nextIndex < queue.length) {
-      await playTrack(queue[nextIndex]);
+      await playTrack(queue[nextIndex], undefined, transitionReason);
     } else if (repeat === 'all' && queue.length > 0) {
-      await playTrack(queue[0]);
+      await playTrack(queue[0], undefined, transitionReason);
     } else {
-      // End of queue reached and repeat is off
+      // End of queue reached and repeat is off — nothing left to transition
+      // into, so log the outgoing track's outcome directly.
+      if (currentTrack) {
+        logOutgoingTrack(currentTrack, currentTime, duration, reason === 'ended');
+      }
       getAudioEngine().pause();
       set({ isPlaying: false, currentTime: 0 });
     }

@@ -33,3 +33,30 @@ export interface UpdateProfileRequest {
   avatarUrl?: string;
   bio?: string;
 }
+
+export interface LogPlayHistoryPayload {
+  spotifyTrackId: string;
+  albumId?: string;
+  artistId?: string;
+  genre?: string;
+  device?: string;
+  sessionDuration?: number;
+  listenPercentage?: number;
+  completedSong?: boolean;
+  numberOfReplays?: number;
+}
+
+export interface LogLikePayload {
+  targetId: string;
+  type?: 'song' | 'album' | 'artist';
+}
+
+export interface LogDislikePayload {
+  trackId: string;
+}
+
+export interface LogSkipPayload {
+  trackId: string;
+  skipTime?: number;
+  duration?: number;
+}

@@ -33,7 +33,7 @@ export function useAudio() {
         }
       },
       onEnded: () => {
-        nextTrack();
+        nextTrack('ended');
       },
       onPlay: () => {
         setIsPlaying(true);
