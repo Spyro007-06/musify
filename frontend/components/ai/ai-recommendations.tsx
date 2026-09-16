@@ -92,7 +92,7 @@ export function AiRecommendations({ className }: { className?: string }) {
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400 mb-1">
             <Sparkles className="h-4 w-4" />
             AI Curation
           </div>
@@ -126,7 +126,7 @@ export function AiRecommendations({ className }: { className?: string }) {
             className={cn(
               'px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border select-none',
               selectedMood === ''
-                ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-950/50'
+                ? 'bg-accent-600 text-white border-accent-500 shadow-md shadow-accent-950/50'
                 : 'bg-neutral-800/80 text-neutral-300 border-white/5 hover:bg-neutral-700 hover:text-white'
             )}
           >
@@ -142,7 +142,7 @@ export function AiRecommendations({ className }: { className?: string }) {
                 className={cn(
                   'px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors border select-none',
                   isSelected
-                    ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-950/50'
+                    ? 'bg-accent-600 text-white border-accent-500 shadow-md shadow-accent-950/50'
                     : 'bg-neutral-800/80 text-neutral-300 border-white/5 hover:bg-neutral-700 hover:text-white'
                 )}
               >
@@ -160,7 +160,7 @@ export function AiRecommendations({ className }: { className?: string }) {
               value={customMoodInput}
               onChange={(e) => setCustomMoodInput(e.target.value)}
               placeholder="Or type a custom mood (e.g. nostalgic, dreamy)..."
-              className="w-full rounded-full bg-neutral-800/90 px-4 py-2 pl-9 text-xs text-white placeholder:text-neutral-500 border border-white/5 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full rounded-full bg-neutral-800/90 px-4 py-2 pl-9 text-xs text-white placeholder:text-neutral-500 border border-white/5 focus:outline-none focus:ring-1 focus:ring-accent-500"
             />
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-neutral-500" />
           </div>
@@ -176,8 +176,8 @@ export function AiRecommendations({ className }: { className?: string }) {
 
       {/* Content States */}
       {!isAuthenticated && !isInitializing ? (
-        <div className="rounded-2xl border border-dashed border-purple-800/30 bg-purple-950/10 p-8 text-center">
-          <Lock className="h-8 w-8 text-purple-400 mx-auto mb-3" />
+        <div className="rounded-2xl border border-dashed border-accent-800/30 bg-accent-950/10 p-8 text-center">
+          <Lock className="h-8 w-8 text-accent-400 mx-auto mb-3" />
           <h3 className="text-base font-semibold text-white mb-1">
             Authentication Required
           </h3>
@@ -186,7 +186,7 @@ export function AiRecommendations({ className }: { className?: string }) {
           </p>
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-5 py-2 text-xs font-bold text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-950/50"
+            className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-5 py-2 text-xs font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-950/50"
           >
             Log In to Access AI
           </Link>
@@ -276,7 +276,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
       onClick={track ? handlePlay : undefined}
       className={cn(
         'group relative flex flex-col justify-between rounded-2xl bg-neutral-900/80 p-5 border transition-all duration-300',
-        track ? 'cursor-pointer hover:border-purple-500/40 hover:bg-neutral-850 hover:shadow-xl hover:shadow-purple-950/20' : 'border-white/10'
+        track ? 'cursor-pointer hover:border-accent-500/40 hover:bg-neutral-850 hover:shadow-xl hover:shadow-accent-950/20' : 'border-white/10'
       )}
     >
       <div>
@@ -301,7 +301,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
           </div>
         ) : track ? (
           <div className="flex items-center gap-3">
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-800 overflow-hidden border border-white/10 group-hover:border-purple-500/40 transition-colors">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-800 overflow-hidden border border-white/10 group-hover:border-accent-500/40 transition-colors">
               {artworkUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -333,7 +333,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
               <h4
                 className={cn(
                   'text-sm font-semibold truncate transition-colors',
-                  isCurrent ? 'text-purple-400' : 'text-white group-hover:text-purple-300'
+                  isCurrent ? 'text-accent-400' : 'text-white group-hover:text-accent-300'
                 )}
               >
                 {track.title}
@@ -345,11 +345,11 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-950/50 border border-purple-500/20 text-purple-400">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-950/50 border border-accent-500/20 text-accent-400">
               <Music2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
+              <h4 className="text-sm font-semibold text-white truncate group-hover:text-accent-300 transition-colors">
                 Track {item.spotifyTrackId}
               </h4>
               <p className="text-xs text-neutral-400 truncate">
@@ -362,7 +362,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
 
       <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-neutral-500">
         <span>{track?.duration ? formatDuration(track.duration) : 'AI Curation'}</span>
-        <span className="text-purple-400/80 font-medium">Confidence: {item.score.toFixed(2)}</span>
+        <span className="text-accent-400/80 font-medium">Confidence: {item.score.toFixed(2)}</span>
       </div>
     </div>
   );

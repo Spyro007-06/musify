@@ -109,17 +109,17 @@ export function MusicSection({
       ) : isError ? (
         <div
           role="alert"
-          className="flex flex-col items-center justify-center rounded-xl border border-rose-500/20 bg-rose-950/10 p-8 text-center backdrop-blur-sm"
+          className="flex flex-col items-center justify-center rounded-xl border border-danger-500/20 bg-danger-950/10 p-8 text-center backdrop-blur-sm"
         >
-          <AlertCircle className="h-8 w-8 text-rose-400 mb-2" />
-          <p className="text-sm font-medium text-rose-200">Unable to load {title.toLowerCase()}</p>
-          <p className="mt-1 text-xs text-rose-300/70 max-w-sm">
+          <AlertCircle className="h-8 w-8 text-danger-400 mb-2" />
+          <p className="text-sm font-medium text-danger-200">Unable to load {title.toLowerCase()}</p>
+          <p className="mt-1 text-xs text-danger-300/70 max-w-sm">
             {error?.message || 'Something went wrong while fetching data. Please try again.'}
           </p>
           {onRetry && (
             <button
               onClick={onRetry}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-rose-500/20 px-3.5 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/30 transition-colors"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-danger-500/20 px-3.5 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-500/30 transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               <span>Retry</span>

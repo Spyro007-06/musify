@@ -71,8 +71,8 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
 
   if (!isAuthenticated && !isInitializing) {
     return (
-      <div className={cn('rounded-3xl border border-purple-800/30 bg-neutral-900/40 p-8 sm:p-12 text-center', className)}>
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 mx-auto mb-4 border border-purple-500/20">
+      <div className={cn('rounded-3xl border border-accent-800/30 bg-neutral-900/40 p-8 sm:p-12 text-center', className)}>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-500/10 text-accent-400 mx-auto mb-4 border border-accent-500/20">
           <Lock className="h-7 w-7" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
@@ -83,7 +83,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
         </p>
         <Link
           href="/login"
-          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-950/50"
+          className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-950/50"
         >
           Log In to Musify
         </Link>
@@ -95,7 +95,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
     <div className={cn('space-y-6 rounded-3xl border border-white/10 bg-neutral-900/60 p-6 sm:p-10 backdrop-blur-sm', className)}>
       {/* Header */}
       <div className="space-y-1">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400">
           <FileText className="h-4 w-4" />
           Lyrics & Vibes
         </div>
@@ -113,13 +113,13 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label htmlFor="ai-track-id" className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-              Track ID <span className="text-purple-400">*</span>
+              Track ID <span className="text-accent-400">*</span>
             </label>
             {currentTrack && (
               <button
                 type="button"
                 onClick={handleUseCurrentTrack}
-                className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium"
+                className="inline-flex items-center gap-1.5 text-xs text-accent-400 hover:text-accent-300 transition-colors font-medium"
               >
                 <Music2 className="h-3.5 w-3.5" />
                 <span>Use Current: {currentTrack.title}</span>
@@ -135,7 +135,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
               setValidationError(null);
             }}
             placeholder="e.g. JioSaavn or Spotify track ID"
-            className="w-full rounded-xl bg-neutral-800/80 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+            className="w-full rounded-xl bg-neutral-800/80 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors"
             required
           />
         </div>
@@ -143,7 +143,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
         {/* Lyrics Field */}
         <div>
           <label htmlFor="ai-lyrics-input" className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-1.5">
-            Song Lyrics <span className="text-purple-400">*</span>
+            Song Lyrics <span className="text-accent-400">*</span>
           </label>
           <textarea
             id="ai-lyrics-input"
@@ -154,7 +154,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
               setValidationError(null);
             }}
             placeholder="Paste verse, chorus, or full song lyrics here..."
-            className="w-full rounded-2xl bg-neutral-800/90 p-4 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none leading-relaxed"
+            className="w-full rounded-2xl bg-neutral-800/90 p-4 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors resize-none leading-relaxed"
             required
           />
         </div>
@@ -174,7 +174,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-all shadow-lg select-none',
               lyrics.trim() && trackId.trim() && !analyzeMutation.isPending
-                ? 'bg-purple-600 hover:bg-purple-500 hover:scale-105 active:scale-95 shadow-purple-950/60'
+                ? 'bg-accent-600 hover:bg-accent-500 hover:scale-105 active:scale-95 shadow-accent-950/60'
                 : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
             )}
           >
@@ -206,15 +206,15 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
       {/* Analysis Results Display */}
       {analysis && (
         <div className="pt-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400">
             <Sparkles className="h-4 w-4" />
             AI Breakdown Results
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Mood Card */}
-            <div className="rounded-2xl bg-neutral-900/90 p-5 border border-purple-500/30 space-y-2">
-              <div className="flex items-center gap-2 text-purple-400 text-xs font-bold uppercase tracking-wider">
+            <div className="rounded-2xl bg-neutral-900/90 p-5 border border-accent-500/30 space-y-2">
+              <div className="flex items-center gap-2 text-accent-400 text-xs font-bold uppercase tracking-wider">
                 <Heart className="h-4 w-4" />
                 Mood & Vibe
               </div>

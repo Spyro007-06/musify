@@ -63,8 +63,8 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
 
   if (!isAuthenticated && !isInitializing) {
     return (
-      <div className={cn('rounded-3xl border border-purple-800/30 bg-neutral-900/40 p-8 sm:p-12 text-center', className)}>
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 mx-auto mb-4 border border-purple-500/20">
+      <div className={cn('rounded-3xl border border-accent-800/30 bg-neutral-900/40 p-8 sm:p-12 text-center', className)}>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-500/10 text-accent-400 mx-auto mb-4 border border-accent-500/20">
           <Lock className="h-7 w-7" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
@@ -75,7 +75,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
         </p>
         <Link
           href="/login"
-          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-950/50"
+          className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-950/50"
         >
           Log In to Musify
         </Link>
@@ -87,7 +87,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
     <div className={cn('space-y-6 rounded-3xl border border-white/10 bg-neutral-900/60 p-6 sm:p-10 backdrop-blur-sm', className)}>
       {/* Header */}
       <div className="space-y-1">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400">
           <Wand2 className="h-4 w-4" />
           Prompt-to-Playlist
         </div>
@@ -108,7 +108,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
               key={example}
               type="button"
               onClick={() => handleApplyExample(example)}
-              className="rounded-full bg-neutral-800/80 px-3.5 py-1.5 text-xs text-neutral-300 border border-white/5 hover:border-purple-500/30 hover:bg-neutral-750 hover:text-white transition-all text-left"
+              className="rounded-full bg-neutral-800/80 px-3.5 py-1.5 text-xs text-neutral-300 border border-white/5 hover:border-accent-500/30 hover:bg-neutral-750 hover:text-white transition-all text-left"
             >
               {example}
             </button>
@@ -121,7 +121,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
         {/* Main Prompt Input */}
         <div>
           <label htmlFor="ai-prompt-input" className="block text-xs font-semibold uppercase tracking-wider text-neutral-300 mb-1.5">
-            Your Prompt <span className="text-purple-400">*</span>
+            Your Prompt <span className="text-accent-400">*</span>
           </label>
           <textarea
             id="ai-prompt-input"
@@ -129,7 +129,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="e.g. 90s upbeat pop dance tracks for a road trip with friends..."
-            className="w-full rounded-2xl bg-neutral-800/90 p-4 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
+            className="w-full rounded-2xl bg-neutral-800/90 p-4 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors resize-none"
             required
           />
         </div>
@@ -145,7 +145,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
             value={playlistName}
             onChange={(e) => setPlaylistName(e.target.value)}
             placeholder="Leave blank to auto-generate a title"
-            className="w-full rounded-xl bg-neutral-800/80 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+            className="w-full rounded-xl bg-neutral-800/80 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors"
           />
         </div>
 
@@ -164,7 +164,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
             className={cn(
               'inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold text-white transition-all shadow-lg select-none',
               prompt.trim() && !generateMutation.isPending
-                ? 'bg-purple-600 hover:bg-purple-500 hover:scale-105 active:scale-95 shadow-purple-950/60'
+                ? 'bg-accent-600 hover:bg-accent-500 hover:scale-105 active:scale-95 shadow-accent-950/60'
                 : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
             )}
           >
@@ -259,10 +259,10 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
               <div className="rounded-xl bg-black/40 p-4 border border-white/5 text-xs text-neutral-400 space-y-1.5">
                 <p className="font-semibold text-neutral-300">Tips for better results:</p>
                 <ul className="list-disc list-inside space-y-1 text-neutral-400">
-                  <li>Specify a genre: <code className="text-purple-300">Hindi, Punjabi, Pop, Rock, Hip-Hop, Acoustic</code></li>
-                  <li>Specify a mood: <code className="text-purple-300">Chill, Energetic, Workout, Party, Late Night</code></li>
-                  <li>Specify an era: <code className="text-purple-300">90s, 2000s, 80s</code></li>
-                  <li>Mention an artist: <code className="text-purple-300">&quot;songs like Arijit Singh&quot;</code> or <code className="text-purple-300">&quot;similar to Taylor Swift&quot;</code></li>
+                  <li>Specify a genre: <code className="text-accent-300">Hindi, Punjabi, Pop, Rock, Hip-Hop, Acoustic</code></li>
+                  <li>Specify a mood: <code className="text-accent-300">Chill, Energetic, Workout, Party, Late Night</code></li>
+                  <li>Specify an era: <code className="text-accent-300">90s, 2000s, 80s</code></li>
+                  <li>Mention an artist: <code className="text-accent-300">&quot;songs like Arijit Singh&quot;</code> or <code className="text-accent-300">&quot;similar to Taylor Swift&quot;</code></li>
                 </ul>
               </div>
 

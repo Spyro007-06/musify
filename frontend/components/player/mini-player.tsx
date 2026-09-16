@@ -46,9 +46,9 @@ export function MiniPlayer() {
       {error && (
         <div
           role="alert"
-          className="fixed bottom-28 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-neutral-900/95 px-4 py-2.5 text-xs text-rose-300 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2"
+          className="fixed bottom-28 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-danger-500/30 bg-neutral-900/95 px-4 py-2.5 text-xs text-danger-300 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2"
         >
-          <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+          <AlertCircle className="h-4 w-4 text-danger-400 shrink-0" />
           <span>{error}</span>
           <button
             type="button"
