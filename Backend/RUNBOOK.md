@@ -56,6 +56,63 @@ CI (`.github/workflows/backend-ci.yml`) runs `prisma generate → lint →
 build → test → audit` on every push/PR — a red run there means don't
 deploy, full stop.
 
+## Production deployment (Railway)
+
+The backend runs on Railway as a single service (`musify`, project
+`affectionate-appreciation`), building from the exact Dockerfile verified
+in CI's `docker-build` job — not Railway's Nixpacks/Railpack
+auto-detection. This is declared in `Backend/railway.json`
+(`build.builder: "DOCKERFILE"`, `build.dockerfilePath: "Dockerfile"`);
+Railway auto-discovers this file from the service's configured root
+directory (`Backend`). **Do not delete or rename this file** — without it,
+Railway falls back to Railpack's own language auto-detection, which picks
+up `package.json` and builds a plain Node app instead of the Docker image
+(this is exactly the failure mode that happened before `railway.json`
+existed: the build technically succeeded but produced the wrong artifact
+entirely, silently).
+
+- **Live URL**: `https://musify-production-6f35.up.railway.app`
+- **Triggers on**: every push to `main` (Railway watches the
+  `Spyro007-06/musify` GitHub repo directly, root directory `Backend`).
+  `main` has branch protection requiring `build-lint-test` and
+  `Docker build & container health check` to pass — a PR can't merge
+  without both green, though a repo admin can still push directly
+  (`enforce_admins: false`), same as this project's established workflow.
+- **Health check**: Railway polls `GET /api/health/ready`
+  (`healthcheckTimeout: 300`s) after each deploy and won't cut traffic
+  over to a new instance until it returns 200 — a build that succeeds but
+  produces a container that crashes or can't reach the DB stays on the
+  previous instance instead of going live.
+- **Replicas**: pinned to `numReplicas: 1` deliberately — `DATABASE_URL`'s
+  `connection_limit=10` (see Prerequisites above) assumes exactly one
+  instance. Do not raise `numReplicas` without first revisiting that
+  connection limit, or multiple instances can collectively exhaust the
+  database's connection ceiling.
+- **Environment variables**: set directly in Railway (`railway variable
+  set KEY --stdin --service musify`, or the dashboard's Variables tab) —
+  never committed to the repo. `.env.example` is the source of truth for
+  which variables exist and what they mean; keep it in sync when adding a
+  new one, including ones read outside `config/env.ts` (e.g.
+  `RECOMMENDATION_CRON_SCHEDULE`, read directly via `process.env`).
+- **Checking deploy health**: `railway status --service musify` (or the
+  dashboard) shows current deploy state (`Building` / `Online` / `Failed`).
+  `railway deployment list --service musify --json` lists deployment
+  history with status, commit, and image digest.
+- **Logs**: `railway logs --service musify` (build logs: add `--build`;
+  runtime logs of the current deployment: add `--deployment`), or the
+  Railway dashboard's Logs tab for the same data with search/filtering.
+  This is the first place to look for a live incident — Sentry has the
+  aggregated/alerted view, Railway logs have the raw stdout/stderr
+  including anything printed before Sentry initialized.
+- **If a deploy fails**: Railway keeps every previous successful
+  deployment's build artifact. Roll back via the dashboard's Deployments
+  tab — find the last `SUCCESS` entry before the bad one and hit
+  "Redeploy" on it (this re-runs that exact prior image, not a fresh
+  build). `railway deployment list --service musify --json` gives the
+  deployment IDs and commit hashes needed to identify which one that is
+  from the CLI. Same schema-migration caution as the generic Rollback
+  section below applies.
+
 ## Rollback
 
 1. Roll the container/service back to the previous image tag — this repo
