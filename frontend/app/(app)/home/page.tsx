@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useTrending, useNewReleases, useRecommended, useCategories } from '@/hooks/use-music';
 import { HomeHeader } from '@/components/home/home-header';
 import { MusicSection } from '@/components/music/music-section';
@@ -14,6 +15,7 @@ import { Album } from '@/types/album';
 import { usePlayerStore } from '@/stores/player-store';
 
 export default function HomePage() {
+  const router = useRouter();
   const playTrack = usePlayerStore((s) => s.playTrack);
 
   const {
@@ -63,9 +65,19 @@ export default function HomePage() {
     [playTrack, recommendedTracks]
   );
 
-  const handlePlayAlbum = React.useCallback((album: Album) => {
-    console.log('Selected album:', album.title);
-  }, []);
+  // Album cards only carry summary metadata (no track list), so start
+  // playback when tracks are available and otherwise open the album page —
+  // matching how track playback elsewhere always needs real track data.
+  const handlePlayAlbum = React.useCallback(
+    (album: Album) => {
+      if (album.tracks && album.tracks.length > 0) {
+        playTrack(album.tracks[0], album.tracks);
+      } else {
+        router.push(`/albums/${album.id}`);
+      }
+    },
+    [playTrack, router]
+  );
 
   return (
     <div className="space-y-10 pb-12">

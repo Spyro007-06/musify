@@ -47,6 +47,7 @@ export function ExpandedPlayer() {
   const artists = currentTrack.artists?.map((a) => a.name).join(', ') || 'Unknown Artist';
 
   const handleLikeToggle = () => {
+    if (likeMutation.isPending) return;
     const nextState = !isLiked;
     setIsLiked(nextState);
     likeMutation.mutate({ trackId: currentTrack.id, isLiked: !nextState });

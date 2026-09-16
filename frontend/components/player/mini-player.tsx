@@ -31,7 +31,7 @@ export function MiniPlayer() {
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentTrack) return;
+    if (!currentTrack || likeMutation.isPending) return;
     const nextState = !isLiked;
     setIsLiked(nextState);
     likeMutation.mutate({ trackId: currentTrack.id, isLiked: !nextState });
