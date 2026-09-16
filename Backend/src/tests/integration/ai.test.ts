@@ -115,7 +115,7 @@ describe('POST /api/ai/lyrics/analyze', () => {
 });
 
 describe('POST /api/ai/playlist/generate', () => {
-  it('handles a valid request: searches the catalog, persists a Playlist, returns its shape', async () => {
+  it('genre/mood prompt: parses intent, fetches real catalog tracks, persists a Playlist', async () => {
     saavnMock.getRecommendationsByGenres.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
     prismaMock.playlist.create.mockResolvedValue({
       id: 'playlist-1',
@@ -132,6 +132,40 @@ describe('POST /api/ai/playlist/generate', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data).toEqual({ playlistId: 'playlist-1', title: 'AI: Workout songs', trackCount: 2 });
+    // "workout" maps to the energetic mood bucket, not a raw-prompt search.
+    expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['energetic'], 30);
+  });
+
+  it('artist-similarity prompt: resolves the named artist and routes into ArtistService top-tracks/related-artists', async () => {
+    saavnMock.search.mockResolvedValue({
+      artists: [{ id: 'artist-1', name: 'Test Artist', image: 'https://example.com/art.jpg' }],
+      tracks: [],
+      albums: [],
+      playlists: [],
+    });
+    saavnMock.getArtistTopTracks.mockImplementation((id: string) =>
+      Promise.resolve(id === 'artist-1' ? [{ id: 'seed-t1' }] : [{ id: `${id}-t1` }])
+    );
+    saavnMock.getRelatedArtists.mockResolvedValue([{ id: 'artist-2', name: 'Related Artist' }]);
+    prismaMock.playlist.create.mockResolvedValue({
+      id: 'playlist-2',
+      title: 'AI: Songs like test artist',
+      tracks: [{ id: 'pt1' }, { id: 'pt2' }],
+    } as any);
+    const { agent, csrfToken } = await authedAgent();
+
+    const res = await agent
+      .post('/api/ai/playlist/generate')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ prompt: 'songs like Test Artist' });
+
+    expect(res.status).toBe(201);
+    expect(saavnMock.search).toHaveBeenCalledWith('test artist');
+    expect(saavnMock.getArtistTopTracks).toHaveBeenCalledWith('artist-1');
+    expect(saavnMock.getRelatedArtists).toHaveBeenCalledWith('artist-1');
+    expect(saavnMock.getArtistTopTracks).toHaveBeenCalledWith('artist-2');
+    expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed request (missing prompt) with 400, not a crash', async () => {
@@ -159,21 +193,39 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(prismaMock.playlist.create).not.toHaveBeenCalled();
   });
 
-  it('a prompt that matches no tracks returns 200 with an empty tracks array and a message, not an error', async () => {
-    saavnMock.getRecommendationsByGenres.mockResolvedValue([]); // no matches for any search query
+  it('a genre/mood prompt whose catalog search comes back empty returns 200 with an empty tracks array and a message', async () => {
+    saavnMock.getRecommendationsByGenres.mockResolvedValue([]);
     const { agent, csrfToken } = await authedAgent();
 
     const res = await agent
       .post('/api/ai/playlist/generate')
       .set('x-csrf-token', csrfToken)
       .set('Authorization', authHeader())
-      .send({ prompt: 'a prompt with no matches' });
+      .send({ prompt: 'some jazz please' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toEqual(
       expect.objectContaining({ playlistId: null, tracks: [], message: expect.any(String) })
     );
+    expect(prismaMock.playlist.create).not.toHaveBeenCalled();
+  });
+
+  it('a gibberish prompt with no recognizable genre/mood/era/artist returns 200 without ever hitting the catalog', async () => {
+    const { agent, csrfToken } = await authedAgent();
+
+    const res = await agent
+      .post('/api/ai/playlist/generate')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ prompt: 'asdkjfh qwoeiru zzzzz' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual(
+      expect.objectContaining({ playlistId: null, tracks: [], message: expect.any(String) })
+    );
+    expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
+    expect(saavnMock.search).not.toHaveBeenCalled();
     expect(prismaMock.playlist.create).not.toHaveBeenCalled();
   });
 });
