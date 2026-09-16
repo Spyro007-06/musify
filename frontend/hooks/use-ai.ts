@@ -62,9 +62,11 @@ export function useGenerateAIPlaylist() {
       return res.data;
     },
     onSuccess: (data) => {
-      // If a real playlist was generated and persisted by the backend, invalidate user playlists
+      // If a real playlist was generated and persisted by the backend, invalidate both
+      // the user playlists list and the specific playlist's detail cache.
       if (data.playlistId) {
-        queryClient.invalidateQueries({ queryKey: ['playlists'] });
+        queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
+        queryClient.invalidateQueries({ queryKey: ['playlists', 'detail', data.playlistId] });
       }
     },
   });

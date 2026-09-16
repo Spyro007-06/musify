@@ -21,7 +21,7 @@ export function usePlaylists() {
 
 export function usePlaylist(id: string) {
   return useQuery<Playlist | null, Error>({
-    queryKey: ['playlist', id],
+    queryKey: ['playlists', 'detail', id],
     queryFn: async () => {
       if (!id) return null;
       const res = await playlistsApi.getPlaylist(id);
@@ -55,7 +55,7 @@ export function useCreatePlaylist() {
     onSuccess: (newPlaylist) => {
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
       if (newPlaylist?.id) {
-        queryClient.setQueryData(['playlist', newPlaylist.id], newPlaylist);
+        queryClient.setQueryData(['playlists', 'detail', newPlaylist.id], newPlaylist);
       }
     },
   });
@@ -71,7 +71,7 @@ export function useDeletePlaylist() {
     },
     onSuccess: (deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
-      queryClient.removeQueries({ queryKey: ['playlist', deletedId] });
+      queryClient.removeQueries({ queryKey: ['playlists', 'detail', deletedId] });
     },
   });
 }
@@ -85,7 +85,7 @@ export function useAddTrackToPlaylist() {
       return { playlistId, trackId };
     },
     onSuccess: ({ playlistId }) => {
-      queryClient.invalidateQueries({ queryKey: ['playlist', playlistId] });
+      queryClient.invalidateQueries({ queryKey: ['playlists', 'detail', playlistId] });
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
     },
   });
@@ -100,7 +100,7 @@ export function useRemoveTrackFromPlaylist() {
       return { playlistId, trackId };
     },
     onSuccess: ({ playlistId }) => {
-      queryClient.invalidateQueries({ queryKey: ['playlist', playlistId] });
+      queryClient.invalidateQueries({ queryKey: ['playlists', 'detail', playlistId] });
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
     },
   });
