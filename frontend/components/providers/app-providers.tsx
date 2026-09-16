@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { QueryProvider } from './query-provider';
 import { useAudio } from '@/hooks/use-audio';
 import { useAuthStore } from '@/stores/auth-store';
@@ -14,6 +15,7 @@ function AudioEngineManager() {
 
 function SessionInitializer({ children }: { children: ReactNode }) {
   const { accessToken, setAuth, setInitializing } = useAuthStore();
+  const queryClient = useQueryClient();
   useCurrentUser();
 
   useEffect(() => {
@@ -28,6 +30,9 @@ function SessionInitializer({ children }: { children: ReactNode }) {
             const meRes = await authApi.getCurrentUser();
             if (mounted && meRes.data) {
               setAuth(meRes.data, res.data.accessToken);
+              // Seed useCurrentUser's cache for this token so it doesn't
+              // immediately re-fetch /auth/me once it becomes enabled.
+              queryClient.setQueryData(['currentUser', res.data.accessToken], meRes.data);
             }
           }
         } catch {
@@ -49,7 +54,7 @@ function SessionInitializer({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [accessToken, setAuth, setInitializing]);
+  }, [accessToken, setAuth, setInitializing, queryClient]);
 
   return <>{children}</>;
 }

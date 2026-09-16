@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles,
   Music2,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAIRecommendations } from '@/hooks/use-ai';
 import { useTrack } from '@/hooks/use-music';
+import { musicApi } from '@/lib/api/music';
 import { usePlayerStore } from '@/stores/player-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,6 +36,7 @@ export function AiRecommendations({ className }: { className?: string }) {
   const { isAuthenticated, isInitializing } = useAuthStore();
   const [selectedMood, setSelectedMood] = React.useState<string>('');
   const [customMoodInput, setCustomMoodInput] = React.useState<string>('');
+  const queryClient = useQueryClient();
 
   const {
     data: recommendations = [],
@@ -42,6 +45,29 @@ export function AiRecommendations({ className }: { className?: string }) {
     error,
     refetch,
   } = useAIRecommendations(selectedMood || undefined);
+
+  // Warm the track cache for every recommended track in one pass instead of
+  // leaving each card to trigger its own fetch on mount (no batch track
+  // endpoint exists on the backend, so this is still N requests, but they're
+  // all kicked off together here rather than scattered across N components).
+  React.useEffect(() => {
+    recommendations.forEach((item) => {
+      queryClient.prefetchQuery({
+        queryKey: ['music', 'track', item.spotifyTrackId],
+        queryFn: async () => {
+          try {
+            const res = await musicApi.getTrack(item.spotifyTrackId);
+            return res.data || null;
+          } catch (err: unknown) {
+            const status = (err as { status?: number })?.status;
+            if (status === 404) return null;
+            throw err;
+          }
+        },
+        staleTime: 1000 * 60 * 10,
+      });
+    });
+  }, [recommendations, queryClient]);
 
   const handleMoodSelect = (mood: string) => {
     if (selectedMood === mood.toLowerCase()) {
