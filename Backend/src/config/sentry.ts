@@ -11,7 +11,13 @@ export const sentryEnabled = Boolean(env.SENTRY_DSN);
  */
 export function initSentry(): void {
   if (!sentryEnabled) {
-    logger.info('Sentry DSN not configured — error tracking disabled.');
+    if (env.NODE_ENV === 'production') {
+      logger.warn(
+        '⚠️ Booting in production without SENTRY_DSN set — errors will ONLY be visible in local log files, not tracked or alerted on. Set SENTRY_DSN before this reaches real traffic.'
+      );
+    } else {
+      logger.info('Sentry DSN not configured — error tracking disabled.');
+    }
     return;
   }
 

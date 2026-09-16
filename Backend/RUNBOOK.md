@@ -111,6 +111,38 @@ traffic level.
 | 429 responses under normal-looking load | Rate limit defaults too low for real traffic | Tune `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW_MS`/`AUTH_RATE_LIMIT_MAX` — load-test first |
 | Errors not showing up anywhere but logs | `SENTRY_DSN` unset | Set it if you want alerting beyond log-scraping — see `.env.example` |
 
+## Error tracking (Sentry)
+
+**Getting a DSN for a new environment**: sign in at https://sentry.io →
+create (or reuse) a project → Settings → Projects → `<project>` → Client
+Keys (DSN) → copy the DSN URL. Use a separate DSN per environment
+(dev/staging/prod) if you want them to appear as separate Sentry projects
+rather than mixed together; otherwise set `environment` filtering in
+Sentry's UI and share one DSN.
+
+**Setting it**: put the DSN in `SENTRY_DSN` wherever that environment's
+other secrets live (see "Secrets management" above) — same mechanism as
+`DATABASE_URL`/`SUPABASE_*`, nothing Sentry-specific to wire up beyond the
+env var.
+
+**What "no DSN set" means operationally**: the app runs completely
+normally either way — `initSentry()` (`src/config/sentry.ts`) checks
+`SENTRY_DSN` once at startup and no-ops everything Sentry-related if it's
+unset. Concretely, with no DSN:
+- Every uncaught exception, unhandled promise rejection, and
+  `errorHandler`-caught error is still logged (see `src/utils/logger.ts`'s
+  daily-rotating files), but **only** there — nothing is aggregated,
+  deduplicated, alerted on, or searchable across requests.
+- There is no dashboard, no issue grouping, no "this error started
+  spiking 10 minutes ago" signal — someone has to already know to go
+  grep the log files to find out anything went wrong.
+- The server logs a `⚠️ Booting in production without SENTRY_DSN set`
+  warning on startup when `NODE_ENV=production` and no DSN is present, so
+  this silent-local-log-only mode can't regress unnoticed again.
+
+Local development is fine to run with no DSN — this section exists so a
+new production-like environment doesn't inherit that mode by accident.
+
 ## Monitoring checklist (not yet wired up — see production-readiness review)
 
 - [ ] Alert on `/api/health/ready` returning non-200 for >N minutes
