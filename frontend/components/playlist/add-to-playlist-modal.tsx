@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { X, Plus, Check, Loader2, ListMusic } from 'lucide-react';
 import { usePlaylists, useAddTrackToPlaylist } from '@/hooks/use-playlists';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { CreatePlaylistModal } from './create-playlist-modal';
 import { Track } from '@/types/track';
@@ -22,6 +23,8 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
   const [successPlaylistId, setSuccessPlaylistId] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+  // Release the trap while the nested create-playlist dialog owns focus.
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen && !isCreateOpen);
 
   // Filter only custom playlists owned by the user (exclude dynamic movie soundtracks)
   const userPlaylists = React.useMemo(() => {
@@ -102,6 +105,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
 
         {/* Modal Dialog */}
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-to-playlist-title"
@@ -133,7 +137,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-300">
+            <div role="alert" className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-300">
               {errorMessage}
             </div>
           )}

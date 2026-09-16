@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Loader2, Music2, Globe2, Lock } from 'lucide-react';
 import { useCreatePlaylist } from '@/hooks/use-playlists';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { cn } from '@/lib/utils/cn';
 
 export interface CreatePlaylistModalProps {
@@ -15,6 +16,7 @@ export interface CreatePlaylistModalProps {
 export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModalProps) {
   const router = useRouter();
   const createMutation = useCreatePlaylist();
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen);
 
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
@@ -114,6 +116,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
 
       {/* Modal Dialog */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-playlist-title"
@@ -148,7 +151,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
 
         {/* Error message */}
         {validationError && (
-          <div className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
+          <div role="alert" className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
             {validationError}
           </div>
         )}

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { X, CheckCircle2, Users, Music } from 'lucide-react';
 import { Artist } from '@/types/artist';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 
 interface ArtistAboutModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export function ArtistAboutModal({
   onClose,
   artist,
 }: ArtistAboutModalProps) {
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen);
+
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isOpen) {
@@ -47,6 +50,7 @@ export function ArtistAboutModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-neutral-900 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >

@@ -8,6 +8,7 @@ import { PlayerProgress } from './player-progress';
 import { PlayerControls } from './player-controls';
 import { PlayerVolume } from './player-volume';
 import { useLikeTrack } from '@/hooks/use-music';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { cn } from '@/lib/utils/cn';
 
 export function ExpandedPlayer() {
@@ -41,6 +42,8 @@ export function ExpandedPlayer() {
     };
   }, [isExpanded, closeExpanded]);
 
+  const dialogRef = useFocusTrap<HTMLDivElement>(isExpanded && !!currentTrack);
+
   if (!isExpanded || !currentTrack) return null;
 
   const artwork = currentTrack.artwork;
@@ -55,6 +58,7 @@ export function ExpandedPlayer() {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-label="Expanded Music Player"
       aria-modal="true"

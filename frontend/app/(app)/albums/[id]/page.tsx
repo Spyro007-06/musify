@@ -98,7 +98,7 @@ export default function AlbumPage({ params }: AlbumPageProps) {
   // Network / General Error state
   if (isError || !album) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
+      <div role="alert" className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 text-red-400 border border-red-500/20 mb-6">
           <AlertCircle className="h-10 w-10" />
         </div>

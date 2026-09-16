@@ -232,7 +232,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
       {/* Action error banner if remove fails */}
       {actionError && (
-        <div className="rounded-xl border border-rose-500/20 bg-rose-950/20 p-3 text-xs text-rose-300 flex items-center justify-between">
+        <div role="alert" className="rounded-xl border border-rose-500/20 bg-rose-950/20 p-3 text-xs text-rose-300 flex items-center justify-between">
           <span>{actionError}</span>
           <button
             type="button"

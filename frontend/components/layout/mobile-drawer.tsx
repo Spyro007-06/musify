@@ -3,10 +3,12 @@
 import * as React from 'react';
 import { X } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { Sidebar } from './sidebar';
 
 export function MobileDrawer() {
   const { mobileMenuOpen, setMobileMenuOpen } = useUiStore();
+  const drawerRef = useFocusTrap<HTMLDivElement>(mobileMenuOpen);
 
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -41,7 +43,10 @@ export function MobileDrawer() {
       />
 
       {/* Drawer Panel */}
-      <div className="relative z-10 flex w-72 max-w-[80vw] flex-col bg-neutral-950 border-r border-neutral-800 shadow-2xl">
+      <div
+        ref={drawerRef}
+        className="relative z-10 flex w-72 max-w-[80vw] flex-col bg-neutral-950 border-r border-neutral-800 shadow-2xl"
+      >
         <div className="flex items-center justify-end p-3 border-b border-neutral-800/80">
           <button
             type="button"

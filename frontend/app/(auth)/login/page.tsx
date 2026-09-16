@@ -62,7 +62,7 @@ function LoginForm() {
       <h2 className="text-2xl font-bold mb-6 text-center text-white">Log in to MUSIFY</h2>
 
       {error && (
-        <div className="mb-4 rounded-md bg-red-950/80 border border-red-800 p-3 text-sm text-red-200">
+        <div role="alert" className="mb-4 rounded-md bg-red-950/80 border border-red-800 p-3 text-sm text-red-200">
           {error}
         </div>
       )}

@@ -84,7 +84,7 @@ export function SearchResults({
   // 2. Error State
   if (isError) {
     return (
-      <div className={cn('flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center', className)}>
+      <div role="alert" className={cn('flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center', className)}>
         <AlertCircle className="h-10 w-10 text-rose-400 mb-3" />
         <h3 className="text-lg font-bold text-white">Search request failed</h3>
         <p className="mt-1 text-sm text-neutral-400 max-w-sm">

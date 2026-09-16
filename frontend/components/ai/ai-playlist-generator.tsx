@@ -151,7 +151,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
 
         {/* Error notice */}
         {generateMutation.isError && (
-          <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs text-red-400">
+          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs text-red-400">
             {generateMutation.error?.message || 'Failed to generate playlist. Please verify your prompt and try again.'}
           </div>
         )}

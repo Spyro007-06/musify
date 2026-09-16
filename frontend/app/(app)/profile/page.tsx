@@ -56,7 +56,7 @@ export default function ProfilePage() {
 
   if (isError && !displayUser) {
     return (
-      <div className="max-w-md mx-auto my-16 rounded-2xl border border-red-500/20 bg-red-950/10 p-8 text-center space-y-4">
+      <div role="alert" className="max-w-md mx-auto my-16 rounded-2xl border border-red-500/20 bg-red-950/10 p-8 text-center space-y-4">
         <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
         <h2 className="text-lg font-bold text-white">Failed to load profile</h2>
         <p className="text-xs text-neutral-400">

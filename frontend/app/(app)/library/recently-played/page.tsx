@@ -116,7 +116,7 @@ export default function RecentlyPlayedPage() {
 
       {/* 4. Error State */}
       {isError && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center">
+        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center">
           <AlertCircle className="h-10 w-10 text-rose-400 mb-3" />
           <h3 className="text-base font-semibold text-white">Failed to load recently played tracks</h3>
           <p className="mt-1 text-xs text-neutral-400 max-w-sm">

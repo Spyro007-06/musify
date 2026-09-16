@@ -107,7 +107,10 @@ export function MusicSection({
       {isLoading ? (
         renderSkeletons()
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-rose-500/20 bg-rose-950/10 p-8 text-center backdrop-blur-sm">
+        <div
+          role="alert"
+          className="flex flex-col items-center justify-center rounded-xl border border-rose-500/20 bg-rose-950/10 p-8 text-center backdrop-blur-sm"
+        >
           <AlertCircle className="h-8 w-8 text-rose-400 mb-2" />
           <p className="text-sm font-medium text-rose-200">Unable to load {title.toLowerCase()}</p>
           <p className="mt-1 text-xs text-rose-300/70 max-w-sm">
@@ -124,7 +127,10 @@ export function MusicSection({
           )}
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-neutral-800/60 bg-neutral-900/30 p-8 text-center">
+        <div
+          aria-live="polite"
+          className="flex flex-col items-center justify-center rounded-xl border border-neutral-800/60 bg-neutral-900/30 p-8 text-center"
+        >
           <p className="text-sm text-neutral-400">{emptyMessage}</p>
         </div>
       ) : (

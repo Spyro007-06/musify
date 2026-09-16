@@ -182,7 +182,7 @@ export function AiRecommendations({ className }: { className?: string }) {
           ))}
         </div>
       ) : isError ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 text-center">
+        <div role="alert" className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 text-center">
           <p className="text-sm text-red-400 mb-3">
             {error?.message || 'Unable to retrieve AI recommendations right now.'}
           </p>

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useDeletePlaylist } from '@/hooks/use-playlists';
+import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { cn } from '@/lib/utils/cn';
 
 export interface DeletePlaylistModalProps {
@@ -24,6 +25,7 @@ export function DeletePlaylistModal({
   const router = useRouter();
   const deleteMutation = useDeletePlaylist();
   const [error, setError] = React.useState<string | null>(null);
+  const dialogRef = useFocusTrap<HTMLDivElement>(isOpen);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -76,6 +78,7 @@ export function DeletePlaylistModal({
 
       {/* Modal Dialog */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-playlist-title"
@@ -103,7 +106,7 @@ export function DeletePlaylistModal({
         </p>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
+          <div role="alert" className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
             {error}
           </div>
         )}

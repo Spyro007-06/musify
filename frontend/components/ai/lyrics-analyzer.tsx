@@ -161,7 +161,7 @@ export function LyricsAnalyzer({ className }: { className?: string }) {
 
         {/* Validation or API error notice */}
         {(validationError || analyzeMutation.isError) && (
-          <div className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs text-red-400">
+          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs text-red-400">
             {validationError || analyzeMutation.error?.message || 'Failed to analyze lyrics. Please try again.'}
           </div>
         )}
