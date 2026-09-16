@@ -24,15 +24,21 @@ export function ExpandedPlayer() {
     setIsLiked(Boolean(currentTrack?.isLiked));
   }, [currentTrack]);
 
-  // Handle Escape key to dismiss
+  // Handle Escape key to dismiss and body scroll lock
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isExpanded) {
         closeExpanded();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (isExpanded) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
   }, [isExpanded, closeExpanded]);
 
   if (!isExpanded || !currentTrack) return null;

@@ -8,10 +8,16 @@ import {
   RefreshCw,
   Lock,
   Search,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { useAIRecommendations } from '@/hooks/use-ai';
+import { useTrack } from '@/hooks/use-music';
+import { usePlayerStore } from '@/stores/player-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AIRecommendationItem } from '@/types/ai';
+import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
 
 const SUGGESTED_MOODS = [
@@ -198,47 +204,12 @@ export function AiRecommendations({ className }: { className?: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recommendations.map((item, idx) => {
-            const matchPercentage = Math.round(item.score * 100);
-            return (
-              <div
-                key={item.spotifyTrackId || idx}
-                className="group relative flex flex-col justify-between rounded-2xl bg-neutral-900/80 p-5 border border-white/10 hover:border-purple-500/40 hover:bg-neutral-850 hover:shadow-xl hover:shadow-purple-950/20 transition-all duration-300"
-              >
-                <div>
-                  {/* Match & Reason header */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
-                      {matchPercentage}% Match
-                    </span>
-                    <span className="text-[11px] text-neutral-400 truncate max-w-[150px]">
-                      {item.reason}
-                    </span>
-                  </div>
-
-                  {/* Track Info */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-950/50 border border-purple-500/20 text-purple-400">
-                      <Music2 className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
-                        Track {item.spotifyTrackId}
-                      </h4>
-                      <p className="text-xs text-neutral-400 truncate">
-                        AI Recommended Track
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-neutral-500">
-                  <span>MUSIFY AI Curation</span>
-                  <span className="text-purple-400/80 font-medium">Confidence: {item.score.toFixed(2)}</span>
-                </div>
-              </div>
-            );
-          })}
+          {recommendations.map((item, idx) => (
+            <AIRecommendationCard
+              key={item.spotifyTrackId || idx}
+              item={item}
+            />
+          ))}
         </div>
       )}
 
@@ -249,3 +220,129 @@ export function AiRecommendations({ className }: { className?: string }) {
     </div>
   );
 }
+
+function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
+  const { data: track, isLoading: isTrackLoading } = useTrack(item.spotifyTrackId);
+  const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayerStore();
+
+  const matchPercentage = Math.round(item.score * 100);
+  const isCurrent = track ? currentTrack?.id === track.id : false;
+  const isPlayingThis = isCurrent && isPlaying;
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!track) return;
+    if (isCurrent) {
+      togglePlay();
+    } else {
+      playTrack(track, [track]);
+    }
+  };
+
+  const artistName =
+    track?.artists?.map((a) => a.name).join(', ') ||
+    'Unknown Artist';
+
+  const artworkUrl =
+    track?.artworkUrl ||
+    track?.artwork ||
+    track?.album?.artworkUrl ||
+    track?.album?.artwork;
+
+  return (
+    <div
+      onClick={track ? handlePlay : undefined}
+      className={cn(
+        'group relative flex flex-col justify-between rounded-2xl bg-neutral-900/80 p-5 border transition-all duration-300',
+        track ? 'cursor-pointer hover:border-purple-500/40 hover:bg-neutral-850 hover:shadow-xl hover:shadow-purple-950/20' : 'border-white/10'
+      )}
+    >
+      <div>
+        {/* Match & Reason header */}
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+            {matchPercentage}% Match
+          </span>
+          <span className="text-[11px] text-neutral-400 truncate max-w-[150px]">
+            {item.reason}
+          </span>
+        </div>
+
+        {/* Track Info */}
+        {isTrackLoading ? (
+          <div className="flex items-center gap-3 animate-pulse">
+            <Skeleton className="h-12 w-12 rounded-xl bg-neutral-800 shrink-0" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-4 w-3/4 rounded bg-neutral-800" />
+              <Skeleton className="h-3 w-1/2 rounded bg-neutral-800" />
+            </div>
+          </div>
+        ) : track ? (
+          <div className="flex items-center gap-3">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-neutral-800 overflow-hidden border border-white/10 group-hover:border-purple-500/40 transition-colors">
+              {artworkUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={artworkUrl}
+                  alt={track.title}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Music2 className="h-5 w-5 text-neutral-500" />
+              )}
+              {/* Play overlay */}
+              <button
+                type="button"
+                onClick={handlePlay}
+                aria-label={isPlayingThis ? 'Pause track' : 'Play track'}
+                className={cn(
+                  'absolute inset-0 flex items-center justify-center bg-black/50 text-white transition-opacity',
+                  isPlayingThis ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                )}
+              >
+                {isPlayingThis ? (
+                  <Pause className="h-5 w-5 fill-current" />
+                ) : (
+                  <Play className="h-5 w-5 fill-current ml-0.5" />
+                )}
+              </button>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4
+                className={cn(
+                  'text-sm font-semibold truncate transition-colors',
+                  isCurrent ? 'text-purple-400' : 'text-white group-hover:text-purple-300'
+                )}
+              >
+                {track.title}
+              </h4>
+              <p className="text-xs text-neutral-400 truncate">
+                {artistName}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-950/50 border border-purple-500/20 text-purple-400">
+              <Music2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-semibold text-white truncate group-hover:text-purple-300 transition-colors">
+                Track {item.spotifyTrackId}
+              </h4>
+              <p className="text-xs text-neutral-400 truncate">
+                Curated Recommendation
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-neutral-500">
+        <span>{track?.duration ? formatDuration(track.duration) : 'AI Curation'}</span>
+        <span className="text-purple-400/80 font-medium">Confidence: {item.score.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+}
+

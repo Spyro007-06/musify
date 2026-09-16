@@ -37,15 +37,21 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
     }
   }, [isOpen, track]);
 
-  // Handle ESC key
+  // Handle ESC key and body scroll lock
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen && !addTrackMutation.isPending) {
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
   }, [isOpen, onClose, addTrackMutation.isPending]);
 
   if (!isOpen || !track) return null;

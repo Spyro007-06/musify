@@ -6,6 +6,7 @@ import { Topbar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { MobileDrawer } from './mobile-drawer';
 import { GlobalPlayer } from '@/components/player/global-player';
+import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils/cn';
 
 export interface AppShellProps {
@@ -14,6 +15,8 @@ export interface AppShellProps {
 }
 
 export function AppShell({ children, className }: AppShellProps) {
+  const hasTrack = Boolean(usePlayerStore((s) => s.currentTrack));
+
   return (
     <div className={cn('flex h-screen w-full flex-col overflow-hidden bg-black text-white', className)}>
       {/* 1. Header / Topbar */}
@@ -26,7 +29,12 @@ export function AppShell({ children, className }: AppShellProps) {
           role="main"
           id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-y-auto p-4 md:p-6 pb-28 md:pb-6 focus:outline-none"
+          className={cn(
+            'flex-1 overflow-y-auto p-4 md:p-6 md:pb-6 focus:outline-none',
+            hasTrack
+              ? 'pb-[calc(8rem+env(safe-area-inset-bottom,0px))]'
+              : 'pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+          )}
         >
           {children}
         </main>

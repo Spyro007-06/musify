@@ -19,7 +19,7 @@ export function MobileNav({ className }: { className?: string }) {
     <nav
       aria-label="Mobile navigation bar"
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-40 flex h-14 items-center justify-around border-t border-neutral-800 bg-black/95 px-2 backdrop-blur-md md:hidden',
+        'fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-neutral-800 bg-black/95 px-2 pb-[env(safe-area-inset-bottom,0px)] h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] backdrop-blur-md md:hidden',
         className
       )}
     >

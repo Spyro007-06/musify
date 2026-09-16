@@ -59,7 +59,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={toggleShuffle}
         aria-label={shuffle ? 'Disable shuffle' : 'Enable shuffle'}
         className={cn(
-          'flex items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500',
+          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500',
           shuffle
             ? 'text-emerald-400 hover:text-emerald-300'
             : 'text-neutral-400 hover:text-white'
@@ -74,7 +74,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={() => previousTrack()}
         disabled={!hasTrack}
         aria-label="Previous track"
-        className="flex items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
       >
         <SkipBack className={skipIconSizes[size]} />
       </button>
@@ -108,7 +108,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={() => nextTrack()}
         disabled={!hasTrack}
         aria-label="Next track"
-        className="flex items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
       >
         <SkipForward className={skipIconSizes[size]} />
       </button>
@@ -119,7 +119,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={cycleRepeat}
         aria-label={`Repeat mode: ${repeat}`}
         className={cn(
-          'flex items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 relative',
+          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 relative',
           repeat !== 'off'
             ? 'text-emerald-400 hover:text-emerald-300'
             : 'text-neutral-400 hover:text-white'

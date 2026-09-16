@@ -177,7 +177,7 @@ export function TrackRow({
             type="button"
             onClick={handleAddToPlaylistClick}
             aria-label={`Add ${track.title} to playlist`}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all"
           >
             <ListPlus className="h-4 w-4" />
           </button>
@@ -188,7 +188,7 @@ export function TrackRow({
               type="button"
               onClick={handleRemoveClick}
               aria-label={`Remove ${track.title} from playlist`}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-0 group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-950/30 transition-all"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-rose-400 hover:bg-rose-950/30 transition-all"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -204,7 +204,7 @@ export function TrackRow({
               'flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white transition-colors disabled:opacity-50',
               isLiked
                 ? 'text-emerald-500 hover:text-emerald-400 opacity-100'
-                : 'opacity-0 group-hover:opacity-100'
+                : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
             )}
           >
             <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />

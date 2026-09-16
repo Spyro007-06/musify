@@ -1,18 +1,33 @@
 import { apiClient } from './client';
 import { ApiResponse } from '@/types/api';
+import { User, UpdateProfileRequest, UserPreferences } from '@/types/user';
 
-export interface UserPreferences {
-  favouriteLanguages?: string[];
-  favouriteAlbums?: string[];
-  favouriteGenres?: string[];
-  favouriteArtists?: string[];
-  favouriteMoods?: string[];
+export type { UserPreferences, UpdateProfileRequest };
+
+export async function getUserProfile(): Promise<ApiResponse<User>> {
+  return apiClient.get<User>('/user/profile');
+}
+
+export async function updateUserProfile(
+  data: UpdateProfileRequest
+): Promise<ApiResponse<User>> {
+  return apiClient.put<User>('/user/profile', data);
+}
+
+export async function getUserPreferences(): Promise<ApiResponse<UserPreferences>> {
+  return apiClient.get<UserPreferences>('/user/preferences');
+}
+
+export async function updateUserPreferences(
+  preferences: UserPreferences
+): Promise<ApiResponse<void>> {
+  return apiClient.post<void>('/user/preferences', preferences);
 }
 
 export const userApi = {
-  getUserPreferences: (): Promise<ApiResponse<UserPreferences>> =>
-    apiClient.get<UserPreferences>('/user/preferences'),
-
-  updateUserPreferences: (preferences: UserPreferences): Promise<ApiResponse<void>> =>
-    apiClient.post<void>('/user/preferences', preferences),
+  getUserProfile,
+  updateUserProfile,
+  getUserPreferences,
+  updateUserPreferences,
 };
+

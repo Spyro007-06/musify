@@ -97,11 +97,22 @@ export function useTrack(id: string) {
     queryKey: ['music', 'track', id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await musicApi.getTrack(id);
-      return res.data || null;
+      try {
+        const res = await musicApi.getTrack(id);
+        return res.data || null;
+      } catch (err: unknown) {
+        const status = (err as { response?: { status?: number }; status?: number })?.response?.status || (err as { status?: number })?.status;
+        if (status === 404) return null;
+        throw err;
+      }
     },
     enabled: !!id,
     staleTime: 1000 * 60 * 10,
+    retry: (failureCount, error: unknown) => {
+      const status = (error as { response?: { status?: number }; status?: number })?.response?.status || (error as { status?: number })?.status;
+      if (status === 404) return false;
+      return failureCount < 1;
+    },
   });
 }
 

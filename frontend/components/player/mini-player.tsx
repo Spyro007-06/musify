@@ -61,12 +61,13 @@ export function MiniPlayer() {
       )}
 
       {/* 1. Mobile Mini Player (< md screen) */}
-      <div
-        className={cn(
-          'fixed bottom-14 left-0 right-0 z-30 md:hidden',
-          'h-14 bg-neutral-900/95 border-t border-white/10 px-3 flex items-center justify-between backdrop-blur-md'
-        )}
-      >
+      {currentTrack && (
+        <div
+          className={cn(
+            'fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 md:hidden',
+            'h-14 bg-neutral-900/95 border-t border-white/10 px-3 flex items-center justify-between backdrop-blur-md shadow-lg shadow-black/50'
+          )}
+        >
         {/* Mobile top thin progress indicator */}
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-neutral-800 overflow-hidden">
           <PlayerProgress showTimes={false} className="!py-0" />
@@ -131,6 +132,7 @@ export function MiniPlayer() {
           </button>
         </div>
       </div>
+      )}
 
       {/* 2. Desktop Mini Player (>= md screen) */}
       <div

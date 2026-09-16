@@ -27,3 +27,9 @@ export interface User {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface UpdateProfileRequest {
+  displayName?: string;
+  avatarUrl?: string;
+  bio?: string;
+}
