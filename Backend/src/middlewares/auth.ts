@@ -1,10 +1,32 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '@config/database';
+import { supabase } from '@config/supabase';
 import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';
 import { Permission, ROLE_PERMISSIONS } from '@constants/roles';
-import jwt from 'jsonwebtoken';
-import { env } from '@config/env';
+
+/**
+ * Verifies a bearer token against Supabase and returns its claims' `sub`
+ * (the Supabase user id), or null if the token is missing/invalid/expired.
+ *
+ * Uses supabase.auth.getClaims() rather than manually verifying with a
+ * shared secret: this project's Supabase Auth signs access tokens with an
+ * asymmetric key (ES256, distributed via the project's JWKS endpoint), not
+ * a symmetric HS256 secret, so `jwt.verify(token, SUPABASE_JWT_SECRET)`
+ * would never validate a real token. getClaims() verifies locally against
+ * the (internally cached) JWKS for asymmetric-signing projects, and
+ * transparently falls back to a Supabase Auth server call for projects
+ * still using a symmetric secret — so this one path is correct regardless
+ * of which signing mode the project is in, without us tracking that
+ * ourselves or maintaining two verification schemes.
+ */
+async function verifySupabaseToken(token: string): Promise<string | null> {
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) {
+    return null;
+  }
+  return data.claims.sub;
+}
 
 /**
  * Middleware to enforce authentication via Supabase JWT Bearer Token.
@@ -18,21 +40,15 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     }
 
     const token = authHeader.substring(7);
+    const supabaseId = await verifySupabaseToken(token);
 
-    let decoded: any;
-    try {
-      decoded = jwt.verify(token, env.SUPABASE_JWT_SECRET);
-    } catch (err) {
-      throw ApiError.unauthorized(ERROR_MESSAGES.UNAUTHORIZED);
-    }
-
-    if (!decoded.sub) {
+    if (!supabaseId) {
       throw ApiError.unauthorized(ERROR_MESSAGES.UNAUTHORIZED);
     }
 
     // Fetch the matching public profile row
     const user = await prisma.user.findUnique({
-      where: { supabaseId: decoded.sub, deletedAt: null },
+      where: { supabaseId, deletedAt: null },
     });
 
     if (!user) {
@@ -60,20 +76,16 @@ export const optionalAuthenticate = async (req: Request, res: Response, next: Ne
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      try {
-        const decoded: any = jwt.verify(token, env.SUPABASE_JWT_SECRET);
+      const supabaseId = await verifySupabaseToken(token);
 
-        if (decoded.sub) {
-          const user = await prisma.user.findUnique({
-            where: { supabaseId: decoded.sub, deletedAt: null },
-          });
+      if (supabaseId) {
+        const user = await prisma.user.findUnique({
+          where: { supabaseId, deletedAt: null },
+        });
 
-          if (user && user.isActive) {
-            req.user = user;
-          }
+        if (user && user.isActive) {
+          req.user = user;
         }
-      } catch {
-        // Silent catch for invalid/expired tokens in optional auth
       }
     }
     next();

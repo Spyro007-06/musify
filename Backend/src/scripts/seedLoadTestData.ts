@@ -11,12 +11,17 @@
  * instead — that's the small, idempotent, safe-to-rerun one.
  *
  * Users here are NOT created in Supabase Auth — they're local `User` rows with
- * a random `supabaseId`, and this script mints JWTs for them directly
- * using SUPABASE_JWT_SECRET (which `authenticate` middleware only checks
- * the signature and `sub` claim of — no issuer/audience check — so a
- * locally-signed token for a locally-seeded user is indistinguishable from
- * a real one to the app). This avoids hitting Supabase Auth's admin API
+ * a random `supabaseId`, and this script minted JWTs for them directly with a
+ * self-chosen HS256 secret. This avoided hitting Supabase Auth's admin API
  * ~1000 times just to load-test our own Express/Prisma layer.
+ *
+ * BROKEN as of the auth.ts fix that made `authenticate` verify real Supabase
+ * tokens via supabase.auth.getClaims() instead of a shared HS256 secret: a
+ * self-signed token minted here is no longer indistinguishable from a real
+ * one, since getClaims() actually verifies against Supabase's signing keys /
+ * Auth server. The tokens this script mints will now be rejected. Rework
+ * needed: mint real sessions via supabaseAdmin.auth.admin.createUser() (or
+ * an equivalent bulk sign-in) instead — out of scope for the auth fix itself.
  *
  * Track/artist ids are REAL JioSaavn ids (pulled live from the API this
  * script runs against), so hydration endpoints (GET /api/music/tracks/:id
@@ -29,7 +34,6 @@ import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@config/database';
 import { SaavnService } from '@services/saavn.service';
-import { env } from '@config/env';
 
 const args = process.argv.slice(2);
 const getArg = (name: string, fallback: number): number => {
@@ -213,7 +217,8 @@ async function main() {
 
     if (i < 20) {
       // Only mint tokens for a sample — the load test only needs a handful of real users to auth as.
-      const token = jwt.sign({ sub: supabaseId }, env.SUPABASE_JWT_SECRET);
+      // NOTE: this token will be rejected by the real authenticate() middleware, see file header.
+      const token = jwt.sign({ sub: supabaseId }, 'loadtest-only-not-a-real-signing-key');
       tokens.push({ userId: user.id, username, token });
     }
 
