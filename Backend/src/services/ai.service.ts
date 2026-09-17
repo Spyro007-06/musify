@@ -1,7 +1,57 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@config/database';
+import { env } from '@config/env';
 import { SaavnService } from './saavn.service';
 import { ArtistService } from './artist.service';
+import { RecommendationService } from './recommendation.service';
+import { resilientCall } from '@utils/resilience';
+import { ClaudeUpstreamError } from '@utils/ClaudeUpstreamError';
 import slugify from 'slugify';
+
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
+const CLAUDE_BREAKER = 'claude-lyrics-analysis';
+
+let anthropicClient: Anthropic | null = null;
+
+function getAnthropicClient(): Anthropic {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new ClaudeUpstreamError('ANTHROPIC_API_KEY is not configured — lyrics analysis is unavailable.');
+  }
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  }
+  return anthropicClient;
+}
+
+export interface LyricsAnalysis {
+  mood: string;
+  meaning: string;
+  trivia: string;
+}
+
+function parseLyricsAnalysis(raw: string): LyricsAnalysis {
+  let parsed: unknown;
+  try {
+    // Claude sometimes wraps JSON in a code fence despite instructions not to.
+    const jsonText = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+    parsed = JSON.parse(jsonText);
+  } catch (err) {
+    throw new ClaudeUpstreamError('Claude returned a non-JSON or malformed response.', err);
+  }
+
+  const candidate = parsed as Partial<LyricsAnalysis> | null;
+  if (
+    !candidate ||
+    typeof candidate !== 'object' ||
+    typeof candidate.mood !== 'string' ||
+    typeof candidate.meaning !== 'string' ||
+    typeof candidate.trivia !== 'string'
+  ) {
+    throw new ClaudeUpstreamError('Claude response was missing the expected mood/meaning/trivia fields.');
+  }
+
+  return { mood: candidate.mood, meaning: candidate.meaning, trivia: candidate.trivia };
+}
 
 // Genre/language keywords already scattered across the catalog: the
 // language set matches SaavnService's own switch-cases (getTrendingTracks,
@@ -90,21 +140,35 @@ const MOOD_COVERS: Record<'energetic' | 'chill', string> = {
 };
 
 const MAX_PLAYLIST_TRACKS = 30;
+const AI_RECOMMENDATIONS_LIMIT = 20;
 
 export class AIService {
   /**
-   * Generates dynamic recommendations based on user history and mood.
+   * Delegates to RecommendationService's real item-based CF + content-based
+   * scoring engine (the same one powering /recommendations/songs) rather
+   * than running a second, separate recommendation system here — that
+   * would be pure duplication of already-tested, cron-refreshed logic.
+   * The only thing this method adds is shaping the response into the
+   * lightweight {spotifyTrackId, score, reason} contract this endpoint's
+   * callers expect (frontend resolves each id to a full track), and an
+   * optional mood-based genre bias (reusing the existing MOOD_KEYWORDS
+   * map already defined above, not a new taxonomy).
    */
-  static async getRecommendations(_userId: string, _mood?: string) {
+  static async getRecommendations(userId: string, mood?: string) {
     try {
-      // TODO: Fetch user history and call AI Model (e.g., Gemini / OpenAI) once implemented.
-      // Mocking AI response for now
-      const mockRecommendedTracks = [
-        { spotifyTrackId: 'mock-1', score: 0.95, reason: 'Matches your vibe' },
-        { spotifyTrackId: 'mock-2', score: 0.88, reason: 'Similar to recent plays' }
-      ];
+      const normalizedMood = mood?.toLowerCase().trim();
+      const moodMatch = normalizedMood
+        ? (Object.keys(MOOD_KEYWORDS) as (keyof typeof MOOD_KEYWORDS)[]).find(
+            (m) => m === normalizedMood || MOOD_KEYWORDS[m].includes(normalizedMood)
+          )
+        : undefined;
+      const genreKeywords = moodMatch ? MOOD_KEYWORDS[moodMatch] : undefined;
 
-      return mockRecommendedTracks;
+      return await RecommendationService.getRecommendedSongsWithScores(
+        userId,
+        AI_RECOMMENDATIONS_LIMIT,
+        genreKeywords
+      );
     } catch (error) {
       console.error('Error generating recommendations:', error);
       throw new Error('Failed to generate AI recommendations');
@@ -112,20 +176,46 @@ export class AIService {
   }
 
   /**
-   * Analyzes lyrics to provide semantic meaning and mood.
+   * Analyzes lyrics to provide semantic meaning and mood via a real Claude
+   * call. `lyrics` is real text supplied directly by the caller (the
+   * frontend's lyrics-analyzer UI has the user paste/provide it) — this
+   * method never fetches or fabricates lyrics content itself, and never
+   * falls back to a mocked result on failure; a genuine upstream failure
+   * surfaces as ClaudeUpstreamError (mapped to 503 by errorHandler), same
+   * discipline as SaavnUpstreamError for the catalog dependency.
    */
-  static async analyzeLyrics(_trackId: string, _lyrics: string) {
-    try {
-      // TODO: Call AI Model to summarize lyrics and determine mood
-      return {
-        mood: 'Upbeat / Motivational',
-        meaning: 'This song is about overcoming challenges and finding inner strength.',
-        trivia: 'The artist wrote this during their 2023 world tour.'
-      };
-    } catch (error) {
-      console.error('Error analyzing lyrics:', error);
-      throw new Error('Failed to analyze lyrics');
+  static async analyzeLyrics(_trackId: string, lyrics: string): Promise<LyricsAnalysis> {
+    const client = getAnthropicClient();
+
+    const response = await resilientCall(CLAUDE_BREAKER, () =>
+      client.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 500,
+        messages: [
+          {
+            role: 'user',
+            content: `Analyze the following song lyrics and respond with ONLY a JSON object (no markdown formatting, no code fences, no text before or after) with exactly these three string fields:
+- "mood": a short (2-5 word) description of the song's overall mood/tone
+- "meaning": a 1-3 sentence interpretation of what the lyrics are about
+- "trivia": one interesting observation about the lyrics' style, structure, wordplay, or themes. Base this only on the text itself — do not invent specific factual claims about the real artist, album, or release history, since you were not given that information.
+
+Lyrics:
+"""
+${lyrics}
+"""`,
+          },
+        ],
+      })
+    ).catch((error: unknown) => {
+      throw new ClaudeUpstreamError('Claude lyrics analysis request failed.', error);
+    });
+
+    const textBlock = response.content.find((block) => block.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      throw new ClaudeUpstreamError('Claude response contained no text content.');
     }
+
+    return parseLyricsAnalysis(textBlock.text);
   }
 
   /**

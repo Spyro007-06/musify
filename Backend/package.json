@@ -26,6 +26,7 @@
     "seed:loadtest": "ts-node -r tsconfig-paths/register src/scripts/seedLoadTestData.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.126.0",
     "@prisma/client": "^5.22.0",
     "@sentry/node": "^10.74.0",
     "@supabase/supabase-js": "^2.44.4",

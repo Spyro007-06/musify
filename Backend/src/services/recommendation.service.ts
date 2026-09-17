@@ -300,6 +300,48 @@ export class RecommendationService {
   }
 
   /**
+   * Same real candidate-pool + scoring pipeline as getRecommendedSongs,
+   * but returns the lightweight {spotifyTrackId, score, reason} shape
+   * (score normalized to a 0-1 fraction) instead of discarding the score
+   * the way getRecommendedSongs's Track[] return does. Exists for
+   * AIService.getRecommendations, which needs the score/reason rather
+   * than full track objects — not a second recommendation engine, just
+   * exposing what scoreCandidates already computes.
+   *
+   * `genreKeywords`, if given, biases the candidate pool toward tracks
+   * whose genre matches one of the keywords before scoring — falls back
+   * to the full unfiltered pool if the filter would empty it (same
+   * fallback-if-empty pattern already used for era filtering in
+   * AIService.generatePlaylistFromPrompt).
+   */
+  public static async getRecommendedSongsWithScores(
+    userId: string,
+    limit = 20,
+    genreKeywords?: string[]
+  ): Promise<{ spotifyTrackId: string; score: number; reason: string }[]> {
+    const candidates = await this.getCandidatePool(userId);
+
+    let pool = candidates;
+    if (genreKeywords && genreKeywords.length > 0) {
+      const filtered = candidates.filter((t: any) => {
+        const genre = (t.genre || '').toLowerCase();
+        return genreKeywords.some((kw) => genre.includes(kw));
+      });
+      if (filtered.length > 0) pool = filtered;
+    }
+
+    const scored = await this.scoreCandidates(userId, pool);
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((s) => ({
+        spotifyTrackId: s.track.id,
+        score: Math.round((s.score / 100) * 100) / 100,
+        reason: s.reason,
+      }));
+  }
+
+  /**
    * Recommended Albums
    */
   public static async getRecommendedAlbums(userId: string, limit = 10): Promise<any[]> {

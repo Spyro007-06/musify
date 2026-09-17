@@ -1,10 +1,35 @@
 import '../setup/saavnMock';
+import '../setup/anthropicMock';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../../app';
 import { getCsrfToken } from '../helpers/csrf';
 import { prismaMock } from '../setup/prismaMock';
 import { saavnMock } from '../setup/saavnMock';
+import { anthropicMock } from '../setup/anthropicMock';
+
+function mockClaudeTextResponse(text: string) {
+  anthropicMock.messagesCreate.mockResolvedValue({
+    content: [{ type: 'text', text }],
+  });
+}
+
+/** Baseline so RecommendationService's real candidate-pool/scoring pipeline
+ * (which AIService.getRecommendations now delegates to) doesn't throw on
+ * unconfigured Prisma calls — same baseline recommendationService.test.ts
+ * uses for a "no signal yet" user. */
+function mockCleanRecommendationBaseline() {
+  prismaMock.userPreferences.findUnique.mockResolvedValue(null);
+  prismaMock.genreAffinity.findMany.mockResolvedValue([]);
+  prismaMock.artistAffinity.findMany.mockResolvedValue([]);
+  prismaMock.likedTrack.findMany.mockResolvedValue([]);
+  prismaMock.searchHistory.findMany.mockResolvedValue([]);
+  prismaMock.listeningHistory.findMany.mockResolvedValue([]);
+  (prismaMock.listeningHistory.groupBy as unknown as jest.Mock).mockResolvedValue([]);
+  prismaMock.recommendationScores.findMany.mockResolvedValue([]);
+  saavnMock.getTrendingTracks.mockResolvedValue([]);
+  saavnMock.getNewReleases.mockResolvedValue([]);
+}
 
 const user = {
   id: 'user-1',
@@ -65,30 +90,140 @@ describe('auth is actually enforced on every /api/ai/* route (not just trusted f
 });
 
 describe('GET /api/ai/recommendations', () => {
-  it('returns a valid request in the standard envelope', async () => {
+  it('delegates to RecommendationService\'s real scoring engine (not a mock) and shapes {spotifyTrackId, score, reason}', async () => {
+    mockCleanRecommendationBaseline();
+    saavnMock.getTrendingTracks.mockResolvedValue([{ id: 'track-real-1', genre: 'pop', title: 'Real Song' }]);
     const { agent } = await authedAgent();
+
     const res = await agent.get('/api/ai/recommendations').set('Authorization', authHeader());
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data[0]).toEqual(
+      expect.objectContaining({
+        spotifyTrackId: 'track-real-1',
+        score: expect.any(Number),
+        reason: expect.any(String),
+      })
+    );
+    // Score is normalized to a 0-1 fraction (the contract the old mock
+    // established with 0.95/0.88), not the engine's internal 0-100 scale.
+    expect(res.body.data[0].score).toBeLessThanOrEqual(1);
+  });
+
+  it('returns a real empty array (not a fake result) when the engine has nothing to recommend', async () => {
+    mockCleanRecommendationBaseline();
+    const { agent } = await authedAgent();
+
+    const res = await agent.get('/api/ai/recommendations').set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
   });
 });
 
 describe('POST /api/ai/lyrics/analyze', () => {
-  it('handles a valid request', async () => {
+  it('handles a valid request with a real (mocked) Claude call, not a hardcoded result', async () => {
+    mockClaudeTextResponse(
+      JSON.stringify({
+        mood: 'Reflective / Nostalgic',
+        meaning: 'A real interpretation derived from the actual lyrics text passed in.',
+        trivia: 'A real observation about lyrical structure.',
+      })
+    );
     const { agent, csrfToken } = await authedAgent();
     const res = await agent
       .post('/api/ai/lyrics/analyze')
       .set('x-csrf-token', csrfToken)
       .set('Authorization', authHeader())
-      .send({ trackId: 'track-1', lyrics: 'some lyrics here' });
+      .send({ trackId: 'track-1', lyrics: 'some real lyrics here' });
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toEqual(
-      expect.objectContaining({ mood: expect.any(String), meaning: expect.any(String) })
-    );
+    expect(res.body.data).toEqual({
+      mood: 'Reflective / Nostalgic',
+      meaning: 'A real interpretation derived from the actual lyrics text passed in.',
+      trivia: 'A real observation about lyrical structure.',
+    });
+    // Confirms the actual lyrics text was sent to Claude, not ignored.
+    const callArgs = anthropicMock.messagesCreate.mock.calls[0][0];
+    expect(callArgs.model).toBe('claude-haiku-4-5-20251001');
+    expect(callArgs.messages[0].content).toContain('some real lyrics here');
   });
+
+  it('strips a markdown code fence if Claude wraps its JSON response in one', async () => {
+    mockClaudeTextResponse('```json\n' + JSON.stringify({ mood: 'Calm', meaning: 'A calm song.', trivia: 'Simple structure.' }) + '\n```');
+    const { agent, csrfToken } = await authedAgent();
+    const res = await agent
+      .post('/api/ai/lyrics/analyze')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ trackId: 'track-1', lyrics: 'la la la' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.mood).toBe('Calm');
+  });
+
+  it('a malformed (non-JSON) Claude response fails cleanly with 503, not a crash or a fake success', async () => {
+    mockClaudeTextResponse('Sure! This song is about love and loss.');
+    const { agent, csrfToken } = await authedAgent();
+    const res = await agent
+      .post('/api/ai/lyrics/analyze')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ trackId: 'track-1', lyrics: 'some lyrics' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('a Claude response missing an expected field (mood/meaning/trivia) fails cleanly with 503', async () => {
+    mockClaudeTextResponse(JSON.stringify({ mood: 'Happy', meaning: 'A happy song.' })); // no trivia
+    const { agent, csrfToken } = await authedAgent();
+    const res = await agent
+      .post('/api/ai/lyrics/analyze')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ trackId: 'track-1', lyrics: 'some lyrics' });
+
+    expect(res.status).toBe(503);
+  });
+
+  it('a Claude API failure (network/upstream error) fails cleanly with 503, not a crash', async () => {
+    anthropicMock.messagesCreate.mockRejectedValue(new Error('ECONNRESET'));
+    const { agent, csrfToken } = await authedAgent();
+    const res = await agent
+      .post('/api/ai/lyrics/analyze')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ trackId: 'track-1', lyrics: 'some lyrics' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('the Claude breaker opening after repeated failures does not affect unrelated AI functionality (breaker isolation)', async () => {
+    anthropicMock.messagesCreate.mockRejectedValue(new Error('downstream is down'));
+    const { agent, csrfToken } = await authedAgent();
+
+    // Trip the claude-lyrics-analysis breaker (same volume this project's
+    // own resilience.test.ts uses to reliably open a breaker).
+    for (let i = 0; i < 10; i++) {
+      await agent
+        .post('/api/ai/lyrics/analyze')
+        .set('x-csrf-token', csrfToken)
+        .set('Authorization', authHeader())
+        .send({ trackId: 'track-1', lyrics: 'some lyrics' });
+    }
+
+    // A completely different AIService method, on a different named
+    // breaker (or no breaker at all), must still work normally — an open
+    // Claude breaker must not be global failure state.
+    mockCleanRecommendationBaseline();
+    const recRes = await agent.get('/api/ai/recommendations').set('Authorization', authHeader());
+    expect(recRes.status).toBe(200);
+    expect(recRes.body.success).toBe(true);
+  }, 15000);
 
   it('rejects a malformed request (missing lyrics) with 400, not a crash', async () => {
     const { agent, csrfToken } = await authedAgent();
