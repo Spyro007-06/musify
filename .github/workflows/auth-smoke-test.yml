@@ -1,0 +1,44 @@
+name: Production Auth Smoke Test
+
+# Recurring check that a real login against the real production Supabase
+# project actually works end-to-end, and that a resulting token is accepted
+# by a real protected endpoint. Exists because CI's docker-build job only
+# ever talks to placeholder Supabase credentials and an unauthenticated
+# health endpoint — it structurally cannot catch a real-auth regression
+# (JWKS changes, key rotation, signing-method changes). See
+# Backend/RUNBOOK.md "Auth smoke test" for the full writeup and the outage
+# this is meant to prevent recurring.
+#
+# Deliberately NOT a pull_request/push trigger: this needs live production
+# credentials and shouldn't gate normal development on live external state.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend/scripts/smoke-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: Backend/scripts/smoke-test/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Run auth smoke test against live production
+        run: node authSmokeTest.mjs
+        env:
+          SMOKE_BACKEND_URL: https://musify-production-6f35.up.railway.app
+          SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}

@@ -1,0 +1,10 @@
+{
+  "name": "musify-auth-smoke-test",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Standalone production auth smoke test. Deliberately has its own package.json (not part of Backend's main dependency graph) so this check's install/run is fast and decoupled from unrelated backend build issues — see RUNBOOK.md.",
+  "type": "module",
+  "dependencies": {
+    "@sentry/node": "^10.74.0"
+  }
+}
