@@ -1,26 +1,30 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI, Type } from '@google/genai';
 import { prisma } from '@config/database';
 import { env } from '@config/env';
 import { SaavnService } from './saavn.service';
 import { ArtistService } from './artist.service';
 import { RecommendationService } from './recommendation.service';
 import { resilientCall } from '@utils/resilience';
-import { ClaudeUpstreamError } from '@utils/ClaudeUpstreamError';
+import { LLMUpstreamError } from '@utils/LLMUpstreamError';
 import slugify from 'slugify';
 
-const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
-const CLAUDE_BREAKER = 'claude-lyrics-analysis';
+// 'gemini-flash-latest' is Google's fast-tier alias (per @google/genai's
+// own published quickstart example) — auto-tracks the current recommended
+// fast model rather than a dated version string that goes stale. This is
+// an extraction/classification task, not one needing a frontier model.
+const GEMINI_MODEL = 'gemini-flash-latest';
+const GEMINI_BREAKER = 'gemini-lyrics-analysis';
 
-let anthropicClient: Anthropic | null = null;
+let geminiClient: GoogleGenAI | null = null;
 
-function getAnthropicClient(): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) {
-    throw new ClaudeUpstreamError('ANTHROPIC_API_KEY is not configured — lyrics analysis is unavailable.');
+function getGeminiClient(): GoogleGenAI {
+  if (!env.GEMINI_API_KEY) {
+    throw new LLMUpstreamError('GEMINI_API_KEY is not configured — lyrics analysis is unavailable.');
   }
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  if (!geminiClient) {
+    geminiClient = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
   }
-  return anthropicClient;
+  return geminiClient;
 }
 
 export interface LyricsAnalysis {
@@ -29,14 +33,32 @@ export interface LyricsAnalysis {
   trivia: string;
 }
 
+// Gemini's structured-output mode (responseMimeType + responseSchema)
+// constrains the model's output to valid JSON matching this schema at the
+// API level — a real Gemini feature, not just prompt instructions the way
+// Claude's implementation had to rely on.
+const LYRICS_ANALYSIS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    mood: { type: Type.STRING },
+    meaning: { type: Type.STRING },
+    trivia: { type: Type.STRING },
+  },
+  required: ['mood', 'meaning', 'trivia'],
+};
+
 function parseLyricsAnalysis(raw: string): LyricsAnalysis {
   let parsed: unknown;
   try {
-    // Claude sometimes wraps JSON in a code fence despite instructions not to.
+    // responseSchema constrains output at the API level, but Google's own
+    // docs note behavior is "undefined" if something goes wrong — strip a
+    // code fence defensively rather than trust the constraint alone (the
+    // same defensive parsing the Claude implementation needed, kept here
+    // as cheap insurance even though it's less likely to trigger now).
     const jsonText = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     parsed = JSON.parse(jsonText);
   } catch (err) {
-    throw new ClaudeUpstreamError('Claude returned a non-JSON or malformed response.', err);
+    throw new LLMUpstreamError('Gemini returned a non-JSON or malformed response.', err);
   }
 
   const candidate = parsed as Partial<LyricsAnalysis> | null;
@@ -47,7 +69,7 @@ function parseLyricsAnalysis(raw: string): LyricsAnalysis {
     typeof candidate.meaning !== 'string' ||
     typeof candidate.trivia !== 'string'
   ) {
-    throw new ClaudeUpstreamError('Claude response was missing the expected mood/meaning/trivia fields.');
+    throw new LLMUpstreamError('Gemini response was missing the expected mood/meaning/trivia fields.');
   }
 
   return { mood: candidate.mood, meaning: candidate.meaning, trivia: candidate.trivia };
@@ -176,25 +198,21 @@ export class AIService {
   }
 
   /**
-   * Analyzes lyrics to provide semantic meaning and mood via a real Claude
+   * Analyzes lyrics to provide semantic meaning and mood via a real Gemini
    * call. `lyrics` is real text supplied directly by the caller (the
    * frontend's lyrics-analyzer UI has the user paste/provide it) — this
    * method never fetches or fabricates lyrics content itself, and never
    * falls back to a mocked result on failure; a genuine upstream failure
-   * surfaces as ClaudeUpstreamError (mapped to 503 by errorHandler), same
+   * surfaces as LLMUpstreamError (mapped to 503 by errorHandler), same
    * discipline as SaavnUpstreamError for the catalog dependency.
    */
   static async analyzeLyrics(_trackId: string, lyrics: string): Promise<LyricsAnalysis> {
-    const client = getAnthropicClient();
+    const client = getGeminiClient();
 
-    const response = await resilientCall(CLAUDE_BREAKER, () =>
-      client.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: 500,
-        messages: [
-          {
-            role: 'user',
-            content: `Analyze the following song lyrics and respond with ONLY a JSON object (no markdown formatting, no code fences, no text before or after) with exactly these three string fields:
+    const response = await resilientCall(GEMINI_BREAKER, () =>
+      client.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: `Analyze the following song lyrics and respond with a JSON object with exactly these three string fields:
 - "mood": a short (2-5 word) description of the song's overall mood/tone
 - "meaning": a 1-3 sentence interpretation of what the lyrics are about
 - "trivia": one interesting observation about the lyrics' style, structure, wordplay, or themes. Base this only on the text itself — do not invent specific factual claims about the real artist, album, or release history, since you were not given that information.
@@ -203,19 +221,21 @@ Lyrics:
 """
 ${lyrics}
 """`,
-          },
-        ],
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: LYRICS_ANALYSIS_SCHEMA,
+        },
       })
     ).catch((error: unknown) => {
-      throw new ClaudeUpstreamError('Claude lyrics analysis request failed.', error);
+      throw new LLMUpstreamError('Gemini lyrics analysis request failed.', error);
     });
 
-    const textBlock = response.content.find((block) => block.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new ClaudeUpstreamError('Claude response contained no text content.');
+    const text = response.text;
+    if (!text) {
+      throw new LLMUpstreamError('Gemini response contained no text content.');
     }
 
-    return parseLyricsAnalysis(textBlock.text);
+    return parseLyricsAnalysis(text);
   }
 
   /**

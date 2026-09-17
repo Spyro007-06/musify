@@ -15,4 +15,4 @@ process.env.CSRF_SECRET = 'test-csrf-secret';
 process.env.RATE_LIMIT_MAX = '10000';
 process.env.AUTH_RATE_LIMIT_MAX = '10000';
 process.env.SWAGGER_ENABLED = 'false';
-process.env.ANTHROPIC_API_KEY = 'test-anthropic-key-not-for-real-use';
+process.env.GEMINI_API_KEY = 'test-gemini-key-not-for-real-use';

@@ -46,8 +46,8 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().optional(),
 
   // AI lyrics analysis (optional — analyzeLyrics throws a clear
-  // ClaudeUpstreamError, not a fake result, if unset)
-  ANTHROPIC_API_KEY: z.string().optional(),
+  // LLMUpstreamError, not a fake result, if unset)
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

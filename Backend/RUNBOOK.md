@@ -19,9 +19,9 @@ actually likely to happen.
   `supabase.auth.getClaims()` against the project's JWKS
   (`/.well-known/jwks.json`), not a shared secret — no
   `SUPABASE_JWT_SECRET` is needed or read.
-- `ANTHROPIC_API_KEY` (optional, but required for `POST
+- `GEMINI_API_KEY` (optional, but required for `POST
   /api/ai/lyrics/analyze` to actually work) — without it, that endpoint
-  throws a clean `ClaudeUpstreamError`/503 rather than a fake result; there
+  throws a clean `LLMUpstreamError`/503 rather than a fake result; there
   is no mock fallback. See `.env.example` for where to get a key.
 - See `.env.example` for the full list; `src/config/env.ts` validates all of
   it at boot and refuses to start with anything missing/malformed.
@@ -174,7 +174,7 @@ traffic level.
 | Signup/login suddenly all failing | Supabase Auth outage, `SUPABASE_*` secrets rotated without updating this service, or a JWT-verification regression (see the 2026-09-16 incident) | The "Auth smoke test" workflow (below) should catch this within ~15 minutes and alert via Sentry; check Supabase status page; verify env vars match the current Supabase project |
 | 429 responses under normal-looking load | Rate limit defaults too low for real traffic | Tune `RATE_LIMIT_MAX`/`RATE_LIMIT_WINDOW_MS`/`AUTH_RATE_LIMIT_MAX` — load-test first |
 | Errors not showing up anywhere but logs | `SENTRY_DSN` unset | Set it if you want alerting beyond log-scraping — see `.env.example` |
-| `POST /api/ai/lyrics/analyze` always returns 503 | `ANTHROPIC_API_KEY` unset, invalid, or the Claude API is degraded | Check `ClaudeUpstreamError` warn logs for the specific cause; verify the key at https://console.anthropic.com |
+| `POST /api/ai/lyrics/analyze` always returns 503 | `GEMINI_API_KEY` unset, invalid, or the Gemini API is degraded | Check `LLMUpstreamError` warn logs for the specific cause; verify the key at https://aistudio.google.com/apikey |
 
 ## Error tracking (Sentry)
 

@@ -1,17 +1,15 @@
 import '../setup/saavnMock';
-import '../setup/anthropicMock';
+import '../setup/geminiMock';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../../app';
 import { getCsrfToken } from '../helpers/csrf';
 import { prismaMock } from '../setup/prismaMock';
 import { saavnMock } from '../setup/saavnMock';
-import { anthropicMock } from '../setup/anthropicMock';
+import { geminiMock } from '../setup/geminiMock';
 
-function mockClaudeTextResponse(text: string) {
-  anthropicMock.messagesCreate.mockResolvedValue({
-    content: [{ type: 'text', text }],
-  });
+function mockGeminiTextResponse(text: string) {
+  geminiMock.generateContent.mockResolvedValue({ text });
 }
 
 /** Baseline so RecommendationService's real candidate-pool/scoring pipeline
@@ -124,8 +122,8 @@ describe('GET /api/ai/recommendations', () => {
 });
 
 describe('POST /api/ai/lyrics/analyze', () => {
-  it('handles a valid request with a real (mocked) Claude call, not a hardcoded result', async () => {
-    mockClaudeTextResponse(
+  it('handles a valid request with a real (mocked) Gemini call, not a hardcoded result', async () => {
+    mockGeminiTextResponse(
       JSON.stringify({
         mood: 'Reflective / Nostalgic',
         meaning: 'A real interpretation derived from the actual lyrics text passed in.',
@@ -145,14 +143,17 @@ describe('POST /api/ai/lyrics/analyze', () => {
       meaning: 'A real interpretation derived from the actual lyrics text passed in.',
       trivia: 'A real observation about lyrical structure.',
     });
-    // Confirms the actual lyrics text was sent to Claude, not ignored.
-    const callArgs = anthropicMock.messagesCreate.mock.calls[0][0];
-    expect(callArgs.model).toBe('claude-haiku-4-5-20251001');
-    expect(callArgs.messages[0].content).toContain('some real lyrics here');
+    // Confirms the actual lyrics text was sent to Gemini, not ignored, and
+    // that structured JSON output mode was requested.
+    const callArgs = geminiMock.generateContent.mock.calls[0][0];
+    expect(callArgs.model).toBe('gemini-flash-latest');
+    expect(callArgs.contents).toContain('some real lyrics here');
+    expect(callArgs.config.responseMimeType).toBe('application/json');
+    expect(callArgs.config.responseSchema).toBeDefined();
   });
 
-  it('strips a markdown code fence if Claude wraps its JSON response in one', async () => {
-    mockClaudeTextResponse('```json\n' + JSON.stringify({ mood: 'Calm', meaning: 'A calm song.', trivia: 'Simple structure.' }) + '\n```');
+  it('strips a markdown code fence if Gemini wraps its JSON response in one', async () => {
+    mockGeminiTextResponse('```json\n' + JSON.stringify({ mood: 'Calm', meaning: 'A calm song.', trivia: 'Simple structure.' }) + '\n```');
     const { agent, csrfToken } = await authedAgent();
     const res = await agent
       .post('/api/ai/lyrics/analyze')
@@ -164,8 +165,8 @@ describe('POST /api/ai/lyrics/analyze', () => {
     expect(res.body.data.mood).toBe('Calm');
   });
 
-  it('a malformed (non-JSON) Claude response fails cleanly with 503, not a crash or a fake success', async () => {
-    mockClaudeTextResponse('Sure! This song is about love and loss.');
+  it('a malformed (non-JSON) Gemini response fails cleanly with 503, not a crash or a fake success', async () => {
+    mockGeminiTextResponse('Sure! This song is about love and loss.');
     const { agent, csrfToken } = await authedAgent();
     const res = await agent
       .post('/api/ai/lyrics/analyze')
@@ -177,8 +178,8 @@ describe('POST /api/ai/lyrics/analyze', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('a Claude response missing an expected field (mood/meaning/trivia) fails cleanly with 503', async () => {
-    mockClaudeTextResponse(JSON.stringify({ mood: 'Happy', meaning: 'A happy song.' })); // no trivia
+  it('a Gemini response missing an expected field (mood/meaning/trivia) fails cleanly with 503', async () => {
+    mockGeminiTextResponse(JSON.stringify({ mood: 'Happy', meaning: 'A happy song.' })); // no trivia
     const { agent, csrfToken } = await authedAgent();
     const res = await agent
       .post('/api/ai/lyrics/analyze')
@@ -189,8 +190,20 @@ describe('POST /api/ai/lyrics/analyze', () => {
     expect(res.status).toBe(503);
   });
 
-  it('a Claude API failure (network/upstream error) fails cleanly with 503, not a crash', async () => {
-    anthropicMock.messagesCreate.mockRejectedValue(new Error('ECONNRESET'));
+  it('a response with no text content (e.g. blocked by safety filters) fails cleanly with 503', async () => {
+    geminiMock.generateContent.mockResolvedValue({ text: undefined });
+    const { agent, csrfToken } = await authedAgent();
+    const res = await agent
+      .post('/api/ai/lyrics/analyze')
+      .set('x-csrf-token', csrfToken)
+      .set('Authorization', authHeader())
+      .send({ trackId: 'track-1', lyrics: 'some lyrics' });
+
+    expect(res.status).toBe(503);
+  });
+
+  it('a Gemini API failure (network/upstream error) fails cleanly with 503, not a crash', async () => {
+    geminiMock.generateContent.mockRejectedValue(new Error('ECONNRESET'));
     const { agent, csrfToken } = await authedAgent();
     const res = await agent
       .post('/api/ai/lyrics/analyze')
@@ -202,11 +215,11 @@ describe('POST /api/ai/lyrics/analyze', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('the Claude breaker opening after repeated failures does not affect unrelated AI functionality (breaker isolation)', async () => {
-    anthropicMock.messagesCreate.mockRejectedValue(new Error('downstream is down'));
+  it('the Gemini breaker opening after repeated failures does not affect unrelated AI functionality (breaker isolation)', async () => {
+    geminiMock.generateContent.mockRejectedValue(new Error('downstream is down'));
     const { agent, csrfToken } = await authedAgent();
 
-    // Trip the claude-lyrics-analysis breaker (same volume this project's
+    // Trip the gemini-lyrics-analysis breaker (same volume this project's
     // own resilience.test.ts uses to reliably open a breaker).
     for (let i = 0; i < 10; i++) {
       await agent
@@ -218,7 +231,7 @@ describe('POST /api/ai/lyrics/analyze', () => {
 
     // A completely different AIService method, on a different named
     // breaker (or no breaker at all), must still work normally — an open
-    // Claude breaker must not be global failure state.
+    // Gemini breaker must not be global failure state.
     mockCleanRecommendationBaseline();
     const recRes = await agent.get('/api/ai/recommendations').set('Authorization', authHeader());
     expect(recRes.status).toBe(200);
