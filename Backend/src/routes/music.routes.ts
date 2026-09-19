@@ -192,7 +192,7 @@ router.get('/categories', MusicController.getCategories);
  *       200:
  *         description: OK
  */
-router.get('/mood/:mood', MusicController.getMoodPlaylists);
+router.get('/mood/:mood', optionalAuthenticate, MusicController.getMoodPlaylists);
 
 /**
  * @swagger

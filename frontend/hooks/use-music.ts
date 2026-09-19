@@ -51,8 +51,9 @@ export function useCategories() {
 }
 
 export function useMood(mood: string) {
+  const { isAuthenticated } = useAuthStore();
   return useQuery({
-    queryKey: ['music', 'mood', mood],
+    queryKey: ['music', 'mood', mood, isAuthenticated],
     queryFn: async () => {
       if (!mood) return [];
       const res = await musicApi.getMood(mood);

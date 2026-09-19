@@ -40,6 +40,30 @@ export class MusicService {
   }
 
   public static async getTrending(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
+    // No explicit language/artist filter requested — bias trending toward
+    // the user's tuned genre preference, same signal (and same priority
+    // over passive history) getRecommended already applies below, so
+    // "Popular Right Now" reacts to a genre change too, not just "Made For You".
+    if (userId && (!languages || languages.length === 0) && (!artists || artists.length === 0)) {
+      try {
+        const genreRows = await prisma.genreAffinity.findMany({
+          where: { userId },
+          orderBy: { score: 'desc' },
+        });
+        if (genreRows.length > 0) {
+          const genreTracks = await this.saavn.getRecommendationsByGenres(
+            genreRows.map((g: any) => g.genre),
+            24
+          );
+          if (genreTracks.length > 0) {
+            return this.populateLikes(genreTracks, userId);
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to bias trending by genre preference — falling back to unbiased trending:', error);
+      }
+    }
+
     const tracks = await this.saavn.getTrendingTracks(languages, artists);
     return this.populateLikes(tracks, userId);
   }
@@ -51,6 +75,24 @@ export class MusicService {
   public static async getRecommended(userId?: string): Promise<any[]> {
     if (userId) {
       try {
+        // Explicit favourite genres (set in Settings) are the strongest signal a
+        // user can give — stronger than passive likes/history, which a brand-new
+        // or preference-only user won't have yet. Check this first so saving a
+        // genre preference visibly changes "Made For You" right away.
+        const genreRows = await prisma.genreAffinity.findMany({
+          where: { userId },
+          orderBy: { score: 'desc' },
+        });
+        if (genreRows.length > 0) {
+          const genreTracks = await this.saavn.getRecommendationsByGenres(
+            genreRows.map((g: any) => g.genre),
+            20
+          );
+          if (genreTracks.length > 0) {
+            return this.populateLikes(genreTracks, userId);
+          }
+        }
+
         // 1. Get user's liked tracks, history, and followed artists in parallel
         const [likes, history, followed] = await Promise.all([
           prisma.likedTrack.findMany({
@@ -144,7 +186,11 @@ export class MusicService {
 
   public static async getAlbum(id: string, userId?: string): Promise<any> {
     const album = await this.saavn.getAlbum(id);
-    if (!album) {
+    // JioSaavn occasionally resolves a valid-looking id to a blank/malformed
+    // catalog entry (empty title/artist, an unrelated placeholder track)
+    // instead of a genuine 404 — treat that the same as not-found rather
+    // than handing the frontend a "successful" response with garbage data.
+    if (!album || (!album.id && !album.title && !album.artist?.name)) {
       throw ApiError.notFound(ERROR_MESSAGES.ALBUM_NOT_FOUND);
     }
     if (album.tracks && album.tracks.length > 0) {
@@ -256,7 +302,21 @@ export class MusicService {
     return this.saavn.getCategories();
   }
 
-  public static async getMoodPlaylists(mood: string): Promise<any[]> {
+  public static async getMoodPlaylists(mood: string, userId?: string): Promise<any[]> {
+    if (userId) {
+      try {
+        const topGenre = await prisma.genreAffinity.findFirst({
+          where: { userId },
+          orderBy: { score: 'desc' },
+        });
+        if (topGenre) {
+          const biased = await this.saavn.getMoodPlaylists(`${topGenre.genre} ${mood}`);
+          if (biased.length > 0) return biased;
+        }
+      } catch (error) {
+        logger.error('Failed to bias mood playlists by genre preference — falling back to unbiased mood search:', error);
+      }
+    }
     return this.saavn.getMoodPlaylists(mood);
   }
 

@@ -15,4 +15,8 @@ process.env.CSRF_SECRET = 'test-csrf-secret';
 process.env.RATE_LIMIT_MAX = '10000';
 process.env.AUTH_RATE_LIMIT_MAX = '10000';
 process.env.SWAGGER_ENABLED = 'false';
-process.env.GEMINI_API_KEY = 'test-gemini-key-not-for-real-use';
+// Explicitly unset (not just "not set here") so dotenv.config() in
+// src/config/env.ts can't backfill these from a developer's real .env —
+// tests must never hit a real Upstash instance.
+process.env.UPSTASH_REDIS_REST_URL = '';
+process.env.UPSTASH_REDIS_REST_TOKEN = '';

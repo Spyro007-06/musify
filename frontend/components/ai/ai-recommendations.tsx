@@ -208,8 +208,8 @@ export function AiRecommendations({ className }: { className?: string }) {
           ))}
         </div>
       ) : isError ? (
-        <div role="alert" className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 text-center">
-          <p className="text-sm text-red-400 mb-3">
+        <div role="alert" className="rounded-2xl border border-danger-500/20 bg-danger-950/10 p-6 text-center">
+          <p className="text-sm text-danger-400 mb-3">
             {error?.message || 'Unable to retrieve AI recommendations right now.'}
           </p>
           <button
@@ -282,7 +282,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
       <div>
         {/* Match & Reason header */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-[11px] font-bold text-brand-400 border border-brand-500/20">
             {matchPercentage}% Match
           </span>
           <span className="text-[11px] text-neutral-400 truncate max-w-[150px]">

@@ -8,6 +8,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { CreatePlaylistModal } from './create-playlist-modal';
 import { Track } from '@/types/track';
 import { cn } from '@/lib/utils/cn';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export interface AddToPlaylistModalProps {
   isOpen: boolean;
@@ -137,7 +138,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
 
           {/* Error Message */}
           {errorMessage && (
-            <div role="alert" className="mb-3 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-300">
+            <div role="alert" className="mb-3 rounded-lg bg-danger-500/10 border border-danger-500/20 p-2.5 text-xs text-danger-300">
               {errorMessage}
             </div>
           )}
@@ -146,7 +147,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="w-full mb-3 flex items-center gap-3 rounded-xl border border-dashed border-neutral-700 bg-neutral-950/40 p-3 text-xs font-semibold text-neutral-300 hover:border-emerald-500/50 hover:bg-emerald-950/20 hover:text-emerald-400 transition-all"
+            className="w-full mb-3 flex items-center gap-3 rounded-xl border border-dashed border-neutral-700 bg-neutral-950/40 p-3 text-xs font-semibold text-neutral-300 hover:border-brand-500/50 hover:bg-brand-950/20 hover:text-brand-400 transition-all"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white">
               <Plus className="h-4 w-4" />
@@ -184,7 +185,7 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
                     className={cn(
                       'w-full flex items-center justify-between rounded-xl p-2.5 text-left transition-all',
                       isSuccess
-                        ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                        ? 'bg-brand-500/20 border border-brand-500/40 text-brand-300'
                         : isSelected
                         ? 'bg-neutral-800 text-white'
                         : 'hover:bg-white/5 text-neutral-300 hover:text-white'
@@ -206,14 +207,14 @@ export function AddToPlaylistModal({ isOpen, onClose, track }: AddToPlaylistModa
                           {playlist.title}
                         </p>
                         <p className="text-[11px] text-neutral-400">
-                          {playlist.tracksCount ?? 0} tracks
+                          {pluralize(playlist.tracksCount ?? 0, 'track')}
                         </p>
                       </div>
                     </div>
 
                     <div className="shrink-0">
                       {isSuccess ? (
-                        <Check className="h-4 w-4 text-emerald-400" />
+                        <Check className="h-4 w-4 text-brand-400" />
                       ) : isSelected && addTrackMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
                       ) : (

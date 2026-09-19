@@ -6,20 +6,25 @@ import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
 import { AuthenticatedRequest } from '@/types/express';
 
+const SESSION_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function setSessionCookie(res: Response, refreshToken: string): void {
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: SESSION_COOKIE_MAX_AGE,
+  });
+}
+
 export class AuthController {
   public static async signup(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const validatedData = signupSchema.parse(req.body);
       const result = await AuthService.signup(validatedData);
 
-      // Set Supabase refresh token as an HTTP-only cookie for the frontend
       if (result.session?.refresh_token) {
-        res.cookie('refreshToken', result.session.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        });
+        setSessionCookie(res, result.session.refresh_token);
       }
 
       sendSuccess({
@@ -45,12 +50,7 @@ export class AuthController {
       const result = await AuthService.login(emailOrUsername, password);
 
       if (result.session?.refresh_token) {
-        res.cookie('refreshToken', result.session.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        setSessionCookie(res, result.session.refresh_token);
       }
 
       sendSuccess({
@@ -103,12 +103,7 @@ export class AuthController {
       const result = await AuthService.refresh(refreshToken);
 
       if (result.session?.refresh_token) {
-        res.cookie('refreshToken', result.session.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        setSessionCookie(res, result.session.refresh_token);
       }
 
       sendSuccess({

@@ -57,7 +57,7 @@ export function QueuePanel() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 p-4 sm:p-5">
           <div className="flex items-center gap-2.5">
-            <ListMusic className="h-5 w-5 text-emerald-400" />
+            <ListMusic className="h-5 w-5 text-brand-400" />
             <h3 className="text-lg font-bold text-white">Play Queue</h3>
             <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
               {queue.length}
@@ -69,7 +69,7 @@ export function QueuePanel() {
                 type="button"
                 onClick={clearQueue}
                 aria-label="Clear upcoming queue"
-                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-neutral-400 hover:text-danger-400 hover:bg-danger-500/10 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 <span>Clear</span>
@@ -94,7 +94,7 @@ export function QueuePanel() {
               <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
                 Now Playing
               </span>
-              <div className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-emerald-500/20 shadow-md">
+              <div className="flex items-center justify-between rounded-xl bg-neutral-900/80 p-3 border border-brand-500/20 shadow-md">
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-neutral-800">
                     <ImageWithFallback
@@ -106,7 +106,7 @@ export function QueuePanel() {
                     />
                   </div>
                   <div className="overflow-hidden">
-                    <p className="truncate text-sm font-semibold text-emerald-400">
+                    <p className="truncate text-sm font-semibold text-brand-400">
                       {currentTrack.title}
                     </p>
                     <p className="truncate text-xs text-neutral-400">
@@ -161,7 +161,7 @@ export function QueuePanel() {
                           />
                         </div>
                         <div className="overflow-hidden">
-                          <p className="truncate text-xs font-medium text-white group-hover:text-emerald-400 transition-colors">
+                          <p className="truncate text-xs font-medium text-white group-hover:text-brand-400 transition-colors">
                             {track.title}
                           </p>
                           <p className="truncate text-[11px] text-neutral-400">
@@ -181,7 +181,7 @@ export function QueuePanel() {
                             removeFromQueue(track.id);
                           }}
                           aria-label={`Remove ${track.title} from queue`}
-                          className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                          className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>

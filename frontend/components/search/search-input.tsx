@@ -146,7 +146,7 @@ export function SearchInput({
           className={cn(
             'h-12 sm:h-14 w-full rounded-full bg-neutral-900/90 pl-12 pr-12 text-sm sm:text-base text-white',
             'border border-neutral-800 placeholder:text-neutral-500 shadow-xl backdrop-blur-md transition-all duration-200',
-            'focus:border-emerald-500 focus:bg-neutral-900 focus:outline-none focus:ring-1 focus:ring-emerald-500',
+            'focus:border-brand-500 focus:bg-neutral-900 focus:outline-none focus:ring-1 focus:ring-brand-500',
             hasSuggestions && 'rounded-b-2xl'
           )}
         />
@@ -189,11 +189,11 @@ export function SearchInput({
                 className={cn(
                   'flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer transition-colors',
                   isSelected
-                    ? 'bg-white/10 text-emerald-400 font-medium'
+                    ? 'bg-white/10 text-brand-400 font-medium'
                     : 'text-neutral-300 hover:bg-white/5 hover:text-white'
                 )}
               >
-                <Search className={cn('h-4 w-4 shrink-0', isSelected ? 'text-emerald-400' : 'text-neutral-500')} />
+                <Search className={cn('h-4 w-4 shrink-0', isSelected ? 'text-brand-400' : 'text-neutral-500')} />
                 <span className="truncate">{item}</span>
               </li>
             );

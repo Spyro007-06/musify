@@ -26,10 +26,11 @@
     "seed:loadtest": "ts-node -r tsconfig-paths/register src/scripts/seedLoadTestData.ts"
   },
   "dependencies": {
-    "@google/genai": "^2.23.0",
     "@prisma/client": "^5.22.0",
     "@sentry/node": "^10.74.0",
     "@supabase/supabase-js": "^2.44.4",
+    "@upstash/ratelimit": "^2.1.0",
+    "@upstash/redis": "^1.38.4",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",

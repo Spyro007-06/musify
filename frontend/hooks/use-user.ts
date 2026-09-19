@@ -96,6 +96,7 @@ export function useUpdatePreferences() {
       // Targeted invalidation of recommendation caches that depend on user preferences
       queryClient.invalidateQueries({ queryKey: ['music', 'recommended'] });
       queryClient.invalidateQueries({ queryKey: ['music', 'trending'] });
+      queryClient.invalidateQueries({ queryKey: ['music', 'mood'] });
       queryClient.invalidateQueries({ queryKey: ['recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['ai', 'recommendations'] });
     },

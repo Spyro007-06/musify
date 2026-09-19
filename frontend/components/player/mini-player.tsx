@@ -108,7 +108,7 @@ export function MiniPlayer() {
               aria-label={isLiked ? 'Unlike' : 'Like'}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 hover:text-white',
-                isLiked && 'text-emerald-400'
+                isLiked && 'text-brand-400'
               )}
             >
               <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
@@ -179,7 +179,7 @@ export function MiniPlayer() {
                 aria-label={isLiked ? 'Unlike' : 'Like'}
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors',
-                  isLiked && 'text-emerald-400 hover:text-emerald-300'
+                  isLiked && 'text-brand-400 hover:text-brand-300'
                 )}
               >
                 <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
@@ -213,15 +213,15 @@ export function MiniPlayer() {
             aria-label="Toggle Play Queue"
             aria-expanded={isQueueOpen}
             className={cn(
-              'relative flex h-8 w-8 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500',
+              'relative flex h-8 w-8 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
               isQueueOpen
-                ? 'text-emerald-400 bg-emerald-500/10'
+                ? 'text-brand-400 bg-brand-500/10'
                 : 'text-neutral-400 hover:text-white hover:bg-white/5'
             )}
           >
             <ListMusic className="h-4 w-4" />
             {queue.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-black">
+              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand-500 text-[9px] font-bold text-black">
                 {queue.length > 99 ? '99+' : queue.length}
               </span>
             )}
@@ -236,7 +236,7 @@ export function MiniPlayer() {
             onClick={openExpanded}
             disabled={!currentTrack}
             aria-label="Expand Player View"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
           >
             <Maximize2 className="h-4 w-4" />
           </button>

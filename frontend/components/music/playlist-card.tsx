@@ -55,7 +55,7 @@ export function PlaylistCard({ playlist, onPlay, className }: PlaylistCardProps)
             aria-label={`Play ${playlist.title}`}
             className={cn(
               'absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full',
-              'bg-emerald-500 text-black shadow-lg shadow-emerald-950/60',
+              'bg-brand-500 text-black shadow-lg shadow-brand-950/60',
               'opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0',
               'hover:scale-105 active:scale-95 transition-all duration-300 z-10'
             )}
@@ -67,7 +67,7 @@ export function PlaylistCard({ playlist, onPlay, className }: PlaylistCardProps)
 
       {/* Playlist info */}
       <div className="mt-3 min-w-0">
-        <h4 className="truncate text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+        <h4 className="truncate text-sm font-semibold text-white group-hover:text-brand-400 transition-colors">
           {playlist.title}
         </h4>
         <p className="mt-0.5 truncate text-xs text-neutral-400 group-hover:text-neutral-300 transition-colors">

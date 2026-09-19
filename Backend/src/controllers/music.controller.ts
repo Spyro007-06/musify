@@ -188,7 +188,8 @@ export class MusicController {
 
   public static async getMoodPlaylists(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const playlists = await MusicService.getMoodPlaylists(req.params.mood);
+      const optReq = req as OptionalAuthRequest;
+      const playlists = await MusicService.getMoodPlaylists(req.params.mood, optReq.user?.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,

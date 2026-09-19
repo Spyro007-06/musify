@@ -94,7 +94,7 @@ export function AlbumHero({ album }: AlbumHeroProps) {
       return (
         <Link
           href={`/artists/${artistId}`}
-          className="font-semibold text-white hover:text-emerald-400 hover:underline transition-colors"
+          className="font-semibold text-white hover:text-brand-400 hover:underline transition-colors"
         >
           {artistName}
         </Link>
@@ -204,7 +204,7 @@ export function AlbumHero({ album }: AlbumHeroProps) {
                 className={cn(
                   'flex h-12 sm:h-14 items-center gap-2.5 px-6 sm:px-8 rounded-full font-bold text-sm sm:text-base transition-all duration-200 shadow-lg select-none',
                   hasTracks
-                    ? 'bg-emerald-500 text-black hover:bg-emerald-400 hover:scale-105 active:scale-95 shadow-emerald-950/50'
+                    ? 'bg-brand-500 text-black hover:bg-brand-400 hover:scale-105 active:scale-95 shadow-brand-950/50'
                     : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                 )}
               >
@@ -244,7 +244,7 @@ export function AlbumHero({ album }: AlbumHeroProps) {
               >
                 <Share2 className="h-5 w-5" />
                 {copied && (
-                  <span className="absolute -top-8 px-2 py-0.5 rounded bg-emerald-500 text-[10px] font-bold text-black shadow animate-in fade-in zoom-in duration-150">
+                  <span className="absolute -top-8 px-2 py-0.5 rounded bg-brand-500 text-[10px] font-bold text-black shadow animate-in fade-in zoom-in duration-150">
                     Copied!
                   </span>
                 )}

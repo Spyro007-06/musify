@@ -26,7 +26,6 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/playlists/')) return 'Playlist';
   if (pathname === '/ai') return 'AI Studio';
   if (pathname === '/ai/playlist') return 'AI Playlist Generator';
-  if (pathname === '/ai/lyrics') return 'Lyrics Analysis';
   if (pathname === '/profile') return 'Your Profile';
   if (pathname === '/settings') return 'Settings';
   return 'MUSIFY';
@@ -42,7 +41,7 @@ export function Topbar({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-neutral-800 bg-black/80 px-4 md:px-6 backdrop-blur-md',
+        'sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-neutral-800 bg-surface/90 px-4 md:px-6 backdrop-blur-md',
         className
       )}
     >
@@ -57,9 +56,9 @@ export function Topbar({ className }: { className?: string }) {
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="text-base md:text-lg font-bold text-white tracking-tight">
+        <p className="text-base md:text-lg font-bold text-white tracking-tight">
           {title}
-        </h1>
+        </p>
       </div>
 
       {/* Center: Search entry link (hidden on small mobile screens if on search page) */}
@@ -67,7 +66,7 @@ export function Topbar({ className }: { className?: string }) {
         <Link
           href="/search"
           aria-label="Go to search"
-          className="flex items-center gap-2.5 w-full rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-1.5 text-xs text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200"
+          className="flex items-center gap-2.5 w-full rounded-full border border-neutral-800 bg-neutral-900/90 px-3.5 py-2 text-sm text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200"
         >
           <Search className="h-4 w-4 shrink-0 text-neutral-500" />
           <span className="truncate">Search songs, artists, albums...</span>
@@ -88,7 +87,7 @@ export function Topbar({ className }: { className?: string }) {
             </Link>
             <Link
               href={`/signup?redirect=${encodeURIComponent(pathname)}`}
-              className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors"
+              className="rounded-full bg-brand-400 px-4 py-1.5 text-xs font-semibold text-black hover:bg-brand-300 transition-colors"
             >
               Sign up
             </Link>

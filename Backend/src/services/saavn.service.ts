@@ -2,6 +2,7 @@ import { SearchService, SongService, DiscoverService, ArtistService, AlbumServic
 import { logger } from '@utils/logger';
 import { resilientCall } from '@utils/resilience';
 import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
+import { withCache } from '@utils/cache';
 
 /**
  * Per-operation circuit breakers, so a burst of failures in one feature
@@ -46,7 +47,11 @@ async function allOrThrow<T>(promises: Promise<T>[], errorMessage: string): Prom
 }
 
 function unescapeHtml(str: string): string {
-  if (!str) return str;
+  // JioSaavn returns non-string values (arrays/objects) for some fields —
+  // e.g. artist.bio — on a truthy-but-not-a-string input this used to throw
+  // TypeError: str.replace is not a function, which got reported to users as
+  // "Music catalog is temporarily unavailable" (see mapArtist below).
+  if (!str || typeof str !== 'string') return '';
   return str
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, '&')
@@ -63,6 +68,51 @@ function unescapeHtml(str: string): string {
     .replace(/&mdash;/g, '—')
     .replace(/&#x27;/g, "'")
     .replace(/&#x2F;/g, '/');
+}
+
+/**
+ * JioSaavn's search results occasionally contain the exact same track twice
+ * under different ids (seen live: three identical "Raga of Revenge /
+ * Anirudh Ravichander / 2:11" rows for one search). Dedupe by id first (the
+ * common case), then by a normalized title+artist+duration signature so a
+ * different-id-but-identical-content duplicate doesn't slip through either.
+ */
+// JioSaavn often re-indexes the same song under a second catalog id with a
+// "(From "Movie Name")"/"(Original Motion Picture Soundtrack)" suffix and/or
+// the artist list in a different order. Strip that suffix and sort the
+// artist set before comparing, so "Tum Hi Ho (From "Aashiqui 2")" by
+// "Arijit Singh, Mithoon" collides with the same song credited "Mithoon,
+// Arijit Singh" — duration is still required to match, so a genuinely
+// different version (a remix, a different film's title track) stays distinct.
+function normalizeTrackTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\s*[[(](from\s+"[^"]*"|original\s+motion\s+picture\s+soundtrack)[)\]]\s*/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function dedupeById<T extends { id?: string; title?: string; duration?: number; artists?: { name: string }[] } | null>(
+  items: T[]
+): NonNullable<T>[] {
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+  return items.filter((item): item is NonNullable<T> => {
+    if (!item) return false;
+    if (item.id) {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+    }
+    const artistSet = (item.artists || [])
+      .map((a) => a.name?.toLowerCase().trim())
+      .filter(Boolean)
+      .sort()
+      .join(',');
+    const signature = `${normalizeTrackTitle(item.title || '')}|${artistSet}|${item.duration || ''}`;
+    if (seenSignatures.has(signature)) return false;
+    seenSignatures.add(signature);
+    return true;
+  });
 }
 
 export class SaavnService {
@@ -158,7 +208,7 @@ export class SaavnService {
       tracksCount: item.songCount ? Number(item.songCount) : 0,
       type: item.type || 'album',
       genre: item.language || undefined,
-      tracks: item.songs?.map((t: any) => this.mapTrack(t)).filter(Boolean) || []
+      tracks: item.songs ? dedupeById(item.songs.map((t: any) => this.mapTrack(t))) : []
     };
   }
 
@@ -180,13 +230,18 @@ export class SaavnService {
       followers: isNaN(followers) ? 0 : followers,
       isVerified: item.isVerified || false,
       genres: item.dominantLanguage ? [item.dominantLanguage] : [],
-      bio: item.bio ? unescapeHtml(item.bio) : `Official profile of ${name} on Musify.`
+      bio: typeof item.bio === 'string' && item.bio ? unescapeHtml(item.bio) : `Official profile of ${name} on Musify.`
     };
   }
 
   // ─── Public API ───────────────────────────────────────────────────────────
 
   public async getTrendingTracks(languages?: string[], artists?: string[]): Promise<any[]> {
+    const cacheKey = `saavn:trending:${(languages || []).sort().join(',')}:${(artists || []).sort().join(',')}`;
+    return withCache(cacheKey, 300, () => this.getTrendingTracksUncached(languages, artists));
+  }
+
+  private async getTrendingTracksUncached(languages?: string[], artists?: string[]): Promise<any[]> {
     if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
       const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
       const artistQueries = (artists || []).slice(0, 3);
@@ -198,20 +253,18 @@ export class SaavnService {
       );
       const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
 
-      const tracks: any[] = [];
-        const seen = new Set<string>();
+      const rawTracks: any[] = [];
 
         results.forEach(res => {
           if (res.results) {
             res.results.forEach((song: any) => {
               const mapped = this.mapTrack(song);
-              if (mapped && !seen.has(mapped.id)) {
-                seen.add(mapped.id);
-                tracks.push(mapped);
-              }
+              if (mapped) rawTracks.push(mapped);
             });
           }
         });
+
+        const tracks = dedupeById(rawTracks);
 
         // Strict Filter: Must match selected languages and selected artists
         const filteredTracks = tracks.filter(track => {
@@ -245,7 +298,7 @@ export class SaavnService {
           this.playlistService.getPlaylistById({ id: firstChart.id, page: 0, limit: 20 })
         );
         if (playlist && playlist.songs) {
-          return playlist.songs.map((s: any) => this.mapTrack(s)).filter(Boolean);
+          return dedupeById(playlist.songs.map((s: any) => this.mapTrack(s)));
         }
       }
       return [];
@@ -256,6 +309,11 @@ export class SaavnService {
   }
 
   public async getNewReleases(languages?: string[], artists?: string[]): Promise<any[]> {
+    const cacheKey = `saavn:new-releases:${(languages || []).sort().join(',')}:${(artists || []).sort().join(',')}`;
+    return withCache(cacheKey, 600, () => this.getNewReleasesUncached(languages, artists));
+  }
+
+  private async getNewReleasesUncached(languages?: string[], artists?: string[]): Promise<any[]> {
     if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
       const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
       const artistQueries = (artists || []).slice(0, 3);
@@ -327,7 +385,7 @@ export class SaavnService {
     try {
       const query = genres.join(' ');
       const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit }));
-      return results.results ? results.results.map((s: any) => this.mapTrack(s)).filter(Boolean) : [];
+      return results.results ? dedupeById(results.results.map((s: any) => this.mapTrack(s))) : [];
     } catch (error) {
       logger.error('❌ JioSaavn recommendations by genres failed:', error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
@@ -418,7 +476,7 @@ export class SaavnService {
           sortOrder: 'desc'
         })
       );
-      return artist.topSongs ? artist.topSongs.map((s: any) => this.mapTrack(s)).filter(Boolean) : [];
+      return artist.topSongs ? dedupeById(artist.topSongs.map((s: any) => this.mapTrack(s))) : [];
     } catch (error) {
       logger.error(`❌ JioSaavn getArtistTopTracks failed for ID ${id}:`, error);
       throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
@@ -516,10 +574,10 @@ export class SaavnService {
     const value = <T,>(r: PromiseSettledResult<T>): T | undefined => (r.status === 'fulfilled' ? r.value : undefined);
 
     return {
-      tracks: value(tracksRes)?.results?.map((t: any) => this.mapTrack(t)).filter(Boolean) || [],
-      albums: value(albumsRes)?.results?.map((a: any) => this.mapAlbum(a)).filter(Boolean) || [],
-      artists: value(artistsRes)?.results?.map((a: any) => this.mapArtist(a)).filter(Boolean) || [],
-      playlists: value(playlistsRes)?.results?.map((p: any) => ({
+      tracks: dedupeById(value(tracksRes)?.results?.map((t: any) => this.mapTrack(t)) || []),
+      albums: dedupeById(value(albumsRes)?.results?.map((a: any) => this.mapAlbum(a)) || []),
+      artists: dedupeById(value(artistsRes)?.results?.map((a: any) => this.mapArtist(a)) || []),
+      playlists: dedupeById(value(playlistsRes)?.results?.map((p: any) => ({
         id: p.id,
         title: unescapeHtml(p.name || ''),
         description: unescapeHtml(p.subtitle || p.description || ''),
@@ -527,7 +585,7 @@ export class SaavnService {
         tracksCount: p.songCount ? Number(p.songCount) : 0,
         owner: 'JioSaavn',
         isPublic: true
-      })).filter(Boolean) || []
+      })) || [])
     };
   }
 
@@ -547,20 +605,18 @@ export class SaavnService {
       );
       const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
 
-      const tracks: any[] = [];
-      const seen = new Set<string>();
+      const rawTracks: any[] = [];
 
       results.forEach(res => {
         if (res.results) {
           res.results.forEach((item: any) => {
             const track = this.mapTrack(item);
-            if (track && !seen.has(track.id)) {
-              seen.add(track.id);
-              tracks.push(track);
-            }
+            if (track) rawTracks.push(track);
           });
         }
       });
+
+      const tracks = dedupeById(rawTracks);
 
       // Strict Filter: Must match selected languages and selected artists
       const filteredTracks = tracks.filter(track => {
@@ -596,7 +652,8 @@ export class SaavnService {
     if (!query.trim()) return [];
     try {
       const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
-      return results.results?.map((t: any) => t.name) || [];
+      const names = results.results?.map((t: any) => unescapeHtml(t.name)) || [];
+      return Array.from(new Set(names));
     } catch (error) {
       logger.error(`❌ JioSaavn getSuggestions failed for "${query}":`, error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);

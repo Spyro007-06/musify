@@ -18,7 +18,7 @@ const GRADIENTS: Record<string, string> = {
   punjabi: 'from-emerald-600 via-teal-900 to-black',
   tamil: 'from-rose-600 via-pink-900 to-black',
   english: 'from-blue-600 via-sky-900 to-black',
-  pop: 'from-purple-600 via-fuchsia-900 to-black',
+  pop: 'from-accent-600 via-fuchsia-900 to-black',
   rock: 'from-amber-600 via-orange-900 to-black',
   electronic: 'from-cyan-600 via-blue-900 to-black',
   hiphop: 'from-red-600 via-red-950 to-black',

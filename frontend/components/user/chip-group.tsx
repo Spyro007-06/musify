@@ -57,7 +57,7 @@ export function ChipGroup({
           )}
           {selected.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-purple-400">
+              <span className="text-[11px] font-medium text-accent-400">
                 {selected.length} selected
               </span>
               <button
@@ -85,7 +85,7 @@ export function ChipGroup({
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all select-none border',
                 isSelected
-                  ? 'bg-purple-600 border-purple-500 text-white shadow-sm shadow-purple-950/50 hover:bg-purple-500'
+                  ? 'bg-accent-600 border-accent-500 text-white shadow-sm shadow-accent-950/50 hover:bg-accent-500'
                   : 'bg-neutral-900/90 border-white/10 text-neutral-300 hover:bg-neutral-800 hover:text-white'
               )}
             >

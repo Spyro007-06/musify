@@ -7,6 +7,7 @@ import { usePlaylists } from '@/hooks/use-playlists';
 import { PlaylistCard } from '@/components/music/playlist-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreatePlaylistModal } from '@/components/playlist/create-playlist-modal';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export default function PlaylistsPage() {
   const { data: playlists, isLoading, isError, error, refetch } = usePlaylists();
@@ -42,7 +43,7 @@ export default function PlaylistsPage() {
         <button
           type="button"
           onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-black hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-950/40 shrink-0 self-start sm:self-auto"
+          className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-black hover:bg-brand-400 active:scale-95 transition-all shadow-lg shadow-brand-950/40 shrink-0 self-start sm:self-auto"
         >
           <Plus className="h-4 w-4" />
           <span>Create Playlist</span>
@@ -69,8 +70,8 @@ export default function PlaylistsPage() {
 
       {/* 3. Error State */}
       {isError && (
-        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center">
-          <AlertCircle className="h-10 w-10 text-rose-400 mb-3" />
+        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center">
+          <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
           <h3 className="text-base font-semibold text-white">Failed to load playlists</h3>
           <p className="mt-1 text-xs text-neutral-400 max-w-sm">
             {error?.message || 'A network error occurred while retrieving your playlists.'}
@@ -100,7 +101,7 @@ export default function PlaylistsPage() {
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-xs sm:text-sm font-semibold text-black hover:bg-emerald-400 transition-colors shadow-lg"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-xs sm:text-sm font-semibold text-black hover:bg-brand-400 transition-colors shadow-lg"
             >
               <Plus className="h-4 w-4" />
               <span>Create Playlist</span>
@@ -121,7 +122,7 @@ export default function PlaylistsPage() {
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white tracking-tight">Personal Playlists</h2>
-            <span className="text-xs text-neutral-500">{customPlaylists.length} playlists</span>
+            <span className="text-xs text-neutral-500">{pluralize(customPlaylists.length, 'playlist')}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {customPlaylists.map((playlist) => (
@@ -138,13 +139,13 @@ export default function PlaylistsPage() {
             <div className="space-y-0.5">
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
                 <span>Soundtracks & Curations</span>
-                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                <Sparkles className="h-3.5 w-3.5 text-brand-400" />
               </h2>
               <p className="text-xs text-neutral-400">
                 Movie sound collections automatically compiled from your listening history
               </p>
             </div>
-            <span className="text-xs text-neutral-500">{soundtrackPlaylists.length} albums</span>
+            <span className="text-xs text-neutral-500">{pluralize(soundtrackPlaylists.length, 'album')}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {soundtrackPlaylists.map((playlist) => (

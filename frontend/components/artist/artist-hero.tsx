@@ -103,7 +103,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
             />
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/40 via-neutral-900/60 to-neutral-950" />
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-950/40 via-neutral-900/60 to-neutral-950" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-neutral-950/70 to-neutral-950" />
       </div>
@@ -126,7 +126,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
             {artist.isVerified && (
               <div
                 title="Verified Artist"
-                className="absolute bottom-1 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-black shadow-lg ring-4 ring-neutral-950"
+                className="absolute bottom-1 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg ring-4 ring-neutral-950"
               >
                 <Check className="h-5 w-5 stroke-[3]" />
               </div>
@@ -138,7 +138,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
             {/* Verified Pill / Subtitle */}
             <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
               {artist.isVerified ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Verified Artist
                 </span>
@@ -186,7 +186,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
                   aria-label={isCurrentArtistPlaying ? 'Pause' : 'Play all top tracks'}
                   className={cn(
                     'flex h-12 sm:h-14 items-center gap-2.5 px-6 sm:px-8 rounded-full font-bold text-sm sm:text-base transition-all duration-200 shadow-lg select-none',
-                    'bg-emerald-500 text-black hover:bg-emerald-400 hover:scale-105 active:scale-95 shadow-emerald-950/50'
+                    'bg-brand-500 text-black hover:bg-brand-400 hover:scale-105 active:scale-95 shadow-brand-950/50'
                   )}
                 >
                   {isCurrentArtistPlaying ? (
@@ -221,7 +221,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : isFollowing ? (
                   <>
-                    <Check className="h-4 w-4 text-emerald-400" />
+                    <Check className="h-4 w-4 text-brand-400" />
                     <span>Following</span>
                   </>
                 ) : (
@@ -253,7 +253,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
               >
                 <Share2 className="h-5 w-5" />
                 {copied && (
-                  <span className="absolute -top-8 px-2 py-0.5 rounded bg-emerald-500 text-[10px] font-bold text-black shadow animate-in fade-in zoom-in duration-150">
+                  <span className="absolute -top-8 px-2 py-0.5 rounded bg-brand-500 text-[10px] font-bold text-black shadow animate-in fade-in zoom-in duration-150">
                     Copied!
                   </span>
                 )}

@@ -39,9 +39,9 @@ export const musicApi = {
   },
 
   getMood: async (mood: string): Promise<ApiResponse<Playlist[]>> => {
-    return apiClient.get<Playlist[]>(`/music/mood/${encodeURIComponent(mood)}`, {
-      requiresAuth: false,
-    });
+    // Sends the auth token (when present) so the backend can bias results
+    // toward the user's tuned genre preference; still works logged-out.
+    return apiClient.get<Playlist[]>(`/music/mood/${encodeURIComponent(mood)}`);
   },
 
   getTrack: async (id: string): Promise<ApiResponse<Track>> => {

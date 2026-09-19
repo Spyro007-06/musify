@@ -97,7 +97,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/search"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 text-black font-semibold text-sm hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-950/40"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-500 text-black font-semibold text-sm hover:bg-brand-400 transition-colors shadow-lg shadow-brand-950/40"
           >
             <Search className="h-4 w-4" />
             Search Artists
@@ -118,7 +118,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
   if (isArtistError || !artist) {
     return (
       <div role="alert" className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 text-red-400 border border-red-500/20 mb-6">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-danger-500/10 text-danger-400 border border-danger-500/20 mb-6">
           <AlertCircle className="h-10 w-10" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
@@ -202,7 +202,7 @@ export default function ArtistPage({ params }: ArtistPageProps) {
               <TrackRow
                 key={track.id}
                 track={track}
-                index={idx + 1}
+                index={idx}
                 onPlay={handlePlayTrack}
                 showAlbum
               />

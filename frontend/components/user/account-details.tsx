@@ -51,7 +51,7 @@ export function AccountDetails({ user, className }: AccountDetailsProps) {
       )}
     >
       <div className="border-b border-white/5 pb-4">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400 mb-1">
           <Shield className="h-3.5 w-3.5" />
           Account & Security Overview
         </div>
@@ -95,11 +95,11 @@ export function AccountDetails({ user, className }: AccountDetailsProps) {
             <button
               type="button"
               onClick={handleCopyId}
-              className="inline-flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
+              className="inline-flex items-center gap-1 text-[11px] text-accent-400 hover:text-accent-300 transition-colors"
             >
               {copiedId ? (
                 <>
-                  <Check className="h-3 w-3 text-emerald-400" />
+                  <Check className="h-3 w-3 text-brand-400" />
                   Copied
                 </>
               ) : (
@@ -165,7 +165,7 @@ export function AccountDetails({ user, className }: AccountDetailsProps) {
 
       {/* Honest notice on credentials & external authentication */}
       <div className="flex items-start gap-3 rounded-xl bg-neutral-950/60 p-4 border border-white/5 text-xs text-neutral-400">
-        <Info className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+        <Info className="h-4 w-4 text-accent-400 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <p className="font-semibold text-neutral-300">Security & Credentials Management</p>
           <p className="leading-relaxed">

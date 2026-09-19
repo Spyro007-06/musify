@@ -9,7 +9,6 @@ import {
   ListMusic,
   Sparkles,
   Wand2,
-  FileText,
   LucideIcon,
 } from 'lucide-react';
 import { ROUTES } from './routes';
@@ -106,14 +105,6 @@ export const AI_NAV_ITEMS: NavItem[] = [
     title: 'AI Playlist',
     href: ROUTES.APP.AI.PLAYLIST,
     icon: Wand2,
-    exact: true,
-    requiresAuth: true,
-    section: 'ai',
-  },
-  {
-    title: 'Lyrics & Vibes',
-    href: ROUTES.APP.AI.LYRICS,
-    icon: FileText,
     exact: true,
     requiresAuth: true,
     section: 'ai',

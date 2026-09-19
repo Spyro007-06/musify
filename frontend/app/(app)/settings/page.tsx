@@ -53,8 +53,8 @@ function SettingsContent() {
 
   if (isError && !displayUser) {
     return (
-      <div role="alert" className="max-w-md mx-auto my-16 rounded-2xl border border-red-500/20 bg-red-950/10 p-8 text-center space-y-4">
-        <AlertCircle className="h-10 w-10 text-red-400 mx-auto" />
+      <div role="alert" className="max-w-md mx-auto my-16 rounded-2xl border border-danger-500/20 bg-danger-950/10 p-8 text-center space-y-4">
+        <AlertCircle className="h-10 w-10 text-danger-400 mx-auto" />
         <h2 className="text-lg font-bold text-white">Could not load settings</h2>
         <p className="text-xs text-neutral-400">
           There was a problem retrieving your user information.
@@ -112,7 +112,7 @@ function SettingsContent() {
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition-all text-left select-none',
                     isActive
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-950/50'
+                      ? 'bg-accent-600 text-white shadow-md shadow-accent-950/50'
                       : 'text-neutral-400 hover:text-white hover:bg-white/5'
                   )}
                 >

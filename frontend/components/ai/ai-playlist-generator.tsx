@@ -16,6 +16,7 @@ import { useGenerateAIPlaylist } from '@/hooks/use-ai';
 import { useAuthStore } from '@/stores/auth-store';
 import { GenerateAIPlaylistResult } from '@/types/ai';
 import { cn } from '@/lib/utils/cn';
+import { pluralize } from '@/lib/utils/pluralize';
 
 const EXAMPLE_PROMPTS = [
   'Chill Hindi songs for late-night drives',
@@ -151,7 +152,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
 
         {/* Error notice */}
         {generateMutation.isError && (
-          <div role="alert" className="rounded-xl border border-red-500/20 bg-red-950/20 p-3 text-xs text-red-400">
+          <div role="alert" className="rounded-xl border border-danger-500/20 bg-danger-950/20 p-3 text-xs text-danger-400">
             {generateMutation.error?.message || 'Failed to generate playlist. Please verify your prompt and try again.'}
           </div>
         )}
@@ -198,14 +199,14 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
         <div className="pt-4 animate-in fade-in zoom-in-95 duration-200">
           {result.playlistId !== null ? (
             /* SUCCESS CASE: 201 Created with persisted playlist */
-            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-neutral-900 to-neutral-900 p-6 sm:p-8 space-y-4">
+            <div className="rounded-2xl border border-brand-500/30 bg-gradient-to-br from-brand-950/30 via-neutral-900 to-neutral-900 p-6 sm:p-8 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-500/20 text-brand-400 border border-brand-500/30 shrink-0">
                     <ListMusic className="h-6 w-6" />
                   </div>
                   <div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20 mb-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-[11px] font-bold text-brand-400 border border-brand-500/20 mb-1">
                       Playlist Created & Saved
                     </span>
                     <h3 className="text-xl font-bold text-white">
@@ -215,7 +216,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
                 </div>
 
                 <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-neutral-300 border border-white/10 shrink-0">
-                  {result.trackCount} tracks
+                  {pluralize(result.trackCount, 'track')}
                 </span>
               </div>
 
@@ -226,7 +227,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Link
                   href={`/playlists/${result.playlistId}`}
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-2.5 text-xs sm:text-sm font-bold text-black hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-emerald-950/60"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-2.5 text-xs sm:text-sm font-bold text-black hover:bg-brand-400 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-brand-950/60"
                 >
                   <span>Open Playlist</span>
                   <ArrowRight className="h-4 w-4" />

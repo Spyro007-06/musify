@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Brand } from '@/components/layout/brand';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/types/api';
@@ -46,7 +47,7 @@ function LoginForm() {
       );
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message);
+        setError(err.errors?.[0]?.message || err.message);
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -58,48 +59,52 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-sm rounded-xl border border-neutral-800 bg-neutral-900/80 p-6 shadow-2xl">
-      <h2 className="text-2xl font-bold mb-6 text-center text-white">Log in to MUSIFY</h2>
+    <div className="w-full max-w-sm rounded-2xl border border-neutral-800 bg-surface p-6 sm:p-8 shadow-2xl">
+      <Link href="/" aria-label="Musify home" className="mb-8 flex justify-center"><Brand /></Link>
+      <h1 className="mb-2 text-center text-3xl font-bold text-neutral-50">Welcome back.</h1>
+      <p className="mb-7 text-center text-sm text-neutral-400">Your next favorite track is waiting.</p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-md bg-red-950/80 border border-red-800 p-3 text-sm text-red-200">
+        <div role="alert" className="mb-4 rounded-md bg-danger-950/80 border border-danger-800 p-3 text-sm text-danger-200">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-neutral-400 mb-1">
+          <label htmlFor="login-identifier" className="block text-sm font-medium text-neutral-400 mb-1">
             Email or Username
           </label>
           <input
+            id="login-identifier"
             type="text"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             placeholder="Enter your email or username"
             disabled={isLoading}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-white disabled:opacity-50"
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-400 disabled:opacity-50"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-neutral-400 mb-1">
+          <label htmlFor="login-password" className="block text-sm font-medium text-neutral-400 mb-1">
             Password
           </label>
           <input
+            id="login-password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
             disabled={isLoading}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-white disabled:opacity-50"
+            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-400 disabled:opacity-50"
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading || !identifier.trim() || !password}
-          className="w-full rounded-full bg-white py-2.5 text-sm font-semibold text-black hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          className="w-full rounded-full bg-brand-400 py-3 text-sm font-semibold text-black hover:bg-brand-300 transition-colors disabled:opacity-50 disabled:pointer-events-none"
         >
           {isLoading ? 'Logging in...' : 'Log In'}
         </button>
@@ -120,7 +125,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4 text-white">
+    <div className="flex min-h-screen items-center justify-center auth-backdrop px-4 py-10 text-neutral-50">
       <Suspense fallback={<div className="text-neutral-500 text-sm">Loading...</div>}>
         <LoginForm />
       </Suspense>

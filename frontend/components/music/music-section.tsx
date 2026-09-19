@@ -95,7 +95,7 @@ export function MusicSection({
         {seeAllHref && (
           <Link
             href={seeAllHref}
-            className="group flex items-center gap-1 text-xs sm:text-sm font-semibold text-neutral-400 hover:text-emerald-400 transition-colors"
+            className="group flex items-center gap-1 text-xs sm:text-sm font-semibold text-neutral-400 hover:text-brand-400 transition-colors"
           >
             <span>See all</span>
             <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

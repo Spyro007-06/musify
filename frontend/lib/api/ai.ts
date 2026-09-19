@@ -1,8 +1,6 @@
 import { apiClient } from './client';
 import {
   AIRecommendationItem,
-  AnalyzeLyricsRequest,
-  LyricsAnalysis,
   GenerateAIPlaylistRequest,
   GenerateAIPlaylistResult,
 } from '@/types/ai';
@@ -15,12 +13,6 @@ export const aiApi = {
       requiresAuth: true,
     });
   },
-
-  analyzeLyrics: (data: AnalyzeLyricsRequest): Promise<ApiResponse<LyricsAnalysis>> =>
-    apiClient.post<LyricsAnalysis>('/ai/lyrics/analyze', data, {
-      requiresAuth: true,
-      requiresCsrf: true,
-    }),
 
   generateAIPlaylist: (
     data: GenerateAIPlaylistRequest
