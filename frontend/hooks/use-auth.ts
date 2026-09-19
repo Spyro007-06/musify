@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { authApi } from '@/lib/api/auth';
 import { LoginCredentials, SignupCredentials } from '@/types/auth';
+import { clearSessionMarker, markSessionActive } from '@/lib/auth/session-marker';
 
 export function useAuth() {
   const router = useRouter();
@@ -39,6 +40,7 @@ export function useAuth() {
     // 3. Set auth in store
     if (loggedUser && token) {
       setAuth(loggedUser, token);
+      markSessionActive();
     }
 
     // 4. Fetch full me profile if needed
@@ -82,6 +84,7 @@ export function useAuth() {
       }
 
       setAuth(signedUser, token);
+      markSessionActive();
 
       try {
         const meRes = await authApi.getCurrentUser();
@@ -109,6 +112,7 @@ export function useAuth() {
       // ignore
     } finally {
       storeLogout();
+      clearSessionMarker();
       queryClient.clear();
       router.push('/');
     }

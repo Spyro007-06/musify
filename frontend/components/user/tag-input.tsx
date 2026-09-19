@@ -78,19 +78,19 @@ export function TagInput({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-neutral-900/80 p-2.5 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/30 transition-all">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-neutral-900/80 p-2.5 focus-within:border-accent-500/50 focus-within:ring-1 focus-within:ring-accent-500/30 transition-all">
         {/* Render existing tags */}
         {tags.map((tag, idx) => (
           <span
             key={`${tag}-${idx}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-purple-950/60 border border-purple-500/30 px-2.5 py-1 text-xs font-medium text-purple-200"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-950/60 border border-accent-500/30 px-2.5 py-1 text-xs font-medium text-accent-200"
           >
             <span>{tag}</span>
             <button
               type="button"
               onClick={() => handleRemoveTag(idx)}
               aria-label={`Remove ${tag}`}
-              className="rounded-full p-0.5 text-purple-400 hover:bg-purple-800/50 hover:text-white transition-colors"
+              className="rounded-full p-0.5 text-accent-400 hover:bg-accent-800/50 hover:text-white transition-colors"
             >
               <X className="h-3 w-3" />
             </button>

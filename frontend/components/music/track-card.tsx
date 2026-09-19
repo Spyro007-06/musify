@@ -47,7 +47,7 @@ export function TrackCard({ track, onPlay, className }: TrackCardProps) {
         'group relative flex flex-col rounded-xl bg-neutral-900/40 p-3 border select-none',
         'cursor-pointer transition-all duration-300',
         isCurrentTrack
-          ? 'border-emerald-500/30 bg-neutral-850 shadow-lg shadow-black/40'
+          ? 'border-brand-500/30 bg-neutral-850 shadow-lg shadow-black/40'
           : 'border-white/5 hover:border-white/10 hover:bg-neutral-850 hover:shadow-xl hover:shadow-black/40',
         className
       )}
@@ -77,7 +77,7 @@ export function TrackCard({ track, onPlay, className }: TrackCardProps) {
           aria-label={isTrackPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
           className={cn(
             'absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full',
-            'bg-emerald-500 text-black shadow-lg shadow-emerald-950/60',
+            'bg-brand-500 text-black shadow-lg shadow-brand-950/60',
             'hover:scale-105 active:scale-95 transition-all duration-300 z-10',
             isCurrentTrack
               ? 'opacity-100 translate-y-0'
@@ -99,8 +99,8 @@ export function TrackCard({ track, onPlay, className }: TrackCardProps) {
             className={cn(
               'truncate text-sm font-semibold transition-colors',
               isCurrentTrack
-                ? 'text-emerald-400'
-                : 'text-white group-hover:text-emerald-400'
+                ? 'text-brand-400'
+                : 'text-white group-hover:text-brand-400'
             )}
           >
             {track.title}

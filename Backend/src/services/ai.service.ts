@@ -1,79 +1,8 @@
-import { GoogleGenAI, Type } from '@google/genai';
 import { prisma } from '@config/database';
-import { env } from '@config/env';
 import { SaavnService } from './saavn.service';
 import { ArtistService } from './artist.service';
 import { RecommendationService } from './recommendation.service';
-import { resilientCall } from '@utils/resilience';
-import { LLMUpstreamError } from '@utils/LLMUpstreamError';
 import slugify from 'slugify';
-
-// 'gemini-flash-latest' is Google's fast-tier alias (per @google/genai's
-// own published quickstart example) — auto-tracks the current recommended
-// fast model rather than a dated version string that goes stale. This is
-// an extraction/classification task, not one needing a frontier model.
-const GEMINI_MODEL = 'gemini-flash-latest';
-const GEMINI_BREAKER = 'gemini-lyrics-analysis';
-
-let geminiClient: GoogleGenAI | null = null;
-
-function getGeminiClient(): GoogleGenAI {
-  if (!env.GEMINI_API_KEY) {
-    throw new LLMUpstreamError('GEMINI_API_KEY is not configured — lyrics analysis is unavailable.');
-  }
-  if (!geminiClient) {
-    geminiClient = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  }
-  return geminiClient;
-}
-
-export interface LyricsAnalysis {
-  mood: string;
-  meaning: string;
-  trivia: string;
-}
-
-// Gemini's structured-output mode (responseMimeType + responseSchema)
-// constrains the model's output to valid JSON matching this schema at the
-// API level — a real Gemini feature, not just prompt instructions the way
-// Claude's implementation had to rely on.
-const LYRICS_ANALYSIS_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    mood: { type: Type.STRING },
-    meaning: { type: Type.STRING },
-    trivia: { type: Type.STRING },
-  },
-  required: ['mood', 'meaning', 'trivia'],
-};
-
-function parseLyricsAnalysis(raw: string): LyricsAnalysis {
-  let parsed: unknown;
-  try {
-    // responseSchema constrains output at the API level, but Google's own
-    // docs note behavior is "undefined" if something goes wrong — strip a
-    // code fence defensively rather than trust the constraint alone (the
-    // same defensive parsing the Claude implementation needed, kept here
-    // as cheap insurance even though it's less likely to trigger now).
-    const jsonText = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-    parsed = JSON.parse(jsonText);
-  } catch (err) {
-    throw new LLMUpstreamError('Gemini returned a non-JSON or malformed response.', err);
-  }
-
-  const candidate = parsed as Partial<LyricsAnalysis> | null;
-  if (
-    !candidate ||
-    typeof candidate !== 'object' ||
-    typeof candidate.mood !== 'string' ||
-    typeof candidate.meaning !== 'string' ||
-    typeof candidate.trivia !== 'string'
-  ) {
-    throw new LLMUpstreamError('Gemini response was missing the expected mood/meaning/trivia fields.');
-  }
-
-  return { mood: candidate.mood, meaning: candidate.meaning, trivia: candidate.trivia };
-}
 
 // Genre/language keywords already scattered across the catalog: the
 // language set matches SaavnService's own switch-cases (getTrendingTracks,
@@ -164,6 +93,15 @@ const MOOD_COVERS: Record<'energetic' | 'chill', string> = {
 const MAX_PLAYLIST_TRACKS = 30;
 const AI_RECOMMENDATIONS_LIMIT = 20;
 
+// Real songs run roughly 1-10 minutes. Anything shorter is likely a jingle/
+// intro stub; anything longer (audiobook chapters, hour-long devotional/
+// kirtan recordings, DJ mixes) is catalog noise that doesn't belong in a
+// "party"/"workout" playlist just because it matched a genre/mood keyword.
+const MIN_TRACK_SECONDS = 30;
+const MAX_TRACK_SECONDS = 20 * 60;
+const isReasonableTrackLength = (t: any) =>
+  typeof t.duration !== 'number' || (t.duration >= MIN_TRACK_SECONDS && t.duration <= MAX_TRACK_SECONDS);
+
 export class AIService {
   /**
    * Delegates to RecommendationService's real item-based CF + content-based
@@ -195,47 +133,6 @@ export class AIService {
       console.error('Error generating recommendations:', error);
       throw new Error('Failed to generate AI recommendations');
     }
-  }
-
-  /**
-   * Analyzes lyrics to provide semantic meaning and mood via a real Gemini
-   * call. `lyrics` is real text supplied directly by the caller (the
-   * frontend's lyrics-analyzer UI has the user paste/provide it) — this
-   * method never fetches or fabricates lyrics content itself, and never
-   * falls back to a mocked result on failure; a genuine upstream failure
-   * surfaces as LLMUpstreamError (mapped to 503 by errorHandler), same
-   * discipline as SaavnUpstreamError for the catalog dependency.
-   */
-  static async analyzeLyrics(_trackId: string, lyrics: string): Promise<LyricsAnalysis> {
-    const client = getGeminiClient();
-
-    const response = await resilientCall(GEMINI_BREAKER, () =>
-      client.models.generateContent({
-        model: GEMINI_MODEL,
-        contents: `Analyze the following song lyrics and respond with a JSON object with exactly these three string fields:
-- "mood": a short (2-5 word) description of the song's overall mood/tone
-- "meaning": a 1-3 sentence interpretation of what the lyrics are about
-- "trivia": one interesting observation about the lyrics' style, structure, wordplay, or themes. Base this only on the text itself — do not invent specific factual claims about the real artist, album, or release history, since you were not given that information.
-
-Lyrics:
-"""
-${lyrics}
-"""`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: LYRICS_ANALYSIS_SCHEMA,
-        },
-      })
-    ).catch((error: unknown) => {
-      throw new LLMUpstreamError('Gemini lyrics analysis request failed.', error);
-    });
-
-    const text = response.text;
-    if (!text) {
-      throw new LLMUpstreamError('Gemini response contained no text content.');
-    }
-
-    return parseLyricsAnalysis(text);
   }
 
   /**
@@ -293,9 +190,14 @@ ${lyrics}
       // which resolves to the no-match response below rather than hitting
       // the catalog with a raw-text search.
 
-      // Deduplicate and cap.
+      // Deduplicate, drop duration outliers, and cap.
       const uniqueTracks = Array.from(new Map(tracks.map((t) => [t.id, t])).values());
-      const finalTracks = uniqueTracks.slice(0, MAX_PLAYLIST_TRACKS);
+      const finalTracks = uniqueTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
+
+      // Prefer the actual cover art of the first track we're saving — a real
+      // depiction of what's in the playlist beats a generic mood stock photo
+      // (e.g. a fixed "energetic" gym photo showing up on a wedding playlist).
+      if (finalTracks[0]?.artwork) coverUrl = finalTracks[0].artwork;
 
       if (finalTracks.length === 0) {
         return {

@@ -9,6 +9,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export interface DiscoverWeeklyHeroProps {
   tracks?: Track[];
@@ -65,14 +66,14 @@ export function DiscoverWeeklyHero({
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-neutral-900/60 to-black p-6 sm:p-8 shadow-2xl backdrop-blur-xl',
+          'relative overflow-hidden rounded-3xl border border-brand-500/20 bg-gradient-to-br from-brand-950/40 via-neutral-900/60 to-black p-6 sm:p-8 shadow-2xl backdrop-blur-xl',
           className
         )}
       >
-        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-brand-500/10 blur-3xl" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-semibold text-brand-400 border border-brand-500/20">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Personalized Mixtape</span>
             </span>
@@ -87,7 +88,7 @@ export function DiscoverWeeklyHero({
           <div className="flex items-center gap-3 shrink-0">
             <Link
               href="/login?redirect=/discover"
-              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2.5 text-xs sm:text-sm font-semibold text-black hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-950/50"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-xs sm:text-sm font-semibold text-black hover:bg-brand-400 transition-colors shadow-lg shadow-brand-950/50"
             >
               <LogIn className="h-4 w-4" />
               <span>Sign In</span>
@@ -108,12 +109,12 @@ export function DiscoverWeeklyHero({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-950/60 via-neutral-900/80 to-black p-6 sm:p-8 shadow-2xl backdrop-blur-xl',
+        'relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-brand-950/60 via-neutral-900/80 to-black p-6 sm:p-8 shadow-2xl backdrop-blur-xl',
         className
       )}
     >
       {/* Ambient decorative glow */}
-      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 -top-20 h-72 w-72 rounded-full bg-brand-500/15 blur-3xl" />
 
       <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
         {/* Left: Artwork + Header Info */}
@@ -130,7 +131,7 @@ export function DiscoverWeeklyHero({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80" />
             <div className="absolute bottom-3 left-3 right-3 text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-400">
                 MUSIFY MIXTAPE
               </span>
             </div>
@@ -138,7 +139,7 @@ export function DiscoverWeeklyHero({
 
           {/* Details */}
           <div className="space-y-3 max-w-md">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-semibold text-brand-400 border border-brand-500/20">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Weekly Discovery</span>
             </div>
@@ -153,7 +154,7 @@ export function DiscoverWeeklyHero({
 
             {hasTracks && (
               <div className="flex items-center justify-center sm:justify-start gap-3 text-xs text-neutral-400 font-medium pt-1">
-                <span>{tracks.length} tracks</span>
+                <span>{pluralize(tracks.length, 'track')}</span>
                 <span>•</span>
                 <span>{Math.round(totalDuration / 60)} mins</span>
               </div>
@@ -166,7 +167,7 @@ export function DiscoverWeeklyHero({
                   type="button"
                   onClick={handlePlayAll}
                   aria-label="Play Discover Weekly"
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-3 text-sm font-bold text-black hover:bg-emerald-400 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-emerald-950/60"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-3 text-sm font-bold text-black hover:bg-brand-400 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-950/60"
                 >
                   <Play className="h-4 w-4 fill-current ml-0.5" />
                   <span>Play All</span>
@@ -183,7 +184,7 @@ export function DiscoverWeeklyHero({
               <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
                 Preview
               </span>
-              <span className="text-[11px] text-emerald-400 font-medium">Top picks</span>
+              <span className="text-[11px] text-brand-400 font-medium">Top picks</span>
             </div>
 
             <div className="space-y-1">
@@ -210,7 +211,7 @@ export function DiscoverWeeklyHero({
                         <p
                           className={cn(
                             'truncate text-xs font-semibold transition-colors',
-                            isThisTrackPlaying ? 'text-emerald-400' : 'text-white group-hover:text-emerald-400'
+                            isThisTrackPlaying ? 'text-brand-400' : 'text-white group-hover:text-brand-400'
                           )}
                         >
                           {track.title}

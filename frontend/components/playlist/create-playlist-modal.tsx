@@ -138,7 +138,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
 
         {/* Title */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-400 border border-brand-500/20">
             <Music2 className="h-5 w-5" />
           </div>
           <div>
@@ -151,7 +151,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
 
         {/* Error message */}
         {validationError && (
-          <div role="alert" className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
+          <div role="alert" className="mb-4 rounded-lg bg-danger-500/10 border border-danger-500/20 p-3 text-xs text-danger-300">
             {validationError}
           </div>
         )}
@@ -161,7 +161,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
           {/* Title input */}
           <div className="space-y-1.5">
             <label htmlFor="playlist-title" className="text-xs font-semibold text-neutral-300">
-              Title <span className="text-emerald-400">*</span>
+              Title <span className="text-brand-400">*</span>
             </label>
             <input
               id="playlist-title"
@@ -174,7 +174,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               disabled={createMutation.isPending}
               className={cn(
                 'w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-sm text-white',
-                'placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors'
+                'placeholder:text-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors'
               )}
             />
           </div>
@@ -194,7 +194,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               disabled={createMutation.isPending}
               className={cn(
                 'w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-sm text-white resize-none',
-                'placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors'
+                'placeholder:text-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors'
               )}
             />
           </div>
@@ -213,7 +213,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               disabled={createMutation.isPending}
               className={cn(
                 'w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2.5 text-sm text-white',
-                'placeholder:text-neutral-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-colors'
+                'placeholder:text-neutral-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-colors'
               )}
             />
           </div>
@@ -222,7 +222,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
           <div className="flex items-center justify-between rounded-xl border border-neutral-800/80 bg-neutral-950/50 p-3">
             <div className="flex items-center gap-2.5">
               {isPublic ? (
-                <Globe2 className="h-4 w-4 text-emerald-400" />
+                <Globe2 className="h-4 w-4 text-brand-400" />
               ) : (
                 <Lock className="h-4 w-4 text-neutral-400" />
               )}
@@ -243,7 +243,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               disabled={createMutation.isPending}
               className={cn(
                 'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
-                isPublic ? 'bg-emerald-500' : 'bg-neutral-800'
+                isPublic ? 'bg-brand-500' : 'bg-neutral-800'
               )}
             >
               <span
@@ -269,8 +269,8 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               type="submit"
               disabled={createMutation.isPending || !title.trim()}
               className={cn(
-                'inline-flex items-center gap-2 rounded-full bg-emerald-500 px-5 py-2 text-xs font-semibold text-black',
-                'hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-950/40',
+                'inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2 text-xs font-semibold text-black',
+                'hover:bg-brand-400 active:scale-95 transition-all shadow-lg shadow-brand-950/40',
                 'disabled:opacity-50 disabled:pointer-events-none'
               )}
             >

@@ -42,7 +42,7 @@ export function PlayerVolume({ className, sliderWidth = 'w-24' }: PlayerVolumePr
         type="button"
         onClick={toggleMute}
         aria-label={isMuted || volume === 0 ? 'Unmute' : 'Mute'}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         <VolumeIcon className="h-4 w-4" />
       </button>
@@ -52,7 +52,7 @@ export function PlayerVolume({ className, sliderWidth = 'w-24' }: PlayerVolumePr
         {/* Track bar */}
         <div className="h-1 w-full rounded-full bg-neutral-800 group-hover:h-1.5 transition-all overflow-hidden relative">
           <div
-            className="h-full bg-white group-hover:bg-emerald-500 rounded-full transition-colors"
+            className="h-full bg-white group-hover:bg-brand-500 rounded-full transition-colors"
             style={{ width: `${volumePercent}%` }}
           />
         </div>

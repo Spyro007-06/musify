@@ -83,12 +83,12 @@ export function DeletePlaylistModal({
         aria-modal="true"
         aria-labelledby="delete-playlist-title"
         className={cn(
-          'relative z-10 w-full max-w-md rounded-2xl border border-rose-500/20 bg-neutral-900/95 p-6 shadow-2xl backdrop-blur-xl',
+          'relative z-10 w-full max-w-md rounded-2xl border border-danger-500/20 bg-neutral-900/95 p-6 shadow-2xl backdrop-blur-xl',
           'animate-in fade-in zoom-in-95 duration-200'
         )}
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-500/10 text-danger-400 border border-danger-500/20">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
@@ -106,7 +106,7 @@ export function DeletePlaylistModal({
         </p>
 
         {error && (
-          <div role="alert" className="mb-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
+          <div role="alert" className="mb-4 rounded-lg bg-danger-500/10 border border-danger-500/20 p-3 text-xs text-danger-300">
             {error}
           </div>
         )}
@@ -125,8 +125,8 @@ export function DeletePlaylistModal({
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2 text-xs font-semibold text-white',
-              'hover:bg-rose-500 active:scale-95 transition-all shadow-lg shadow-rose-950/40',
+              'inline-flex items-center gap-2 rounded-full bg-danger-600 px-5 py-2 text-xs font-semibold text-white',
+              'hover:bg-danger-500 active:scale-95 transition-all shadow-lg shadow-danger-950/40',
               'disabled:opacity-50 disabled:pointer-events-none'
             )}
           >

@@ -46,17 +46,17 @@ export function ProfileHeader({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-purple-950/40 via-neutral-900/90 to-neutral-900 p-6 sm:p-8',
+        'relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-accent-950/40 via-neutral-900/90 to-neutral-900 p-6 sm:p-8',
         className
       )}
     >
       {/* Background ambient glow */}
-      <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-purple-600/15 blur-3xl" />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-accent-600/15 blur-3xl" />
       <div className="pointer-events-none absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/10 blur-3xl" />
 
       <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-6">
         {/* Avatar */}
-        <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-3xl bg-neutral-800 border-2 border-purple-500/30 shadow-2xl overflow-hidden">
+        <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 shrink-0 items-center justify-center rounded-3xl bg-neutral-800 border-2 border-accent-500/30 shadow-2xl overflow-hidden">
           {user.avatarUrl && !imageError ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -81,7 +81,7 @@ export function ProfileHeader({
         {/* User Identity Details */}
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-purple-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-300 border border-purple-500/30">
+            <span className="rounded-full bg-accent-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent-300 border border-accent-500/30">
               {user.role || 'Listener'}
             </span>
 
@@ -92,7 +92,7 @@ export function ProfileHeader({
             )}
 
             {user.isVerified && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-400">
                 <CheckCircle className="h-3 w-3" />
                 Verified
               </span>
@@ -147,7 +147,7 @@ export function ProfileHeader({
 
           <Link
             href="/settings"
-            className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full bg-purple-600/20 px-4 py-2 text-xs font-semibold text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors"
+            className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-2 rounded-full bg-accent-600/20 px-4 py-2 text-xs font-semibold text-accent-300 border border-accent-500/30 hover:bg-accent-600/30 transition-colors"
           >
             <Sliders className="h-3.5 w-3.5" />
             Settings

@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { ApiError } from '@utils/ApiError';
 import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
-import { LLMUpstreamError } from '@utils/LLMUpstreamError';
 import { sendError } from '@utils/ApiResponse';
 import { logger, logError } from '@utils/logger';
 import { captureException } from '@config/sentry';
@@ -102,23 +101,6 @@ export const errorHandler = (
       res,
       statusCode: HTTP_STATUS.SERVICE_UNAVAILABLE,
       message: 'Music catalog is temporarily unavailable. Please try again shortly.',
-    });
-    return;
-  }
-
-  // 6b. The LLM (lyrics analysis, currently Gemini) is down/degraded/
-  // misconfigured — same treatment as SaavnUpstreamError: an expected
-  // operational failure of a third-party dependency, not a bug in our code.
-  if (err instanceof LLMUpstreamError) {
-    logger.warn(`LLM upstream failure: ${err.message}`, {
-      url: req.originalUrl,
-      method: req.method,
-      cause: err.cause instanceof Error ? err.cause.message : err.cause,
-    });
-    sendError({
-      res,
-      statusCode: HTTP_STATUS.SERVICE_UNAVAILABLE,
-      message: 'Lyrics analysis is temporarily unavailable. Please try again shortly.',
     });
     return;
   }

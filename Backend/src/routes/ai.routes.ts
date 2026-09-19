@@ -7,7 +7,6 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/recommendations', AIController.getRecommendations);
-router.post('/lyrics/analyze', AIController.analyzeLyrics);
 router.post('/playlist/generate', AIController.generatePlaylist);
 
 export default router;

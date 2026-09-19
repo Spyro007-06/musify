@@ -23,26 +23,6 @@ export class AIController {
     }
   }
 
-  static async analyzeLyrics(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { trackId, lyrics } = req.body;
-      if (!trackId || !lyrics) {
-        throw ApiError.badRequest('trackId and lyrics are required');
-      }
-
-      const analysis = await AIService.analyzeLyrics(trackId, lyrics);
-
-      sendSuccess({
-        res,
-        statusCode: HTTP_STATUS.OK,
-        message: 'Lyrics analyzed successfully.',
-        data: analysis,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async generatePlaylist(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

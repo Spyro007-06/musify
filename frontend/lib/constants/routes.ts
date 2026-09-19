@@ -21,7 +21,6 @@ export const ROUTES = {
     AI: {
       INDEX: '/ai',
       PLAYLIST: '/ai/playlist',
-      LYRICS: '/ai/lyrics',
     },
     PROFILE: '/profile',
     SETTINGS: '/settings',

@@ -45,9 +45,11 @@ const envSchema = z.object({
   // Error tracking (optional — Sentry is disabled entirely if unset)
   SENTRY_DSN: z.string().optional(),
 
-  // AI lyrics analysis (optional — analyzeLyrics throws a clear
-  // LLMUpstreamError, not a fake result, if unset)
-  GEMINI_API_KEY: z.string().optional(),
+  // Upstash Redis (optional — rate limiting and Saavn response caching fall
+  // back to in-memory/no-cache behavior if unset, so local dev without a
+  // Redis database still works)
+  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

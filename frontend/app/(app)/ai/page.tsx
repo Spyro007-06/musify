@@ -4,7 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import {
   Wand2,
-  FileText,
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
@@ -27,7 +26,7 @@ export default function AiStudioPage() {
           Explore AI Studio Features
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1">
           {/* AI Playlist Card */}
           <Link
             href="/ai/playlist"
@@ -47,29 +46,6 @@ export default function AiStudioPage() {
 
             <div className="mt-6 flex items-center gap-2 text-xs font-bold text-accent-400 group-hover:text-accent-300">
               <span>Open Playlist Studio</span>
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
-
-          {/* Lyrics & Vibes Card */}
-          <Link
-            href="/ai/lyrics"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/40 via-neutral-900 to-neutral-900 p-8 border border-indigo-800/30 hover:border-indigo-500/50 hover:shadow-2xl hover:shadow-indigo-950/40 transition-all duration-300 select-none"
-          >
-            <div className="space-y-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-black transition-all">
-                <FileText className="h-6 w-6" />
-              </div>
-              <h3 className="text-xl font-bold text-white group-hover:text-indigo-300 transition-colors">
-                Lyrics &amp; Vibes Breakdown
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
-                Analyze emotional tone, understand lyrical narratives, and discover fascinating artist trivia for your favorite songs.
-              </p>
-            </div>
-
-            <div className="mt-6 flex items-center gap-2 text-xs font-bold text-indigo-400 group-hover:text-indigo-300">
-              <span>Analyze Lyrics</span>
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>

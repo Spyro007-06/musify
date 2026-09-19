@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/stores/player-store';
 import { TrackRow } from '@/components/music/track-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Track } from '@/types/track';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export default function LikedSongsPage() {
   const user = useAuthStore((s) => s.user);
@@ -67,19 +68,19 @@ export default function LikedSongsPage() {
   return (
     <div className="space-y-8 pb-16">
       {/* 1. Liked Songs Header Hero */}
-      <div className="relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-br from-indigo-950/70 via-purple-950/40 to-black p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl border border-accent-500/20 bg-gradient-to-br from-indigo-950/70 via-accent-950/40 to-black p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
         {/* Ambient background glow */}
-        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-purple-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-accent-500/15 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 text-center sm:text-left">
           {/* Heart Cover artwork */}
-          <div className="flex aspect-square w-40 sm:w-52 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-emerald-500 shadow-2xl shadow-purple-950/60 border border-white/10">
+          <div className="flex aspect-square w-40 sm:w-52 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-600 via-indigo-600 to-emerald-500 shadow-2xl shadow-accent-950/60 border border-white/10">
             <Heart className="h-20 w-20 sm:h-24 sm:w-24 fill-white text-white drop-shadow-md" />
           </div>
 
           {/* Details */}
           <div className="space-y-3 flex-1">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-300 border border-purple-500/20">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-accent-500/10 px-3 py-1 text-xs font-semibold text-accent-300 border border-accent-500/20">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Playlist</span>
             </div>
@@ -93,7 +94,7 @@ export default function LikedSongsPage() {
                 {user?.displayName || user?.username || 'You'}
               </span>
               <span>&bull;</span>
-              <span>{likedSongs ? `${likedSongs.length} songs` : '0 songs'}</span>
+              <span>{pluralize(likedSongs?.length ?? 0, 'song')}</span>
               {hasTracks && (
                 <>
                   <span>&bull;</span>
@@ -112,7 +113,7 @@ export default function LikedSongsPage() {
             type="button"
             onClick={handlePlayAll}
             aria-label={isCollectionPlaying ? 'Pause liked songs' : 'Play all liked songs'}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-purple-500 text-white shadow-xl shadow-purple-950/60 hover:scale-105 active:scale-95 hover:bg-purple-400 transition-all duration-300"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-500 text-white shadow-xl shadow-accent-950/60 hover:scale-105 active:scale-95 hover:bg-accent-400 transition-all duration-300"
           >
             {isCollectionPlaying ? (
               <Pause className="h-6 w-6 fill-current" />
@@ -147,8 +148,8 @@ export default function LikedSongsPage() {
 
       {/* 4. Error State */}
       {isError && (
-        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center">
-          <AlertCircle className="h-10 w-10 text-rose-400 mb-3" />
+        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center">
+          <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
           <h3 className="text-base font-semibold text-white">Failed to load liked songs</h3>
           <p className="mt-1 text-xs text-neutral-400 max-w-sm">
             {error?.message || 'A network error occurred while retrieving your liked tracks.'}

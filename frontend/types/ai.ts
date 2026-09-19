@@ -6,17 +6,6 @@ export interface AIRecommendationItem {
   reason: string;
 }
 
-export interface AnalyzeLyricsRequest {
-  trackId: string;
-  lyrics: string;
-}
-
-export interface LyricsAnalysis {
-  mood: string;
-  meaning: string;
-  trivia: string;
-}
-
 export interface GenerateAIPlaylistRequest {
   prompt: string;
   playlistName?: string;

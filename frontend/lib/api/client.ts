@@ -1,6 +1,7 @@
 import { ApiResponse, ApiError } from '@/types/api';
 import { useAuthStore } from '@/stores/auth-store';
 import { getCsrfToken, clearCsrfToken, setCsrfToken } from '@/lib/auth/csrf';
+import { clearSessionMarker } from '@/lib/auth/session-marker';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -35,6 +36,7 @@ async function performTokenRefresh(): Promise<string | null> {
 
     if (!res.ok) {
       logout();
+      clearSessionMarker();
       return null;
     }
 
@@ -43,13 +45,20 @@ async function performTokenRefresh(): Promise<string | null> {
 
     if (newAccessToken) {
       setAccessToken(newAccessToken);
+      // A successful refresh rotates the refreshToken cookie, which the
+      // backend's CSRF check uses as its session identifier — any
+      // already-cached CSRF token is now bound to the old cookie value
+      // and will 403 on the next CSRF-protected request unless cleared.
+      clearCsrfToken();
       return newAccessToken;
     }
 
     logout();
+    clearSessionMarker();
     return null;
   } catch {
     useAuthStore.getState().logout();
+    clearSessionMarker();
     return null;
   } finally {
     refreshPromise = null;
@@ -150,8 +159,12 @@ export async function apiClient<T = unknown>(
       });
     }
 
-    // Refresh failed -> redirect to login if in browser
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    // Refresh failed -> redirect to login if in browser (skip on public auth pages)
+    if (
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/login') &&
+      !window.location.pathname.startsWith('/signup')
+    ) {
       window.location.href = '/login';
     }
     throw new ApiError(json.message || 'Session expired. Please log in again.', 401, json.data);

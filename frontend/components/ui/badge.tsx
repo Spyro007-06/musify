@@ -13,7 +13,7 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
         variant === 'default' && 'bg-white text-black',
         variant === 'secondary' && 'bg-neutral-800 text-neutral-300',
         variant === 'outline' && 'border border-neutral-700 text-neutral-300',
-        variant === 'success' && 'bg-emerald-900/60 text-emerald-400 border border-emerald-700',
+        variant === 'success' && 'bg-brand-900/60 text-brand-400 border border-brand-700',
         className
       )}
       {...props}

@@ -73,7 +73,7 @@ export function PlayerProgress({ className, showTimes = true }: PlayerProgressPr
         {/* Background track */}
         <div className="h-1 w-full rounded-full bg-neutral-800 group-hover:h-1.5 transition-all overflow-hidden relative">
           <div
-            className="h-full bg-white group-hover:bg-emerald-500 rounded-full transition-colors"
+            className="h-full bg-white group-hover:bg-brand-500 rounded-full transition-colors"
             style={{ width: `${progressPercent}%` }}
           />
         </div>

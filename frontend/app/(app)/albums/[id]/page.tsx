@@ -51,8 +51,14 @@ export default function AlbumPage({ params }: AlbumPageProps) {
     return <AlbumPageSkeleton />;
   }
 
-  // 404 / Not Found state
+  // 404 / Not Found state — also covers a "successful" response whose data
+  // is actually blank (empty id/title/artist name). Seen live against the
+  // real catalog: some album ids resolve to a malformed upstream entry
+  // instead of a proper 404, which would otherwise render as a real album
+  // with no title and an unplayable track.
+  const isBlankAlbum = !!album && !album.id && !album.title && !album.artist?.name;
   const isNotFound =
+    isBlankAlbum ||
     (error instanceof ApiError && error.status === 404) ||
     error?.message?.toLowerCase().includes('not found');
 
@@ -71,7 +77,7 @@ export default function AlbumPage({ params }: AlbumPageProps) {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/search"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 text-black font-semibold text-sm hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-950/40"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-brand-500 text-black font-semibold text-sm hover:bg-brand-400 transition-colors shadow-lg shadow-brand-950/40"
           >
             <Search className="h-4 w-4" />
             Search Music
@@ -99,7 +105,7 @@ export default function AlbumPage({ params }: AlbumPageProps) {
   if (isError || !album) {
     return (
       <div role="alert" className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10 text-red-400 border border-red-500/20 mb-6">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-danger-500/10 text-danger-400 border border-danger-500/20 mb-6">
           <AlertCircle className="h-10 w-10" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
@@ -154,7 +160,7 @@ export default function AlbumPage({ params }: AlbumPageProps) {
               <TrackRow
                 key={track.id}
                 track={track}
-                index={idx + 1}
+                index={idx}
                 onPlay={handlePlayTrack}
                 showAlbum={false}
               />

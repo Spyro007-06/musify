@@ -11,6 +11,7 @@ import { TrackRow } from '@/components/music/track-row';
 import { PlaylistCard } from '@/components/music/playlist-card';
 import { Track } from '@/types/track';
 import { cn } from '@/lib/utils/cn';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export default function LibraryPage() {
   const playTrack = usePlayerStore((s) => s.playTrack);
@@ -81,23 +82,23 @@ export default function LibraryPage() {
         <Link
           href="/library/liked"
           className={cn(
-            'group relative overflow-hidden rounded-2xl p-5 border border-purple-500/20',
+            'group relative overflow-hidden rounded-2xl p-5 border border-accent-500/20',
             'bg-gradient-to-br from-indigo-950/50 via-neutral-900/60 to-black',
-            'hover:border-purple-500/40 hover:from-indigo-950/70 transition-all duration-300 shadow-lg select-none'
+            'hover:border-accent-500/40 hover:from-indigo-950/70 transition-all duration-300 shadow-lg select-none'
           )}
         >
-          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-purple-500/10 blur-2xl group-hover:bg-purple-500/20 transition-all" />
+          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-accent-500/10 blur-2xl group-hover:bg-accent-500/20 transition-all" />
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-950/50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-indigo-600 text-white shadow-md shadow-accent-950/50">
                 <Heart className="h-6 w-6 fill-current" />
               </div>
               <div>
-                <h2 className="font-bold text-base text-white group-hover:text-purple-300 transition-colors">
+                <h2 className="font-bold text-base text-white group-hover:text-accent-300 transition-colors">
                   Liked Songs
                 </h2>
                 <p className="text-xs text-neutral-400">
-                  {likedSongs ? `${likedSongs.length} tracks` : 'Favorite tracks'}
+                  {likedSongs ? pluralize(likedSongs.length, 'track') : 'Favorite tracks'}
                 </p>
               </div>
             </div>
@@ -107,7 +108,7 @@ export default function LibraryPage() {
                 type="button"
                 onClick={handlePlayAllLiked}
                 aria-label="Play all liked songs"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-500 text-white shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-500 text-white shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
               >
                 <Play className="h-4 w-4 fill-current ml-0.5" />
               </button>
@@ -121,23 +122,23 @@ export default function LibraryPage() {
         <Link
           href="/library/recently-played"
           className={cn(
-            'group relative overflow-hidden rounded-2xl p-5 border border-emerald-500/20',
-            'bg-gradient-to-br from-emerald-950/50 via-neutral-900/60 to-black',
-            'hover:border-emerald-500/40 hover:from-emerald-950/70 transition-all duration-300 shadow-lg select-none'
+            'group relative overflow-hidden rounded-2xl p-5 border border-brand-500/20',
+            'bg-gradient-to-br from-brand-950/50 via-neutral-900/60 to-black',
+            'hover:border-brand-500/40 hover:from-brand-950/70 transition-all duration-300 shadow-lg select-none'
           )}
         >
-          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-emerald-500/10 blur-2xl group-hover:bg-emerald-500/20 transition-all" />
+          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-brand-500/10 blur-2xl group-hover:bg-brand-500/20 transition-all" />
           <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-black shadow-md shadow-emerald-950/50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-teal-600 text-black shadow-md shadow-brand-950/50">
                 <History className="h-6 w-6 stroke-[2.5]" />
               </div>
               <div>
-                <h2 className="font-bold text-base text-white group-hover:text-emerald-300 transition-colors">
+                <h2 className="font-bold text-base text-white group-hover:text-brand-300 transition-colors">
                   Recently Played
                 </h2>
                 <p className="text-xs text-neutral-400">
-                  {recentlyPlayed ? `${recentlyPlayed.length} tracks` : 'Listening history'}
+                  {recentlyPlayed ? pluralize(recentlyPlayed.length, 'track') : 'Listening history'}
                 </p>
               </div>
             </div>
@@ -147,7 +148,7 @@ export default function LibraryPage() {
                 type="button"
                 onClick={handlePlayAllRecent}
                 aria-label="Play all recently played tracks"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-black shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
               >
                 <Play className="h-4 w-4 fill-current ml-0.5" />
               </button>
@@ -177,7 +178,7 @@ export default function LibraryPage() {
                   Playlists
                 </h2>
                 <p className="text-xs text-neutral-400">
-                  {playlists ? `${playlists.length} playlists` : 'Curated collections'}
+                  {playlists ? pluralize(playlists.length, 'playlist') : 'Curated collections'}
                 </p>
               </div>
             </div>

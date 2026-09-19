@@ -78,7 +78,7 @@ export function ArtistAboutModal({
 
           {/* Artist identity */}
           <div className="absolute bottom-4 left-6 right-6 flex items-center gap-4">
-            <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-emerald-500/30 shadow-lg shrink-0">
+            <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-brand-500/30 shadow-lg shrink-0">
               <ImageWithFallback
                 src={imageUrl}
                 alt={artist.name}
@@ -92,7 +92,7 @@ export function ArtistAboutModal({
                   {artist.name}
                 </h2>
                 {artist.isVerified && (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 text-brand-400 shrink-0" />
                 )}
               </div>
               <p className="text-xs text-neutral-400">
@@ -107,7 +107,7 @@ export function ArtistAboutModal({
           {/* Stats Bar */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-neutral-800/60 p-3 border border-white/5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 text-brand-400">
                 <Users className="h-5 w-5" />
               </div>
               <div>

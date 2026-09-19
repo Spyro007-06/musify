@@ -67,7 +67,7 @@ export function ExpandedPlayer() {
       {/* Background ambient artwork glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-30 blur-3xl">
         <div
-          className="absolute -top-1/4 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-600/30"
+          className="absolute -top-1/4 left-1/2 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-brand-600/30"
           style={{
             backgroundImage: artwork ? `url(${artwork})` : undefined,
             backgroundSize: 'cover',
@@ -138,7 +138,7 @@ export function ExpandedPlayer() {
             aria-label={isLiked ? 'Unlike' : 'Like'}
             className={cn(
               'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors',
-              isLiked && 'text-emerald-400 hover:text-emerald-300'
+              isLiked && 'text-brand-400 hover:text-brand-300'
             )}
           >
             <Heart className={cn('h-6 w-6', isLiked && 'fill-current')} />

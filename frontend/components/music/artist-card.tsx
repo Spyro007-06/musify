@@ -39,7 +39,7 @@ export function ArtistCard({ artist, className }: ArtistCardProps) {
 
       {/* Artist info */}
       <div className="mt-3 w-full min-w-0">
-        <h4 className="truncate text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+        <h4 className="truncate text-sm font-semibold text-white group-hover:text-brand-400 transition-colors">
           {artist.name}
         </h4>
         <p className="mt-0.5 text-xs text-neutral-400">

@@ -8,6 +8,7 @@ import { usePlayerStore } from '@/stores/player-store';
 import { TrackRow } from '@/components/music/track-row';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Track } from '@/types/track';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export default function RecentlyPlayedPage() {
   const playTrack = usePlayerStore((s) => s.playTrack);
@@ -46,18 +47,18 @@ export default function RecentlyPlayedPage() {
   return (
     <div className="space-y-8 pb-16">
       {/* 1. Header Hero */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/70 via-teal-950/40 to-black p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-emerald-500/15 blur-3xl" />
+      <div className="relative overflow-hidden rounded-3xl border border-brand-500/20 bg-gradient-to-br from-brand-950/70 via-teal-950/40 to-black p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
+        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-brand-500/15 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 text-center sm:text-left">
           {/* Cover icon badge */}
-          <div className="flex aspect-square w-40 sm:w-52 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 shadow-2xl shadow-emerald-950/60 border border-white/10">
+          <div className="flex aspect-square w-40 sm:w-52 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-teal-600 to-cyan-600 shadow-2xl shadow-brand-950/60 border border-white/10">
             <History className="h-20 w-20 sm:h-24 sm:w-24 stroke-[2.5] text-black drop-shadow-md" />
           </div>
 
           {/* Details */}
           <div className="space-y-3 flex-1">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/10 px-3 py-1 text-xs font-semibold text-brand-400 border border-brand-500/20">
               <span>Listening History</span>
             </div>
 
@@ -66,7 +67,7 @@ export default function RecentlyPlayedPage() {
             </h1>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm text-neutral-300">
-              <span>{recentlyPlayed ? `${recentlyPlayed.length} tracks` : '0 tracks'}</span>
+              <span>{pluralize(recentlyPlayed?.length ?? 0, 'track')}</span>
               <span>&bull;</span>
               <span className="text-neutral-400">Streamed from your sessions</span>
             </div>
@@ -81,7 +82,7 @@ export default function RecentlyPlayedPage() {
             type="button"
             onClick={handlePlayAll}
             aria-label={isCollectionPlaying ? 'Pause recently played' : 'Play all recently played'}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-black shadow-xl shadow-emerald-950/60 hover:scale-105 active:scale-95 hover:bg-emerald-400 transition-all duration-300"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl shadow-brand-950/60 hover:scale-105 active:scale-95 hover:bg-brand-400 transition-all duration-300"
           >
             {isCollectionPlaying ? (
               <Pause className="h-6 w-6 fill-current" />
@@ -116,8 +117,8 @@ export default function RecentlyPlayedPage() {
 
       {/* 4. Error State */}
       {isError && (
-        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-950/10 p-10 text-center">
-          <AlertCircle className="h-10 w-10 text-rose-400 mb-3" />
+        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center">
+          <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
           <h3 className="text-base font-semibold text-white">Failed to load recently played tracks</h3>
           <p className="mt-1 text-xs text-neutral-400 max-w-sm">
             {error?.message || 'A network error occurred while retrieving your listening history.'}

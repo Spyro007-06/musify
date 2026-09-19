@@ -133,7 +133,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
               setIsOpen(false);
               await logout();
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-950/40 hover:text-red-300 text-left"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-danger-400 transition-colors hover:bg-danger-950/40 hover:text-danger-300 text-left"
           >
             <LogOut className="h-4 w-4" />
             <span>Log out</span>

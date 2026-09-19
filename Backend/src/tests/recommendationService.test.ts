@@ -205,12 +205,10 @@ describe('getDashboardRecommendations — cache behavior', () => {
     expect(prismaMock.recommendationCache.upsert).toHaveBeenCalled(); // and cached
   });
 
-  it('FINDING: "Because You Like X" never appears, even with a clear top-played artist and a matching candidate — getTopPlayedArtist returns an artist ID, but the section filter matches it against track artist NAMES', async () => {
-    // Same class of ID-vs-name bug already fixed in ArtistService/RecommendationService.getRecommendedArtists,
-    // present here too: getTopPlayedArtist() returns ListeningHistory.artistId (a real Saavn artist ID,
-    // e.g. "artist-1"), but the section's filter does
-    // `trackArtists.some(name => name.includes(targetArtist.toLowerCase()))` — comparing an ID against
-    // track.artists[].name. An ID is never a substring of a display name, so this never matches.
+  it('"Because You Like X" matches the top-played artist by ID (not name) and shows their real name', async () => {
+    // getTopPlayedArtist() returns ListeningHistory.artistId (a real Saavn artist ID, e.g. "artist-1").
+    // The section must match candidates by that id against track.artists[].id, and display the
+    // artist's actual name (resolved from the matching track) rather than the raw id.
     prismaMock.recommendationCache.findMany.mockResolvedValue([]);
     prismaMock.recommendationCache.upsert.mockResolvedValue({} as any);
     saavnMock.getTrendingTracks.mockResolvedValue([track({ id: 't1', artists: [{ id: 'artist-1', name: 'Favourite Artist' }] })]);
@@ -223,8 +221,9 @@ describe('getDashboardRecommendations — cache behavior', () => {
 
     const withHistory = await svc.getDashboardRecommendations('user-1');
 
-    // Documents current (buggy) behavior — the section is absent despite a real signal existing.
-    expect(withHistory.some((s: any) => s.id === 'because-you-like')).toBe(false);
+    const section = withHistory.find((s: any) => s.id === 'because-you-like');
+    expect(section).toBeDefined();
+    expect(section.title).toBe('Because You Like Favourite Artist');
   });
 
   it('omits the "Because You Like X" section when there is no listening history and no favourite artist preference', async () => {
@@ -359,6 +358,31 @@ describe('getRecommendedSongs', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe('high');
+  });
+});
+
+describe('getCandidatePool — favourite genres', () => {
+  it('seeds the candidate pool from favourite genres directly, and exempts those tracks from the language filter', async () => {
+    mockCandidatePoolDeps();
+    prismaMock.userPreferences.findUnique.mockResolvedValue({ favouriteLanguages: ['hindi'] } as any);
+    prismaMock.genreAffinity.findMany.mockResolvedValue([{ userId: 'user-1', genre: 'jazz', score: 10 } as any]);
+    saavnMock.getRecommendationsByGenres.mockResolvedValue([
+      track({ id: 'jazz-pick', genre: 'english' }), // tagged with a language the user didn't pick
+    ]);
+
+    const pool = await svc.getCandidatePool('user-1');
+
+    expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['jazz'], 30);
+    expect(pool.some((t: any) => t.id === 'jazz-pick')).toBe(true);
+  });
+
+  it('does not call getRecommendationsByGenres when the user has no favourite genres', async () => {
+    mockCandidatePoolDeps();
+    prismaMock.userPreferences.findUnique.mockResolvedValue(null);
+
+    await svc.getCandidatePool('user-1');
+
+    expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
   });
 });
 

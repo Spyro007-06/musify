@@ -591,21 +591,28 @@ export class RecommendationService {
     }
 
     // 3. Because You Like...
-    const topArtistName = await this.getTopPlayedArtist(userId);
-    const targetArtist = topArtistName || (selectedArtists.length > 0 ? selectedArtists[0] : null);
-    if (targetArtist) {
+    // getTopPlayedArtist and favouriteArtists both return a real Saavn artist
+    // ID (see their own docs), not a name — match candidates by id, then
+    // resolve the display name from whichever track actually matched, same
+    // id-not-name fix already applied in getRecommendedAlbums/Artists.
+    const topArtistId = await this.getTopPlayedArtist(userId);
+    const targetArtistId = topArtistId || (selectedArtists.length > 0 ? selectedArtists[0] : null);
+    if (targetArtistId) {
+      let targetArtistName = targetArtistId;
       const artistRecs = getDiverseTracksForSection(
         (s) => {
-          const trackArtists = (s.track.artists || []).map((a: any) => a.name.toLowerCase());
-          return trackArtists.some((name: string) => name.includes(targetArtist.toLowerCase()));
+          const trackArtists = s.track.artists || [];
+          const match = trackArtists.find((a: any) => a.id === targetArtistId);
+          if (match) targetArtistName = match.name;
+          return !!match;
         },
-        () => `Featuring ${targetArtist}`,
+        () => `Featuring ${targetArtistName}`,
         10
       );
       if (artistRecs.length > 0) {
         sections.push({
           id: 'because-you-like',
-          title: `Because You Like ${targetArtist}`,
+          title: `Because You Like ${targetArtistName}`,
           subtitle: 'Dive deeper into their sound',
           type: 'tracks',
           items: await MusicService.populateLikes(artistRecs, userId),
@@ -748,6 +755,18 @@ export class RecommendationService {
       const trending = await this.saavn.getTrendingTracks(queryLangs);
       trending.forEach(addTrack);
 
+      // Favourite genres never otherwise reach the candidate pool — scoring
+      // alone can't surface a genre the trending/new-release pool doesn't
+      // contain any tracks of. Seed the pool directly so updating genre
+      // preferences actually changes what shows up, not just the ranking.
+      const favouriteGenres = prefs?.favouriteGenres || [];
+      const genreSeededIds = new Set<string>();
+      if (favouriteGenres.length > 0) {
+        const genreTracks = await this.saavn.getRecommendationsByGenres(favouriteGenres, 30);
+        genreTracks.forEach((t: any) => { if (t) genreSeededIds.add(t.id); });
+        genreTracks.forEach(addTrack);
+      }
+
       const newReleases = await this.saavn.getNewReleases(queryLangs);
       newReleases.forEach((album: any) => {
         if (album.tracks) {
@@ -810,10 +829,14 @@ export class RecommendationService {
         }
       });
 
-      // Filter candidates by preferred languages (strict requirement)
+      // Filter candidates by preferred languages (strict requirement) —
+      // genre-seeded tracks are exempt, since Saavn's "genre" field is
+      // really a language tag and a real genre match shouldn't be thrown
+      // out for happening to carry a different language tag.
       if (languages.length > 0) {
         const lowerLangs = languages.map((l: string) => l.toLowerCase());
         const filteredCandidates = candidates.filter(track => {
+          if (genreSeededIds.has(track.id)) return true;
           const trackLang = (track.genre || '').toLowerCase();
           return lowerLangs.some((l: string) => trackLang.includes(l) || l.includes(trackLang));
         });

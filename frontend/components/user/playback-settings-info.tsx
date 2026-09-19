@@ -17,7 +17,7 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
       )}
     >
       <div className="border-b border-white/5 pb-4">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400 mb-1">
           <Volume2 className="h-3.5 w-3.5" />
           Audio & Streaming Engine
         </div>
@@ -32,7 +32,7 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
         <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-white">Streaming Bitrate</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-[11px] font-bold text-brand-400 border border-brand-500/20">
               <Check className="h-3 w-3" />
               High Quality (320 kbps)
             </span>
@@ -46,7 +46,7 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
         <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-white">Playback Engine</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[11px] font-bold text-purple-400 border border-purple-500/20">
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-500/10 px-2.5 py-0.5 text-[11px] font-bold text-accent-400 border border-accent-500/20">
               <Radio className="h-3 w-3" />
               Singleton AudioEngine
             </span>
@@ -59,7 +59,7 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
 
       {/* Notice */}
       <div className="flex items-start gap-3 rounded-xl bg-neutral-950/60 p-4 border border-white/5 text-xs text-neutral-400">
-        <Info className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
+        <Info className="h-4 w-4 text-accent-400 shrink-0 mt-0.5" />
         <p className="leading-relaxed">
           Playback volume, mute toggles, and repeat modes are dynamically preserved in your active browser session via Zustand local memory.
         </p>

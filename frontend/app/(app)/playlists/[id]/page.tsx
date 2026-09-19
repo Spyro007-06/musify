@@ -23,6 +23,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeletePlaylistModal } from '@/components/playlist/delete-playlist-modal';
 import { Track } from '@/types/track';
+import { pluralize } from '@/lib/utils/pluralize';
 
 interface PlaylistPageProps {
   params: Promise<{ id: string }>;
@@ -183,7 +184,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             </>
           ) : (
             <>
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 mb-4 border border-rose-500/20">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-danger-500/10 text-danger-400 mb-4 border border-danger-500/20">
                 <AlertCircle className="h-8 w-8" />
               </div>
               <h2 className="text-xl font-bold text-white">Failed to Load Playlist</h2>
@@ -232,7 +233,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
       {/* Action error banner if remove fails */}
       {actionError && (
-        <div role="alert" className="rounded-xl border border-rose-500/20 bg-rose-950/20 p-3 text-xs text-rose-300 flex items-center justify-between">
+        <div role="alert" className="rounded-xl border border-danger-500/20 bg-danger-950/20 p-3 text-xs text-danger-300 flex items-center justify-between">
           <span>{actionError}</span>
           <button
             type="button"
@@ -246,7 +247,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
       {/* 1. Header / Hero */}
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-neutral-850 via-neutral-900/90 to-black p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-12 -top-12 h-64 w-64 rounded-full bg-brand-500/10 blur-3xl" />
 
         <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-end gap-6 sm:gap-8 text-center sm:text-left">
           {/* Cover image */}
@@ -265,7 +266,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
           <div className="space-y-3 flex-1 min-w-0">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
-                <Sparkles className="h-3 w-3 text-emerald-400" />
+                <Sparkles className="h-3 w-3 text-brand-400" />
                 <span>{isSoundtrack ? 'Soundtrack' : 'Playlist'}</span>
               </span>
 
@@ -273,7 +274,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
                 <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2.5 py-0.5 text-[11px] text-neutral-400 border border-white/5">
                   {playlist.isPublic ? (
                     <>
-                      <Globe2 className="h-3 w-3 text-emerald-400" />
+                      <Globe2 className="h-3 w-3 text-brand-400" />
                       <span>Public</span>
                     </>
                   ) : (
@@ -299,7 +300,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-neutral-300">
               <span className="font-semibold text-white">{ownerName}</span>
               <span>&bull;</span>
-              <span>{tracks.length} songs</span>
+              <span>{pluralize(tracks.length, 'song')}</span>
               {hasTracks && (
                 <>
                   <span>&bull;</span>
@@ -319,7 +320,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
               type="button"
               onClick={handlePlayAll}
               aria-label={isCollectionPlaying ? 'Pause playlist' : 'Play all playlist tracks'}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-black shadow-xl shadow-emerald-950/60 hover:scale-105 active:scale-95 hover:bg-emerald-400 transition-all duration-300"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl shadow-brand-950/60 hover:scale-105 active:scale-95 hover:bg-brand-400 transition-all duration-300"
             >
               {isCollectionPlaying ? (
                 <Pause className="h-6 w-6 fill-current" />
@@ -336,7 +337,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             type="button"
             onClick={() => setIsDeleteModalOpen(true)}
             aria-label="Delete playlist"
-            className="inline-flex items-center gap-2 rounded-full border border-rose-500/20 bg-rose-950/20 px-4 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950/40 hover:border-rose-500/40 transition-colors"
+            className="inline-flex items-center gap-2 rounded-full border border-danger-500/20 bg-danger-950/20 px-4 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-950/40 hover:border-danger-500/40 transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
             <span>Delete Playlist</span>

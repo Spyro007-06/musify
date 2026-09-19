@@ -172,8 +172,8 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
 
   if (isError) {
     return (
-      <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 text-center space-y-3">
-        <AlertCircle className="h-8 w-8 text-red-400 mx-auto" />
+      <div className="rounded-2xl border border-danger-500/20 bg-danger-950/10 p-6 text-center space-y-3">
+        <AlertCircle className="h-8 w-8 text-danger-400 mx-auto" />
         <h3 className="text-base font-semibold text-white">Could not load preferences</h3>
         <p className="text-xs text-neutral-400">
           There was an error fetching your music preference settings.
@@ -200,7 +200,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400 mb-1">
             <Sliders className="h-3.5 w-3.5" />
             Tuning & Taste Profile
           </div>
@@ -211,7 +211,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
         </div>
 
         {isDirty && (
-          <span className="self-start sm:self-auto rounded-full bg-purple-500/10 px-3 py-1 text-[11px] font-semibold text-purple-400 border border-purple-500/20">
+          <span className="self-start sm:self-auto rounded-full bg-accent-500/10 px-3 py-1 text-[11px] font-semibold text-accent-400 border border-accent-500/20">
             Unsaved Changes
           </span>
         )}
@@ -219,7 +219,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
 
       {/* Success Notification */}
       {successMessage && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-xs text-emerald-400">
+        <div className="flex items-center gap-2.5 rounded-xl border border-brand-500/30 bg-brand-950/20 p-3.5 text-xs text-brand-400">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{successMessage}</span>
         </div>
@@ -227,7 +227,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
 
       {/* Error Notification */}
       {errorMessage && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-red-950/20 p-3.5 text-xs text-red-400">
+        <div className="flex items-center gap-2.5 rounded-xl border border-danger-500/30 bg-danger-950/20 p-3.5 text-xs text-danger-400">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -236,7 +236,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Genres */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Music className="h-4 w-4 text-purple-400" />
+          <Music className="h-4 w-4 text-accent-400" />
           <span>Favourite Genres</span>
         </div>
         <ChipGroup
@@ -250,7 +250,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Languages */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Languages className="h-4 w-4 text-purple-400" />
+          <Languages className="h-4 w-4 text-accent-400" />
           <span>Preferred Languages</span>
         </div>
         <ChipGroup
@@ -264,7 +264,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Moods */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Smile className="h-4 w-4 text-purple-400" />
+          <Smile className="h-4 w-4 text-accent-400" />
           <span>Favourite Moods & Vibes</span>
         </div>
         <ChipGroup
@@ -278,7 +278,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Artists */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Mic2 className="h-4 w-4 text-purple-400" />
+          <Mic2 className="h-4 w-4 text-accent-400" />
           <span>Favourite Artists</span>
         </div>
         <TagInput
@@ -293,7 +293,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Albums */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Disc3 className="h-4 w-4 text-purple-400" />
+          <Disc3 className="h-4 w-4 text-accent-400" />
           <span>Favourite Albums</span>
         </div>
         <TagInput
@@ -320,7 +320,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
         <button
           type="submit"
           disabled={!isDirty || updatePreferencesMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-purple-500 disabled:opacity-40 transition-all shadow-lg shadow-purple-950/40"
+          className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-accent-500 disabled:opacity-40 transition-all shadow-lg shadow-accent-950/40"
         >
           {updatePreferencesMutation.isPending ? (
             <>

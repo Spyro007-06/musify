@@ -11,13 +11,13 @@ export interface SectionHeaderProps {
 
 export function SectionHeader({ title, subtitle, seeAllHref, className }: SectionHeaderProps) {
   return (
-    <div className={cn('flex items-end justify-between mb-4', className)}>
+    <div className={cn('flex items-end justify-between gap-4 mb-4', className)}>
       <div>
-        <h3 className="text-xl font-bold text-white">{title}</h3>
-        {subtitle && <p className="text-xs text-neutral-400 mt-1">{subtitle}</p>}
+        <h2 className="text-xl font-bold text-white">{title}</h2>
+        {subtitle && <p className="text-sm text-neutral-400 mt-1">{subtitle}</p>}
       </div>
       {seeAllHref && (
-        <Link href={seeAllHref} className="text-xs font-semibold text-neutral-400 hover:text-white">
+        <Link href={seeAllHref} className="shrink-0 text-sm font-semibold text-brand-300 hover:text-brand-200">
           See all
         </Link>
       )}

@@ -101,6 +101,7 @@ describe('GET /api/music/recommended', () => {
 
   it('for an authenticated user, derives signals from their own history/likes/follows before recommending', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
+    prismaMock.genreAffinity.findMany.mockResolvedValue([]); // no favourite genres -> falls through to history/likes signals
     prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 'track-1' } as any]);
     prismaMock.listeningHistory.findMany.mockResolvedValue([]);
     prismaMock.artistAffinity.findMany.mockResolvedValue([]);

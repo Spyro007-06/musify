@@ -111,7 +111,7 @@ function SearchPageContent() {
         /* Initial Landing State: Browse All Categories */
         <section className="space-y-4 animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
-            <Compass className="h-5 w-5 text-emerald-400" />
+            <Compass className="h-5 w-5 text-brand-400" />
             <h2 className="text-xl font-bold tracking-tight text-white">
               Browse Categories
             </h2>

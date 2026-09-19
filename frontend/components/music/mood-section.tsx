@@ -47,7 +47,7 @@ export function MoodSection({ onPlayPlaylist, className }: MoodSectionProps) {
                 className={cn(
                   'shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 select-none',
                   isSelected
-                    ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                    ? 'bg-brand-500 text-black shadow-md shadow-brand-500/20'
                     : 'bg-neutral-800/80 text-neutral-300 hover:bg-neutral-700 hover:text-white border border-white/5'
                 )}
               >
@@ -66,15 +66,15 @@ export function MoodSection({ onPlayPlaylist, className }: MoodSectionProps) {
           ))}
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-rose-500/20 bg-rose-950/10 p-8 text-center">
-          <AlertCircle className="h-8 w-8 text-rose-400 mb-2" />
-          <p className="text-sm font-medium text-rose-200">Unable to load mood playlists</p>
-          <p className="mt-1 text-xs text-rose-300/70 max-w-sm">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-danger-500/20 bg-danger-950/10 p-8 text-center">
+          <AlertCircle className="h-8 w-8 text-danger-400 mb-2" />
+          <p className="text-sm font-medium text-danger-200">Unable to load mood playlists</p>
+          <p className="mt-1 text-xs text-danger-300/70 max-w-sm">
             {(error as Error)?.message || 'Please check your connection and try again.'}
           </p>
           <button
             onClick={() => refetch()}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-rose-500/20 px-3.5 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/30 transition-colors"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-danger-500/20 px-3.5 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-500/30 transition-colors"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Retry</span>

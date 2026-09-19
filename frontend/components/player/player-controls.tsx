@@ -59,9 +59,9 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={toggleShuffle}
         aria-label={shuffle ? 'Disable shuffle' : 'Enable shuffle'}
         className={cn(
-          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500',
+          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
           shuffle
-            ? 'text-emerald-400 hover:text-emerald-300'
+            ? 'text-brand-400 hover:text-brand-300'
             : 'text-neutral-400 hover:text-white'
         )}
       >
@@ -74,7 +74,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={() => previousTrack()}
         disabled={!hasTrack}
         aria-label="Previous track"
-        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         <SkipBack className={skipIconSizes[size]} />
       </button>
@@ -86,10 +86,10 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         disabled={!hasTrack && !isLoading}
         aria-label={isPlaying ? 'Pause' : 'Play'}
         className={cn(
-          'flex items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/30',
+          'flex items-center justify-center rounded-full bg-brand-400 text-black shadow-lg shadow-black/30',
           'hover:scale-105 active:scale-95 transition-all duration-200',
           'disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
           playBtnSizes[size]
         )}
       >
@@ -108,7 +108,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={() => nextTrack()}
         disabled={!hasTrack}
         aria-label="Next track"
-        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500"
+        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 text-neutral-300 hover:text-white disabled:opacity-40 disabled:hover:text-neutral-300 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         <SkipForward className={skipIconSizes[size]} />
       </button>
@@ -119,9 +119,9 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
         onClick={cycleRepeat}
         aria-label={`Repeat mode: ${repeat}`}
         className={cn(
-          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 relative',
+          'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full p-1.5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500 relative',
           repeat !== 'off'
-            ? 'text-emerald-400 hover:text-emerald-300'
+            ? 'text-brand-400 hover:text-brand-300'
             : 'text-neutral-400 hover:text-white'
         )}
       >
@@ -131,7 +131,7 @@ export function PlayerControls({ size = 'md', className }: PlayerControlsProps) 
           <Repeat className={secondaryIconSizes[size]} />
         )}
         {repeat === 'all' && (
-          <span className="absolute -bottom-0.5 h-1 w-1 rounded-full bg-emerald-400" />
+          <span className="absolute -bottom-0.5 h-1 w-1 rounded-full bg-brand-400" />
         )}
       </button>
     </div>
