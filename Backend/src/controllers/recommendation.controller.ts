@@ -265,7 +265,15 @@ export class RecommendationController {
         res,
         statusCode: HTTP_STATUS.OK,
         message: 'User preferences retrieved successfully.',
-        data: prefs,
+        // Tamil is the display default for a user who hasn't picked a
+        // language yet — applied only in this response, not inside the
+        // service, since other callers (dashboard/smart-queue/discover
+        // weekly) rely on an empty list meaning "no filter, use every
+        // other signal available" rather than a real language choice.
+        data: {
+          ...prefs,
+          favouriteLanguages: prefs.favouriteLanguages?.length ? prefs.favouriteLanguages : ['tamil'],
+        },
       });
     } catch (error) {
       next(error);

@@ -96,7 +96,7 @@ export class RecommendationService {
     });
 
     return {
-      favouriteLanguages: prefs?.favouriteLanguages?.length ? prefs.favouriteLanguages : ['tamil'],
+      favouriteLanguages: prefs?.favouriteLanguages || [],
       favouriteAlbums: prefs?.favouriteAlbums || [],
       favouriteGenres: genres.map((g: any) => g.genre),
       favouriteArtists: artists.map((a: any) => a.spotifyArtistId),
