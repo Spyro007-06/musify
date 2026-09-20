@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ListMusic, Heart, Disc3 } from 'lucide-react';
+import { ChevronDown, ListMusic, Heart, Disc3, Download } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerProgress } from './player-progress';
 import { PlayerControls } from './player-controls';
 import { PlayerVolume } from './player-volume';
 import { useLikeTrack } from '@/hooks/use-music';
+import { useDownloadTrack } from '@/hooks/use-download-track';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { cn } from '@/lib/utils/cn';
 
@@ -20,6 +21,7 @@ export function ExpandedPlayer() {
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
   const likeMutation = useLikeTrack();
+  const downloadTrack = useDownloadTrack();
 
   React.useEffect(() => {
     setIsLiked(Boolean(currentTrack?.isLiked));
@@ -132,17 +134,28 @@ export function ExpandedPlayer() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleLikeToggle}
-            aria-label={isLiked ? 'Unlike' : 'Like'}
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors',
-              isLiked && 'text-brand-400 hover:text-brand-300'
-            )}
-          >
-            <Heart className={cn('h-6 w-6', isLiked && 'fill-current')} />
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => downloadTrack(currentTrack)}
+              aria-label="Download"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLikeToggle}
+              aria-label={isLiked ? 'Unlike' : 'Like'}
+              className={cn(
+                'flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors',
+                isLiked && 'text-brand-400 hover:text-brand-300'
+              )}
+            >
+              <Heart className={cn('h-6 w-6', isLiked && 'fill-current')} />
+            </button>
+          </div>
         </div>
 
         {/* Progress Slider */}
