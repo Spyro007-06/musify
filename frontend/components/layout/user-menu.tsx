@@ -60,7 +60,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
         aria-haspopup="menu"
         aria-label="User account menu"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/90 py-1 pl-1 pr-3 text-sm text-neutral-200 transition-colors hover:border-neutral-700 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/90 py-1 pl-1 pr-1.5 sm:pr-3 text-sm text-neutral-200 transition-colors hover:border-neutral-700 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-400"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-700 text-xs font-semibold text-white">
           {user.avatarUrl ? (
@@ -74,10 +74,10 @@ export function UserMenu({ user, className }: UserMenuProps) {
             <span>{initials}</span>
           )}
         </div>
-        <span className="max-w-[120px] truncate text-xs font-medium">
+        <span className="hidden sm:inline max-w-[120px] truncate text-xs font-medium">
           {user.displayName || user.username}
         </span>
-        <ChevronDown className={cn('h-3.5 w-3.5 text-neutral-400 transition-transform', isOpen && 'rotate-180')} />
+        <ChevronDown className={cn('hidden sm:block h-3.5 w-3.5 text-neutral-400 transition-transform', isOpen && 'rotate-180')} />
       </button>
 
       {isOpen && (

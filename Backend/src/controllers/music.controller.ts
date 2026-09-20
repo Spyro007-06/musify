@@ -236,7 +236,15 @@ export class MusicController {
         throw ApiError.internal('Failed to fetch the audio file from the catalog source.');
       }
 
-      res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, "'")}"`);
+      // HTTP header values must be Latin-1; track titles routinely carry
+      // curly quotes, accents, or non-Latin scripts that would otherwise
+      // make setHeader throw. Fall back to an ASCII-only name and carry the
+      // real title via the RFC 5987 filename* parameter for browsers to use.
+      const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '').replace(/"/g, "'").trim() || 'track.m4a';
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
       res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mp4');
       const contentLength = upstream.headers.get('content-length');
       if (contentLength) res.setHeader('Content-Length', contentLength);

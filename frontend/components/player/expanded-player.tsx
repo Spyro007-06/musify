@@ -84,7 +84,7 @@ export function ExpandedPlayer() {
           type="button"
           onClick={closeExpanded}
           aria-label="Minimize player"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
         >
           <ChevronDown className="h-6 w-6" />
         </button>
@@ -102,7 +102,7 @@ export function ExpandedPlayer() {
           type="button"
           onClick={toggleQueue}
           aria-label="Toggle Queue"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
         >
           <ListMusic className="h-5 w-5" />
         </button>
@@ -139,7 +139,7 @@ export function ExpandedPlayer() {
               type="button"
               onClick={() => downloadTrack(currentTrack)}
               aria-label="Download"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
             >
               <Download className="h-5 w-5" />
             </button>
@@ -149,7 +149,7 @@ export function ExpandedPlayer() {
               onClick={handleLikeToggle}
               aria-label={isLiked ? 'Unlike' : 'Like'}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors',
+                'flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
                 isLiked && 'text-brand-400 hover:text-brand-300'
               )}
             >

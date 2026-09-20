@@ -4,7 +4,6 @@ import * as React from 'react';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { MobileNav } from './mobile-nav';
-import { MobileDrawer } from './mobile-drawer';
 import { GlobalPlayer } from '@/components/player/global-player';
 import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils/cn';
@@ -45,9 +44,6 @@ export function AppShell({ children, className }: AppShellProps) {
 
       {/* 4. Mobile Bottom Navigation (< md) */}
       <MobileNav />
-
-      {/* 5. Mobile Drawer for overflow navigation items */}
-      <MobileDrawer />
     </div>
   );
 }

@@ -3,17 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MoreHorizontal } from 'lucide-react';
 import {
   MOBILE_PRIMARY_NAV_ITEMS,
   isNavItemActive,
 } from '@/lib/constants/navigation';
-import { useUiStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils/cn';
 
 export function MobileNav({ className }: { className?: string }) {
   const pathname = usePathname();
-  const { toggleMobileMenu, mobileMenuOpen } = useUiStore();
 
   return (
     <nav
@@ -47,24 +44,6 @@ export function MobileNav({ className }: { className?: string }) {
           </Link>
         );
       })}
-
-      {/* "More" button to toggle full drawer */}
-      <button
-        type="button"
-        onClick={toggleMobileMenu}
-        aria-label="More navigation options"
-        aria-expanded={mobileMenuOpen}
-        className={cn(
-          'flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-colors',
-          mobileMenuOpen ? 'text-brand-300 font-semibold' : 'text-neutral-400 hover:text-neutral-200'
-        )}
-      >
-        <MoreHorizontal
-          aria-hidden="true"
-          className={cn('h-4 w-4 mb-0.5', mobileMenuOpen ? 'text-brand-300' : 'text-neutral-400')}
-        />
-        <span>More</span>
-      </button>
     </nav>
   );
 }

@@ -53,7 +53,7 @@ export class MusicService {
       where: { userId },
       select: { favouriteLanguages: true },
     });
-    return prefs?.favouriteLanguages || [];
+    return prefs?.favouriteLanguages?.length ? prefs.favouriteLanguages : ['tamil'];
   }
 
   public static async getTrending(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
