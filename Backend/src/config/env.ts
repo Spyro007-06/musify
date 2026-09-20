@@ -22,7 +22,12 @@ const envSchema = z.object({
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform(Number),
-  RATE_LIMIT_MAX: z.string().default('100').transform(Number),
+  // Now keyed per-authenticated-user rather than per-IP (see
+  // getRateLimitIdentifier), so this no longer has to cover every user
+  // behind a shared NAT/office network out of one bucket — raised
+  // accordingly to give a single active user real headroom (a page load
+  // alone fans out into several parallel API calls).
+  RATE_LIMIT_MAX: z.string().default('600').transform(Number),
   AUTH_RATE_LIMIT_MAX: z.string().default('10').transform(Number),
 
   // Security
