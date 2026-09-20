@@ -42,7 +42,7 @@ export default function HomePage() {
     isError: isRecommendedError,
     error: recommendedError,
     refetch: refetchRecommended,
-    isPersonalized,
+    personalizedBasis,
   } = useRecommended();
 
   const {
@@ -188,8 +188,12 @@ export default function HomePage() {
       <MusicSection
         title="Made For You"
         subtitle={
-          isPersonalized
+          personalizedBasis === 'history'
             ? 'Recommendations inspired by your listening history'
+            : personalizedBasis === 'taste'
+            ? 'Picked to match your favourite genres'
+            : personalizedBasis === 'language'
+            ? 'Fresh picks in your preferred languages'
             : 'Popular picks to get you started — tune your taste in Settings'
         }
         isLoading={isRecommendedLoading}

@@ -25,8 +25,12 @@ export const musicApi = {
     return apiClient.get<Album[]>(`/music/new-releases${query}`);
   },
 
-  getRecommended: async (): Promise<ApiResponse<{ tracks: Track[]; personalized: boolean }>> => {
-    return apiClient.get<{ tracks: Track[]; personalized: boolean }>('/music/recommended');
+  getRecommended: async (): Promise<
+    ApiResponse<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>
+  > => {
+    return apiClient.get<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>(
+      '/music/recommended'
+    );
   },
 
   getRecommendations: async (genres?: string, limit?: number): Promise<ApiResponse<Track[]>> => {

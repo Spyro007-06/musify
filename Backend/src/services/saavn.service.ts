@@ -279,8 +279,37 @@ export class SaavnService {
   private async getNewReleasesUncached(languages?: string[], artists?: string[]): Promise<any[]> {
     if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
       const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
+
+      // The real new-releases chart already carries an accurate language tag
+      // and genuine release recency, unlike a "<language> new release"
+      // keyword search, which matches loosely and can surface years-old
+      // catalog items under a section titled "fresh ... just dropped".
+      // Artist filtering has no chart equivalent, so that case still falls
+      // through to the keyword search below.
+      if (languages && languages.length > 0 && (!artists || artists.length === 0)) {
+        try {
+          const chart = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.discoverService.getNewReleases({ limit: 50 }));
+          const chartAlbums = (chart || [])
+            .map((a: any) => this.mapAlbum(a))
+            .filter((album: any) => {
+              if (!album) return false;
+              const albumLang = (album.genre || '').toLowerCase();
+              return preferredLangsLower.some(l => albumLang.includes(l) || l.includes(albumLang));
+            });
+          if (chartAlbums.length > 0) {
+            return chartAlbums.sort((a: any, b: any) => (b.releaseYear || 0) - (a.releaseYear || 0));
+          }
+        } catch (error) {
+          logger.error('Failed to fetch language-filtered new-releases chart — falling back to keyword search:', error);
+        }
+      }
+
       const artistQueries = (artists || []).slice(0, 3);
-      const languageQueries = (languages || []).map(lang => `${lang} new release`).slice(0, 2);
+      // "<language> new release" is a weak query on JioSaavn's search and
+      // mostly returns nothing — "<language> <current year>" reliably
+      // surfaces albums actually released this year instead.
+      const currentYear = new Date().getFullYear();
+      const languageQueries = (languages || []).map(lang => `${lang} ${currentYear}`).slice(0, 2);
       const queries = [...languageQueries, ...artistQueries];
 
       const searchPromises = queries.map(q =>
@@ -326,6 +355,12 @@ export class SaavnService {
           }
           return true;
         });
+
+        // Keyword search has no notion of recency, so without sorting a
+        // years-old album can outrank something that actually just
+        // dropped — sort what "New Releases" shows to match what the
+        // section title promises.
+        filteredAlbums.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
 
       return filteredAlbums;
     }

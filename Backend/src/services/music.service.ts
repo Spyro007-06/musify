@@ -99,7 +99,9 @@ export class MusicService {
    * actually done yet (e.g. "inspired by your listening history" for a
    * user who has none).
    */
-  public static async getRecommended(userId?: string): Promise<{ tracks: any[]; personalized: boolean }> {
+  public static async getRecommended(
+    userId?: string
+  ): Promise<{ tracks: any[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }> {
     const preferredLanguages = await this.getPreferredLanguages(userId);
 
     // A saved language preference is authoritative for "Made For You" too —
@@ -121,7 +123,7 @@ export class MusicService {
             20
           );
           if (genreTracks.length > 0) {
-            return { tracks: await this.populateLikes(genreTracks, userId), personalized: true };
+            return { tracks: await this.populateLikes(genreTracks, userId), personalized: true, basis: 'taste' };
           }
         }
 
@@ -184,7 +186,7 @@ export class MusicService {
               20
             );
             if (tracks && tracks.length > 0) {
-              return { tracks: await this.populateLikes(tracks, userId), personalized: true };
+              return { tracks: await this.populateLikes(tracks, userId), personalized: true, basis: 'history' };
             }
           }
         }
@@ -196,7 +198,14 @@ export class MusicService {
     const tracks = preferredLanguages.length > 0
       ? await this.saavn.getTrendingTracks(preferredLanguages)
       : await this.saavn.getRecommendedTracks();
-    return { tracks: await this.populateLikes(tracks, userId), personalized: preferredLanguages.length > 0 };
+    return {
+      tracks: await this.populateLikes(tracks, userId),
+      // A language filter is a real preference, so this is still "personalized" —
+      // but it isn't based on listening history/taste, so the frontend needs to
+      // say so honestly rather than claim a basis (history) that wasn't used.
+      personalized: preferredLanguages.length > 0,
+      basis: preferredLanguages.length > 0 ? 'language' : 'generic',
+    };
   }
 
   public static async getRecommendations(
