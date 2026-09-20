@@ -40,8 +40,11 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
   LOG_DIR: z.string().default('./logs'),
 
-  // Swagger
-  SWAGGER_ENABLED: z.string().default('true').transform((v) => v === 'true'),
+  // Swagger — defaults to on for dev/test convenience; the post-parse step
+  // below flips the default to off in production unless explicitly set,
+  // since /api/docs otherwise exposes the full route/schema surface
+  // publicly by default.
+  SWAGGER_ENABLED: z.string().optional().transform((v) => (v === undefined ? undefined : v === 'true')),
 
   // Pagination
   DEFAULT_PAGE_SIZE: z.string().default('20').transform(Number),
@@ -77,5 +80,10 @@ if (parseResult.data.NODE_ENV === 'production' && parseResult.data.CSRF_SECRET =
   process.exit(1);
 }
 
-export const env = parseResult.data;
+export const env = {
+  ...parseResult.data,
+  // Explicit SWAGGER_ENABLED always wins; unset defaults to on outside
+  // production and off in it.
+  SWAGGER_ENABLED: parseResult.data.SWAGGER_ENABLED ?? parseResult.data.NODE_ENV !== 'production',
+};
 export type Env = typeof env;
