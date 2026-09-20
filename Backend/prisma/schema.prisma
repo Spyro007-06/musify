@@ -63,6 +63,8 @@ model Playlist {
   tracks      PlaylistTrack[]
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+
+  @@index([ownerId])
 }
 
 model PlaylistTrack {
@@ -107,14 +109,6 @@ model DislikedSong {
   @@index([userId])
 }
 
-model Category {
-  id        String  @id @default(uuid())
-  name      String
-  slug      String  @unique
-  coverUrl  String?
-  gradient  String?
-}
-
 // ---------------------------------------------------------
 // NEW RECOMMENDATION ENGINE MODELS
 // ---------------------------------------------------------
@@ -153,6 +147,7 @@ model ListeningHistory {
 
   @@index([userId, timestamp])
   @@index([spotifyTrackId])
+  @@index([sessionId])
 }
 
 model SkippedSongs {
