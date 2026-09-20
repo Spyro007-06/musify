@@ -346,8 +346,8 @@ describe('getRecommendedSongs', () => {
   it('returns tracks sorted best-first and respects the limit param', async () => {
     mockCandidatePoolDeps();
     saavnMock.getTrendingTracks.mockResolvedValue([
-      track({ id: 'low', genre: 'unmatched' }),
-      track({ id: 'high', genre: 'pop' }),
+      track({ id: 'low', title: 'Low Song', genre: 'unmatched' }),
+      track({ id: 'high', title: 'High Song', genre: 'pop' }),
     ]);
     prismaMock.recommendationScores.findMany.mockResolvedValue([
       { userId: 'user-1', spotifyTrackId: 'high', score: 0.9, reason: 'x' } as any,
@@ -406,7 +406,10 @@ describe('getRecommendedAlbums', () => {
 describe('getDiscoverWeekly', () => {
   it('excludes tracks already in the user\'s listening history', async () => {
     mockCandidatePoolDeps();
-    saavnMock.getTrendingTracks.mockResolvedValue([track({ id: 'already-heard' }), track({ id: 'new-to-me' })]);
+    saavnMock.getTrendingTracks.mockResolvedValue([
+      track({ id: 'already-heard', title: 'Already Heard Song' }),
+      track({ id: 'new-to-me', title: 'New To Me Song' }),
+    ]);
     prismaMock.listeningHistory.findMany.mockResolvedValue([{ spotifyTrackId: 'already-heard' } as any]);
     prismaMock.likedTrack.findMany.mockResolvedValue([]);
 
