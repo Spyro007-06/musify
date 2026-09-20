@@ -43,7 +43,15 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
   getSecret: () => env.CSRF_SECRET,
   cookieName: 'x-csrf-token',
   cookieOptions: {
-    sameSite: 'strict',
+    // 'strict'/'lax' cookies are never sent on a request from another
+    // registrable domain — fine when frontend and backend share one (dev's
+    // shared localhost), but this app is deployed with the frontend on
+    // Vercel and the backend on Railway, genuinely different domains.
+    // 'none' is required for the browser to attach the cookie there at
+    // all, and 'none' cookies must be 'secure', which is already only
+    // true in production — dev keeps 'strict' since it doesn't need this
+    // and 'none' without HTTPS would just get the cookie rejected outright.
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'strict',
     secure: env.NODE_ENV === 'production',
     httpOnly: true,
   },
