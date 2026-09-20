@@ -67,5 +67,15 @@ if (!parseResult.success) {
   process.exit(1);
 }
 
+// CSRF_SECRET has a default so local dev works with zero setup, but that
+// default is committed in this public repo — anyone can read it and forge
+// a valid CSRF token against it. A missing/forgotten override must fail
+// loudly in production rather than silently running with a known-public
+// secret and appearing to work.
+if (parseResult.data.NODE_ENV === 'production' && parseResult.data.CSRF_SECRET === 'super-secret-csrf-key-for-dev-only') {
+  console.error('❌ CSRF_SECRET is still the default dev value in a production environment. Set a real secret before starting.');
+  process.exit(1);
+}
+
 export const env = parseResult.data;
 export type Env = typeof env;
