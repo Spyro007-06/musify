@@ -50,12 +50,12 @@ export class MusicController {
   public static async getRecommended(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;
-      const tracks = await MusicService.getRecommended(optReq.user?.id);
+      const result = await MusicService.getRecommended(optReq.user?.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,
         message: 'Recommended tracks retrieved successfully.',
-        data: tracks,
+        data: result,
       });
     } catch (error) {
       next(error);

@@ -22,8 +22,8 @@ export const musicApi = {
     return apiClient.get<Album[]>(`/music/new-releases${query}`, { requiresAuth: false });
   },
 
-  getRecommended: async (): Promise<ApiResponse<Track[]>> => {
-    return apiClient.get<Track[]>('/music/recommended');
+  getRecommended: async (): Promise<ApiResponse<{ tracks: Track[]; personalized: boolean }>> => {
+    return apiClient.get<{ tracks: Track[]; personalized: boolean }>('/music/recommended');
   },
 
   getRecommendations: async (genres?: string, limit?: number): Promise<ApiResponse<Track[]>> => {

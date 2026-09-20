@@ -95,8 +95,9 @@ describe('GET /api/music/recommended', () => {
     saavnMock.getRecommendedTracks.mockResolvedValue([track()]);
     const res = await request(app).get('/api/music/recommended');
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data[0]).toEqual(expect.objectContaining({ id: 'track-1' }));
+    expect(Array.isArray(res.body.data.tracks)).toBe(true);
+    expect(res.body.data.tracks[0]).toEqual(expect.objectContaining({ id: 'track-1' }));
+    expect(res.body.data.personalized).toBe(false);
   });
 
   it('for an authenticated user, derives signals from their own history/likes/follows before recommending', async () => {
@@ -112,7 +113,8 @@ describe('GET /api/music/recommended', () => {
 
     expect(res.status).toBe(200);
     expect(saavnMock.getRecommendations).toHaveBeenCalledWith(['hindi'], ['Test Artist'], 20);
-    expect(res.body.data[0].id).toBe('rec-1');
+    expect(res.body.data.tracks[0].id).toBe('rec-1');
+    expect(res.body.data.personalized).toBe(true);
   });
 
   it('falls back to generic recommendations when signal-derivation throws, instead of erroring the request', async () => {
@@ -126,7 +128,8 @@ describe('GET /api/music/recommended', () => {
     const res = await request(app).get('/api/music/recommended').set('Authorization', authHeader());
 
     expect(res.status).toBe(200);
-    expect(res.body.data[0].id).toBe('fallback-1');
+    expect(res.body.data.tracks[0].id).toBe('fallback-1');
+    expect(res.body.data.personalized).toBe(false);
   });
 
   it('FIXED: a transient DB failure while annotating isLiked degrades to isLiked:false instead of failing the whole response', async () => {
@@ -137,7 +140,7 @@ describe('GET /api/music/recommended', () => {
     const res = await request(app).get('/api/music/recommended').set('Authorization', authHeader());
 
     expect(res.status).toBe(200);
-    expect(res.body.data[0]).toEqual(expect.objectContaining({ id: 'track-1', isLiked: false }));
+    expect(res.body.data.tracks[0]).toEqual(expect.objectContaining({ id: 'track-1', isLiked: false }));
   });
 });
 

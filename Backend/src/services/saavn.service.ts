@@ -345,10 +345,31 @@ export class SaavnService {
   }
 
   public async getRecommendationsByGenres(genres: string[], limit = 20): Promise<any[]> {
+    if (genres.length === 0) return [];
     try {
-      const query = genres.join(' ');
-      const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit }));
-      return results.results ? dedupeById(results.results.map((s: any) => this.mapTrack(s))) : [];
+      // Search each genre independently rather than joining them into one
+      // literal query string — "rock rap" as a single search term mostly
+      // surfaces tracks literally titled "Rock Rap" instead of a blend of
+      // rock and rap music. Cap to 3 genres per call (a user can favourite
+      // far more) and interleave the per-genre results round-robin, so a
+      // multi-genre pick returns a genuine mix rather than one genre's
+      // results followed by another's.
+      const queries = genres.slice(0, 3);
+      const searchPromises = queries.map((genre) =>
+        resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query: genre, page: 0, limit }))
+      );
+      const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
+      const perGenreTracks = results.map((res) => (res.results || []).map((s: any) => this.mapTrack(s)));
+
+      const interleaved: any[] = [];
+      const maxLen = Math.max(0, ...perGenreTracks.map((t) => t.length));
+      for (let i = 0; i < maxLen; i++) {
+        for (const list of perGenreTracks) {
+          if (list[i]) interleaved.push(list[i]);
+        }
+      }
+
+      return dedupeById(interleaved).slice(0, limit);
     } catch (error) {
       logger.error('❌ JioSaavn recommendations by genres failed:', error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);

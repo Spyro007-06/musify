@@ -257,11 +257,20 @@ describe('SaavnService', () => {
   });
 
   describe('normal-path coverage for peripheral methods', () => {
-    it('getRecommendationsByGenres maps a plain-text genre search', async () => {
-      mockSearchSongs.mockResolvedValue({ results: [rawSong()] });
+    it('getRecommendationsByGenres searches each genre independently and merges the results', async () => {
+      mockSearchSongs.mockImplementation(({ query }: { query: string }) =>
+        Promise.resolve({ results: [rawSong({ id: `${query}-1`, name: `${query} song` })] })
+      );
       const result = await saavn.getRecommendationsByGenres(['pop', 'energetic'], 10);
-      expect(mockSearchSongs).toHaveBeenCalledWith(expect.objectContaining({ query: 'pop energetic', limit: 10 }));
-      expect(result).toEqual([expect.objectContaining({ id: 's1' })]);
+      // Not joined into one literal "pop energetic" query — each genre gets its own search.
+      expect(mockSearchSongs).toHaveBeenCalledWith(expect.objectContaining({ query: 'pop', limit: 10 }));
+      expect(mockSearchSongs).toHaveBeenCalledWith(expect.objectContaining({ query: 'energetic', limit: 10 }));
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'pop-1' }),
+          expect.objectContaining({ id: 'energetic-1' }),
+        ])
+      );
     });
 
     it('getRecommendationsByGenres classifies an upstream failure as SaavnUpstreamError', async () => {

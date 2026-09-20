@@ -72,7 +72,15 @@ export class MusicService {
     return this.saavn.getNewReleases(languages, artists);
   }
 
-  public static async getRecommended(userId?: string): Promise<any[]> {
+  /**
+   * `personalized: false` means the tracks are the same generic trending
+   * fallback a logged-out visitor would see — no genre preference, likes,
+   * history, or followed artists were found to base anything on. The
+   * frontend uses this to avoid claiming a personalization it hasn't
+   * actually done yet (e.g. "inspired by your listening history" for a
+   * user who has none).
+   */
+  public static async getRecommended(userId?: string): Promise<{ tracks: any[]; personalized: boolean }> {
     if (userId) {
       try {
         // Explicit favourite genres (set in Settings) are the strongest signal a
@@ -89,7 +97,7 @@ export class MusicService {
             20
           );
           if (genreTracks.length > 0) {
-            return this.populateLikes(genreTracks, userId);
+            return { tracks: await this.populateLikes(genreTracks, userId), personalized: true };
           }
         }
 
@@ -152,7 +160,7 @@ export class MusicService {
               20
             );
             if (tracks && tracks.length > 0) {
-              return this.populateLikes(tracks, userId);
+              return { tracks: await this.populateLikes(tracks, userId), personalized: true };
             }
           }
         }
@@ -162,7 +170,7 @@ export class MusicService {
     }
 
     const tracks = await this.saavn.getRecommendedTracks();
-    return this.populateLikes(tracks, userId);
+    return { tracks: await this.populateLikes(tracks, userId), personalized: false };
   }
 
   public static async getRecommendations(
