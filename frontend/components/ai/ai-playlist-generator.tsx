@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { GenerateAIPlaylistResult } from '@/types/ai';
 import { cn } from '@/lib/utils/cn';
 import { pluralize } from '@/lib/utils/pluralize';
+import { Alert } from '@/components/ui/alert';
 
 const EXAMPLE_PROMPTS = [
   'Chill Hindi songs for late-night drives',
@@ -152,9 +153,9 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
 
         {/* Error notice */}
         {generateMutation.isError && (
-          <div role="alert" className="rounded-xl border border-danger-500/20 bg-danger-950/20 p-3 text-xs text-danger-400">
+          <Alert variant="danger">
             {generateMutation.error?.message || 'Failed to generate playlist. Please verify your prompt and try again.'}
-          </div>
+          </Alert>
         )}
 
         {/* Submit Actions */}

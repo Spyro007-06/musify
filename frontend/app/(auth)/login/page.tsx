@@ -6,6 +6,7 @@ import { Brand } from '@/components/layout/brand';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/types/api';
+import { Alert } from '@/components/ui/alert';
 
 function LoginForm() {
   const router = useRouter();
@@ -65,8 +66,8 @@ function LoginForm() {
       <p className="mb-7 text-center text-sm text-neutral-400">Your next favorite track is waiting.</p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-md bg-danger-950/80 border border-danger-800 p-3 text-sm text-danger-200">
-          {error}
+        <div className="mb-4">
+          <Alert variant="danger">{error}</Alert>
         </div>
       )}
 

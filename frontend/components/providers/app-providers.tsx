@@ -9,6 +9,7 @@ import { authApi } from '@/lib/api/auth';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { clearCsrfToken } from '@/lib/auth/csrf';
 import { clearSessionMarker, hadSession, markSessionActive } from '@/lib/auth/session-marker';
+import { ToastViewport } from '@/components/ui/toast';
 
 function AudioEngineManager() {
   useAudio();
@@ -92,6 +93,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <AudioEngineManager />
         <ServiceWorkerRegistrar />
         {children}
+        <ToastViewport />
       </SessionInitializer>
     </QueryProvider>
   );

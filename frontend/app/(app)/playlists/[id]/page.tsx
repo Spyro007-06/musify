@@ -9,8 +9,6 @@ import {
   Trash2,
   Lock,
   Globe2,
-  AlertCircle,
-  RefreshCw,
   Sparkles,
   ArrowLeft,
   Music2,
@@ -22,6 +20,8 @@ import { TrackRow } from '@/components/music/track-row';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeletePlaylistModal } from '@/components/playlist/delete-playlist-modal';
+import { ErrorState } from '@/components/ui/error-state';
+import { Alert } from '@/components/ui/alert';
 import { Track } from '@/types/track';
 import { pluralize } from '@/lib/utils/pluralize';
 
@@ -161,53 +161,39 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
           <span>Back to Playlists</span>
         </Link>
 
-        <div className="flex flex-col items-center justify-center rounded-3xl border border-neutral-800 bg-neutral-900/40 p-12 text-center max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto">
           {isForbidden ? (
-            <>
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 mb-4 border border-amber-500/20">
-                <Lock className="h-8 w-8" />
-              </div>
-              <h2 className="text-xl font-bold text-white">Private Playlist</h2>
-              <p className="mt-2 text-xs sm:text-sm text-neutral-400">
-                This playlist is private and can only be viewed by its owner.
-              </p>
-            </>
+            <ErrorState
+              variant="warning"
+              size="full"
+              title="Private Playlist"
+              message="This playlist is private and can only be viewed by its owner."
+            />
           ) : isNotFound ? (
-            <>
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-neutral-800 text-neutral-400 mb-4">
-                <AlertCircle className="h-8 w-8" />
-              </div>
-              <h2 className="text-xl font-bold text-white">Playlist Not Found</h2>
-              <p className="mt-2 text-xs sm:text-sm text-neutral-400">
-                The playlist you are looking for does not exist or has been removed.
-              </p>
-            </>
+            <ErrorState
+              variant="neutral"
+              size="full"
+              title="Playlist Not Found"
+              message="The playlist you are looking for does not exist or has been removed."
+            />
           ) : (
-            <>
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-danger-500/10 text-danger-400 mb-4 border border-danger-500/20">
-                <AlertCircle className="h-8 w-8" />
-              </div>
-              <h2 className="text-xl font-bold text-white">Failed to Load Playlist</h2>
-              <p className="mt-2 text-xs sm:text-sm text-neutral-400">
-                {error?.message || 'An unexpected error occurred while loading this playlist.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                <span>Try Again</span>
-              </button>
-            </>
+            <ErrorState
+              variant="danger"
+              size="full"
+              title="Failed to Load Playlist"
+              message={error?.message || 'An unexpected error occurred while loading this playlist.'}
+              onRetry={() => refetch()}
+            />
           )}
 
-          <Link
-            href="/library/playlists"
-            className="mt-6 rounded-full border border-neutral-700 bg-neutral-800 px-5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-          >
-            Explore Your Playlists
-          </Link>
+          <div className="text-center">
+            <Link
+              href="/library/playlists"
+              className="mt-6 inline-block rounded-full border border-neutral-700 bg-neutral-800 px-5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
+            >
+              Explore Your Playlists
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -233,16 +219,9 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
       {/* Action error banner if remove fails */}
       {actionError && (
-        <div role="alert" className="rounded-xl border border-danger-500/20 bg-danger-950/20 p-3 text-xs text-danger-300 flex items-center justify-between">
-          <span>{actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            className="text-neutral-400 hover:text-white ml-2"
-          >
-            &times;
-          </button>
-        </div>
+        <Alert variant="danger" onDismiss={() => setActionError(null)}>
+          {actionError}
+        </Alert>
       )}
 
       {/* 1. Header / Hero */}

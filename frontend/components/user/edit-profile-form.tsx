@@ -6,13 +6,13 @@ import {
   Image as ImageIcon,
   Save,
   RotateCcw,
-  AlertCircle,
-  CheckCircle2,
   Loader2,
   Sparkles,
 } from 'lucide-react';
 import { User, UpdateProfileRequest } from '@/types/user';
 import { useUpdateProfile } from '@/hooks/use-user';
+import { Alert } from '@/components/ui/alert';
+import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
 
 interface EditProfileFormProps {
@@ -36,7 +36,6 @@ export function EditProfileForm({
 
   const [clientErrors, setClientErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [previewFailed, setPreviewFailed] = React.useState(false);
 
   // Sync state if user prop changes
@@ -85,7 +84,6 @@ export function EditProfileForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
-    setSuccessMessage(null);
 
     if (!validate()) {
       return;
@@ -99,7 +97,10 @@ export function EditProfileForm({
 
     try {
       await updateProfileMutation.mutateAsync(payload);
-      setSuccessMessage('Profile updated successfully!');
+      // A toast (rather than an inline banner) is always visible regardless
+      // of scroll position — this form can run long enough that a banner
+      // right below the header goes unseen after saving from the bottom.
+      toast.success('Profile updated successfully!');
       if (onSuccess) {
         onSuccess();
       }
@@ -119,7 +120,6 @@ export function EditProfileForm({
     setBio(user.bio || '');
     setClientErrors({});
     setServerError(null);
-    setSuccessMessage(null);
     if (onCancel) {
       onCancel();
     }
@@ -152,21 +152,8 @@ export function EditProfileForm({
         )}
       </div>
 
-      {/* Success Notification */}
-      {successMessage && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-brand-500/30 bg-brand-950/20 p-3.5 text-xs text-brand-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-
       {/* Server Error Notification */}
-      {serverError && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-danger-500/30 bg-danger-950/20 p-3.5 text-xs text-danger-400">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{serverError}</span>
-        </div>
-      )}
+      {serverError && <Alert variant="danger">{serverError}</Alert>}
 
       {/* Avatar Section & Live Preview */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 rounded-xl bg-neutral-950/40 p-4 border border-white/5">

@@ -3,8 +3,6 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle,
-  RefreshCw,
   Music2,
   Disc3,
   Users,
@@ -13,6 +11,7 @@ import {
   ChevronUp,
   Search,
 } from 'lucide-react';
+import { ErrorState } from '@/components/ui/error-state';
 import {
   useArtist,
   useArtistTopTracks,
@@ -117,28 +116,15 @@ export default function ArtistPage({ params }: ArtistPageProps) {
   // Generic Error state
   if (isArtistError || !artist) {
     return (
-      <div role="alert" className="flex min-h-[60vh] flex-col items-center justify-center text-center px-4">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-danger-500/10 text-danger-400 border border-danger-500/20 mb-6">
-          <AlertCircle className="h-10 w-10" />
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-          Failed to Load Artist
-        </h1>
-        <p className="text-sm text-neutral-400 max-w-md mb-8">
-          {artistError?.message || 'A network error occurred while loading this artist profile.'}
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            refetchArtist();
-            refetchTopTracks();
-          }}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-neutral-800 border border-white/10 text-white font-semibold text-sm hover:bg-neutral-700 transition-colors"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Try Again
-        </button>
-      </div>
+      <ErrorState
+        size="full"
+        title="Failed to Load Artist"
+        message={artistError?.message || 'A network error occurred while loading this artist profile.'}
+        onRetry={() => {
+          refetchArtist();
+          refetchTopTracks();
+        }}
+      />
     );
   }
 

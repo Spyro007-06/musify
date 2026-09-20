@@ -20,6 +20,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AIRecommendationItem } from '@/types/ai';
 import { formatDuration } from '@/lib/utils/format-duration';
+import { ErrorState } from '@/components/ui/error-state';
 import { cn } from '@/lib/utils/cn';
 
 const SUGGESTED_MOODS = [
@@ -208,19 +209,11 @@ export function AiRecommendations({ className }: { className?: string }) {
           ))}
         </div>
       ) : isError ? (
-        <div role="alert" className="rounded-2xl border border-danger-500/20 bg-danger-950/10 p-6 text-center">
-          <p className="text-sm text-danger-400 mb-3">
-            {error?.message || 'Unable to retrieve AI recommendations right now.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-800 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
-        </div>
+        <ErrorState
+          title="Unable to load recommendations"
+          message={error?.message || 'Unable to retrieve AI recommendations right now.'}
+          onRetry={() => refetch()}
+        />
       ) : recommendations.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-white/10 bg-neutral-900/30 p-8 text-center">
           <Music2 className="h-8 w-8 text-neutral-600 mx-auto mb-2" />

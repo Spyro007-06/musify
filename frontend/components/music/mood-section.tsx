@@ -5,7 +5,8 @@ import { useMood } from '@/hooks/use-music';
 import { PlaylistCard } from './playlist-card';
 import { AlbumCardSkeleton } from './album-card-skeleton';
 import { cn } from '@/lib/utils/cn';
-import { AlertCircle, RefreshCw, Smile } from 'lucide-react';
+import { Smile } from 'lucide-react';
+import { ErrorState } from '@/components/ui/error-state';
 import { Playlist } from '@/types/playlist';
 
 const MOODS = [
@@ -66,20 +67,12 @@ export function MoodSection({ onPlayPlaylist, className }: MoodSectionProps) {
           ))}
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-danger-500/20 bg-danger-950/10 p-8 text-center">
-          <AlertCircle className="h-8 w-8 text-danger-400 mb-2" />
-          <p className="text-sm font-medium text-danger-200">Unable to load mood playlists</p>
-          <p className="mt-1 text-xs text-danger-300/70 max-w-sm">
-            {(error as Error)?.message || 'Please check your connection and try again.'}
-          </p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-danger-500/20 px-3.5 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-500/30 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Retry</span>
-          </button>
-        </div>
+        <ErrorState
+          title="Unable to load mood playlists"
+          message={(error as Error)?.message || 'Please check your connection and try again.'}
+          onRetry={() => refetch()}
+          retryLabel="Retry"
+        />
       ) : !playlists || playlists.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-neutral-800/60 bg-neutral-900/30 p-8 text-center">
           <Smile className="h-8 w-8 text-neutral-500 mb-2" />

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/types/api';
 import { UserRole } from '@/types/user';
+import { Alert } from '@/components/ui/alert';
 
 function SignupForm() {
   const router = useRouter();
@@ -104,8 +105,8 @@ function SignupForm() {
       <p className="mb-7 text-center text-sm text-neutral-400">Make room for more music.</p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-md bg-danger-950/80 border border-danger-800 p-3 text-sm text-danger-200">
-          {error}
+        <div className="mb-4">
+          <Alert variant="danger">{error}</Alert>
         </div>
       )}
 

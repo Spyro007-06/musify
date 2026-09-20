@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { SearchX, AlertCircle, RefreshCw } from 'lucide-react';
+import { SearchX } from 'lucide-react';
+import { ErrorState } from '@/components/ui/error-state';
 import { SearchResults as SearchResultsType } from '@/lib/api/search';
 import { TrackRow } from '@/components/music/track-row';
 import { ArtistCard } from '@/components/music/artist-card';
@@ -84,23 +85,13 @@ export function SearchResults({
   // 2. Error State
   if (isError) {
     return (
-      <div role="alert" className={cn('flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center', className)}>
-        <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
-        <h3 className="text-lg font-bold text-white">Search request failed</h3>
-        <p className="mt-1 text-sm text-neutral-400 max-w-sm">
-          {error?.message || 'Something went wrong while fetching search results. Please try again.'}
-        </p>
-        {onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-black hover:bg-brand-400 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Retry Search</span>
-          </button>
-        )}
-      </div>
+      <ErrorState
+        className={className}
+        title="Search request failed"
+        message={error?.message || 'Something went wrong while fetching search results. Please try again.'}
+        onRetry={onRetry}
+        retryLabel="Retry Search"
+      />
     );
   }
 
