@@ -1,11 +1,16 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ChevronRight } from 'lucide-react';
 import { useTrending, useNewReleases, useRecommended, useCategories } from '@/hooks/use-music';
 import { usePlaylists } from '@/hooks/use-playlists';
+import { useDiscoverWeekly } from '@/hooks/use-recommendations';
+import { useAuthStore } from '@/stores/auth-store';
 import { HomeHeader } from '@/components/home/home-header';
 import { MusicSection } from '@/components/music/music-section';
+import { DiscoverWeeklyHero } from '@/components/discover/discover-weekly-hero';
 import { TrackCard } from '@/components/music/track-card';
 import { TrackRow } from '@/components/music/track-row';
 import { AlbumCard } from '@/components/music/album-card';
@@ -19,6 +24,9 @@ import { usePlayerStore } from '@/stores/player-store';
 export default function HomePage() {
   const router = useRouter();
   const playTrack = usePlayerStore((s) => s.playTrack);
+  const { isAuthenticated, isInitializing } = useAuthStore();
+
+  const { data: discoverWeeklyTracks, isLoading: isDiscoverWeeklyLoading } = useDiscoverWeekly();
 
   const {
     data: trendingTracks,
@@ -239,6 +247,30 @@ export default function HomePage() {
 
       {/* Moods & Vibes Section */}
       <MoodSection />
+
+      {/* Discover Weekly - personalized mixtape spotlight, replaces the standalone Discover nav tab */}
+      <section className="space-y-3">
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">Discover</h2>
+            <p className="mt-1 text-xs sm:text-sm text-neutral-400">
+              Your personalized mixtape, fresh drops, and artists picked for you
+            </p>
+          </div>
+          <Link
+            href="/discover"
+            className="group flex items-center gap-1 shrink-0 text-xs sm:text-sm font-semibold text-neutral-400 hover:text-brand-400 transition-colors"
+          >
+            <span>See all</span>
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+        <DiscoverWeeklyHero
+          tracks={discoverWeeklyTracks}
+          isLoading={isAuthenticated && isDiscoverWeeklyLoading}
+          isGuest={!isAuthenticated && !isInitializing}
+        />
+      </section>
     </div>
   );
 }

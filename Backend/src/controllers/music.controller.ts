@@ -207,7 +207,11 @@ export class MusicController {
   public static async getStreamUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;
-      const url = await MusicService.getStreamUrl(req.params.trackId, optReq.user?.id);
+      // The player prefetches the next queued track's stream URL while the
+      // current one is still playing so skipping feels instant — that must
+      // not log a play in history for a track the user hasn't heard yet.
+      const isPrefetch = req.query.prefetch === 'true';
+      const url = await MusicService.getStreamUrl(req.params.trackId, isPrefetch ? undefined : optReq.user?.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,
@@ -236,7 +240,15 @@ export class MusicController {
         throw ApiError.internal('Failed to fetch the audio file from the catalog source.');
       }
 
-      res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, "'")}"`);
+      // HTTP header values must be Latin-1; track titles routinely carry
+      // curly quotes, accents, or non-Latin scripts that would otherwise
+      // make setHeader throw. Fall back to an ASCII-only name and carry the
+      // real title via the RFC 5987 filename* parameter for browsers to use.
+      const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '').replace(/"/g, "'").trim() || 'track.m4a';
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
       res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mp4');
       const contentLength = upstream.headers.get('content-length');
       if (contentLength) res.setHeader('Content-Length', contentLength);

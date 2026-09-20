@@ -82,4 +82,13 @@ export const musicApi = {
   getStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
     return apiClient.get<{ url: string; streamUrl?: string }>(`/music/tracks/${encodeURIComponent(trackId)}/stream`);
   },
+
+  // Same endpoint as getStream, but flagged so the backend resolves the
+  // playable URL without logging a play — used to warm the next queued
+  // track's URL ahead of time, before the user has actually played it.
+  prefetchStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
+    return apiClient.get<{ url: string; streamUrl?: string }>(
+      `/music/tracks/${encodeURIComponent(trackId)}/stream?prefetch=true`
+    );
+  },
 };

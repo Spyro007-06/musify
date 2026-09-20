@@ -79,7 +79,7 @@ export function QueuePanel() {
               type="button"
               onClick={() => setQueueOpen(false)}
               aria-label="Close queue"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -181,9 +181,9 @@ export function QueuePanel() {
                             removeFromQueue(track.id);
                           }}
                           aria-label={`Remove ${track.title} from queue`}
-                          className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:text-danger-400 hover:bg-danger-500/10 transition-all"
+                          className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 hover:text-danger-400 hover:bg-danger-500/10 transition-all md:opacity-0 md:group-hover:opacity-100"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-4 w-4" />
                         </button>
                       </div>
                     </div>

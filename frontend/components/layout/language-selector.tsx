@@ -22,6 +22,7 @@ interface LanguageSelectorProps {
 export function LanguageSelector({ className }: LanguageSelectorProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const buttonId = React.useId();
   const { data: preferences } = useUserPreferences();
   const updateMutation = useUpdatePreferences();
 
@@ -78,27 +79,27 @@ export function LanguageSelector({ className }: LanguageSelectorProps) {
     <div ref={menuRef} className={cn('relative inline-block text-left', className)}>
       <button
         type="button"
-        id="language-selector-button"
+        id={buttonId}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label="Filter by language"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400',
+          'flex items-center gap-1.5 rounded-full border px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400',
           selected.length > 0
             ? 'border-brand-500/40 bg-brand-500/10 text-brand-300 hover:bg-brand-500/20'
             : 'border-neutral-800 bg-neutral-900/90 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800'
         )}
       >
         <Languages className="h-3.5 w-3.5 shrink-0" />
-        <span className="max-w-[100px] truncate">{label}</span>
+        <span className="hidden sm:inline max-w-[100px] truncate">{label}</span>
       </button>
 
       {isOpen && (
         <div
           role="menu"
           aria-orientation="vertical"
-          aria-labelledby="language-selector-button"
+          aria-labelledby={buttonId}
           className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-2xl backdrop-blur focus:outline-none"
         >
           <div className="px-3 py-2 border-b border-neutral-800/80 mb-1">

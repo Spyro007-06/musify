@@ -82,13 +82,20 @@ export class MusicService {
       }
     }
 
-    const tracks = await this.saavn.getTrendingTracks(preferredLanguages, artists);
+    // Tamil is the content default for a logged-in user with no saved
+    // language and no genre signal to bias by — applied only for this final
+    // saavn call, not baked into preferredLanguages itself, so the
+    // `.length === 0` branch check above (and every other caller of
+    // getPreferredLanguages) still sees "no preference" accurately.
+    const trendingLanguages = preferredLanguages.length > 0 ? preferredLanguages : (userId ? ['tamil'] : []);
+    const tracks = await this.saavn.getTrendingTracks(trendingLanguages, artists);
     return this.populateLikes(tracks, userId);
   }
 
   public static async getNewReleases(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
     const preferredLanguages = await this.getPreferredLanguages(userId, languages);
-    return this.saavn.getNewReleases(preferredLanguages, artists);
+    const releaseLanguages = preferredLanguages.length > 0 ? preferredLanguages : (userId ? ['tamil'] : []);
+    return this.saavn.getNewReleases(releaseLanguages, artists);
   }
 
   /**

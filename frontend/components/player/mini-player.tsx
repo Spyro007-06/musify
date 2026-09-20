@@ -16,6 +16,8 @@ export function MiniPlayer() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const isLoading = usePlayerStore((s) => s.isLoading);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+  const duration = usePlayerStore((s) => s.duration);
   const error = usePlayerStore((s) => s.error);
   const isQueueOpen = usePlayerStore((s) => s.isQueueOpen);
   const queue = usePlayerStore((s) => s.queue);
@@ -51,6 +53,7 @@ export function MiniPlayer() {
 
   const artwork = currentTrack?.artwork;
   const artists = currentTrack?.artists?.map((a) => a.name).join(', ') || 'Unknown Artist';
+  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
   return (
     <>
@@ -62,9 +65,15 @@ export function MiniPlayer() {
             'h-14 bg-neutral-900/95 border-t border-white/10 px-3 flex items-center justify-between backdrop-blur-md shadow-lg shadow-black/50'
           )}
         >
-        {/* Mobile top thin progress indicator */}
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-neutral-800 overflow-hidden">
-          <PlayerProgress showTimes={false} className="!py-0" />
+        {/* Mobile top thin progress indicator — a bare bar, not the full
+            PlayerProgress (its thumb + hit-area need more than 4px of
+            height and were getting clipped to invisible here). Tapping
+            the row already opens the expanded player's full seek bar. */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-neutral-700/80">
+          <div
+            className="h-full bg-brand-500 transition-[width]"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
 
         {/* Track info (Click opens expanded player) */}
@@ -101,11 +110,11 @@ export function MiniPlayer() {
               onClick={handleLike}
               aria-label={isLiked ? 'Unlike' : 'Like'}
               className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 hover:text-white',
+                'flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white',
                 isLiked && 'text-brand-400'
               )}
             >
-              <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
+              <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
             </button>
           )}
 
@@ -114,14 +123,14 @@ export function MiniPlayer() {
             onClick={togglePlay}
             disabled={!currentTrack && !isLoading}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-md hover:scale-105 active:scale-95 transition-all disabled:opacity-40"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-black" />
+              <Loader2 className="h-5 w-5 animate-spin text-black" />
             ) : isPlaying ? (
-              <Pause className="h-4 w-4 fill-current" />
+              <Pause className="h-5 w-5 fill-current" />
             ) : (
-              <Play className="h-4 w-4 fill-current ml-0.5" />
+              <Play className="h-5 w-5 fill-current ml-0.5" />
             )}
           </button>
         </div>

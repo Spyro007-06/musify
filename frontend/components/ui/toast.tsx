@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useToastStore, ToastItem, ToastVariant } from '@/stores/toast-store';
+import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils/cn';
 
 const VARIANT_STYLES: Record<ToastVariant, { border: string; icon: string }> = {
@@ -57,13 +58,24 @@ function Toast({ toast }: { toast: ToastItem }) {
  * Fixed-position stack, mounted once near the app root. Sits above the
  * mini-player on both mobile and desktop; the player itself pushes it up
  * via the same bottom offset the old bespoke playback-error toast used.
+ * The expanded (full-screen) player has no mini-player/nav bar beneath it,
+ * so that offset would otherwise land the stack on top of the transport
+ * controls — drop to a safe-area-aware offset near the bottom edge instead.
  */
 export function ToastViewport() {
   const toasts = useToastStore((s) => s.toasts);
+  const isExpanded = usePlayerStore((s) => s.isExpanded);
   if (toasts.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-28 md:bottom-24 left-1/2 z-50 flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4">
+    <div
+      className={cn(
+        'pointer-events-none fixed left-1/2 z-[60] flex w-full max-w-sm -translate-x-1/2 flex-col gap-2 px-4',
+        isExpanded
+          ? 'bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]'
+          : 'bottom-28 md:bottom-24'
+      )}
+    >
       {toasts.map((t) => (
         <Toast key={t.id} toast={t} />
       ))}

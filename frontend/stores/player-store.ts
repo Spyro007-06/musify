@@ -83,6 +83,46 @@ function getSavedRepeat(): RepeatMode {
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
 
+// Warms the upcoming queue track's stream URL while the current one is
+// still playing, so skipping to it doesn't wait on a fresh network round
+// trip. Single-use and short-lived — these are signed CDN URLs, not meant
+// to be replayed long after being issued.
+const STREAM_URL_CACHE_TTL_MS = 4 * 60 * 1000;
+const streamUrlCache = new Map<string, { url: string; cachedAt: number }>();
+
+function takeCachedStreamUrl(trackId: string): string | null {
+  const entry = streamUrlCache.get(trackId);
+  if (!entry) return null;
+  streamUrlCache.delete(trackId);
+  if (Date.now() - entry.cachedAt > STREAM_URL_CACHE_TTL_MS) return null;
+  return entry.url;
+}
+
+// Auto-continues playback once the queue runs out, using the same
+// personalized feed as Home's "Made For You" — reuse, not a new engine.
+async function fetchAutoQueueTracks(existingQueue: Track[]): Promise<Track[]> {
+  try {
+    const res = await musicApi.getRecommended();
+    const existingIds = new Set(existingQueue.map((t) => t.id));
+    return (res.data?.tracks || []).filter((t) => !existingIds.has(t.id));
+  } catch {
+    return [];
+  }
+}
+
+function prefetchTrackStream(track: Track) {
+  if (streamUrlCache.has(track.id)) return;
+  musicApi
+    .prefetchStream(track.id)
+    .then((res) => {
+      const url = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
+      if (url) streamUrlCache.set(track.id, { url, cachedAt: Date.now() });
+    })
+    .catch(() => {
+      // Best-effort — playTrack just falls back to a normal fetch if this never lands.
+    });
+}
+
 export interface PlayerState {
   currentTrack: Track | null;
   streamUrl: string | null;
@@ -198,15 +238,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
 
     try {
-      // 3. Request playable stream URL only now (user initiated playback)
-      const res = await musicApi.getStream(track.id);
+      // 3. Request playable stream URL only now (user initiated playback) —
+      // unless we already warmed it while the previous track was playing.
+      const cachedUrl = takeCachedStreamUrl(track.id);
+      let streamUrl = cachedUrl ?? undefined;
 
-      // Check if request is still active
-      if (requestGen !== activePlaybackGeneration) {
-        return; // Stale request, discard
+      if (!streamUrl) {
+        const res = await musicApi.getStream(track.id);
+
+        // Check if request is still active
+        if (requestGen !== activePlaybackGeneration) {
+          return; // Stale request, discard
+        }
+
+        streamUrl = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
       }
-
-      const streamUrl = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
 
       if (!streamUrl) {
         throw new Error('Playback stream URL unavailable for this track.');
@@ -229,6 +275,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isPlaying: played,
         error: null,
       });
+
+      // 5. Warm the next queue track's stream URL now, while this one plays.
+      const { queue: liveQueue, currentIndex: liveIndex, repeat: liveRepeat } = get();
+      const upcoming = liveQueue[liveIndex + 1] ?? (liveRepeat === 'all' ? liveQueue[0] : undefined);
+      if (upcoming) prefetchTrackStream(upcoming);
     } catch (err: unknown) {
       if (requestGen !== activePlaybackGeneration) return;
 
@@ -291,10 +342,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } else if (repeat === 'all' && queue.length > 0) {
       await playTrack(queue[0], undefined, transitionReason);
     } else {
-      // End of queue reached and repeat is off — nothing left to transition
-      // into, so log the outgoing track's outcome directly.
+      // End of queue reached and repeat is off — log the outgoing track,
+      // then keep the music going with a personalized batch instead of
+      // just stopping.
       if (currentTrack) {
         logOutgoingTrack(currentTrack, currentTime, duration, reason === 'ended');
+      }
+      const more = await fetchAutoQueueTracks(queue);
+      if (more.length > 0) {
+        set((s) => ({ queue: [...s.queue, ...more], originalQueue: [...s.originalQueue, ...more] }));
+        await get().nextTrack(reason);
+        return;
       }
       getAudioEngine().pause();
       set({ isPlaying: false, currentTime: 0 });

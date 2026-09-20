@@ -127,17 +127,17 @@ export const MOBILE_PRIMARY_NAV_ITEMS: NavItem[] = [
     requiresAuth: false,
   },
   {
-    title: 'Discover',
-    href: ROUTES.APP.DISCOVER,
-    icon: Compass,
-    exact: false,
-    requiresAuth: true,
-  },
-  {
     title: 'Library',
     href: ROUTES.APP.LIBRARY.INDEX,
     icon: Library,
     exact: false,
+    requiresAuth: true,
+  },
+  {
+    title: 'AI Playlist',
+    href: ROUTES.APP.AI.PLAYLIST,
+    icon: Wand2,
+    exact: true,
     requiresAuth: true,
   },
 ];

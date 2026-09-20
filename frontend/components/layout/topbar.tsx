@@ -3,9 +3,9 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
-import { useUiStore } from '@/stores/ui-store';
+import { Brand } from './brand';
 import { UserMenu } from './user-menu';
 import { LanguageSelector } from './language-selector';
 import { cn } from '@/lib/utils/cn';
@@ -35,7 +35,6 @@ function getPageTitle(pathname: string): string {
 export function Topbar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { user, isAuthenticated } = useAuthStore();
-  const { toggleMobileMenu } = useUiStore();
 
   const title = getPageTitle(pathname);
 
@@ -46,18 +45,12 @@ export function Topbar({ className }: { className?: string }) {
         className
       )}
     >
-      {/* Left: Mobile menu button & page context title */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={toggleMobileMenu}
-          aria-label="Toggle navigation menu"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 hover:text-white md:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
-        <p className="text-base md:text-lg font-bold text-white tracking-tight">
+      {/* Left: logo on mobile (sidebar already carries it on desktop) / page title on desktop */}
+      <div className="flex items-center gap-3 shrink-0">
+        <Link href="/home" aria-label="Musify home" className="flex md:hidden hover:opacity-90">
+          <Brand size="sm" />
+        </Link>
+        <p className="hidden md:block text-lg font-bold text-white tracking-tight">
           {title}
         </p>
       </div>
@@ -75,10 +68,10 @@ export function Topbar({ className }: { className?: string }) {
       </div>
 
       {/* Right: User area / guest auth buttons */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {isAuthenticated && user ? (
           <>
-            <LanguageSelector className="hidden sm:inline-block" />
+            <LanguageSelector />
             <UserMenu user={user} />
           </>
         ) : (
