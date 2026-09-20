@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/types/api';
 import { UserRole } from '@/types/user';
+import { Alert } from '@/components/ui/alert';
 
 function SignupForm() {
   const router = useRouter();
@@ -22,6 +23,20 @@ function SignupForm() {
   const [role, setRole] = useState<UserRole>('USER');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mirrors Supabase Auth's configured password policy — surfaced here so
+  // a weak password is caught while typing instead of round-tripping to
+  // the server only to fail with "Password should contain at least one
+  // character of each: a-z, A-Z, 0-9, symbols."
+  const passwordRequirements = [
+    { met: password.length >= 8, label: '8+ characters' },
+    { met: /[a-z]/.test(password), label: 'a lowercase letter' },
+    { met: /[A-Z]/.test(password), label: 'an uppercase letter' },
+    { met: /[0-9]/.test(password), label: 'a number' },
+    { met: /[^A-Za-z0-9]/.test(password), label: 'a symbol' },
+  ];
+  const missingPasswordRequirements = passwordRequirements.filter((r) => !r.met).map((r) => r.label);
+  const isPasswordValid = missingPasswordRequirements.length === 0;
 
   useEffect(() => {
     if (!isInitializing && isAuthenticated) {
@@ -51,8 +66,8 @@ function SignupForm() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (!isPasswordValid) {
+      setError(`Password needs ${missingPasswordRequirements.join(', ')}`);
       return;
     }
 
@@ -90,8 +105,8 @@ function SignupForm() {
       <p className="mb-7 text-center text-sm text-neutral-400">Make room for more music.</p>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-md bg-danger-950/80 border border-danger-800 p-3 text-sm text-danger-200">
-          {error}
+        <div className="mb-4">
+          <Alert variant="danger">{error}</Alert>
         </div>
       )}
 
@@ -151,11 +166,20 @@ function SignupForm() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters"
+            placeholder="8+ chars, upper & lowercase, a number & symbol"
             disabled={isLoading}
             required
+            aria-describedby="signup-password-hint"
             className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-brand-400 disabled:opacity-50"
           />
+          {password.length > 0 && (
+            <p
+              id="signup-password-hint"
+              className={`mt-1.5 text-xs ${isPasswordValid ? 'text-brand-400' : 'text-neutral-500'}`}
+            >
+              {isPasswordValid ? '✓ Strong enough' : `Still needs: ${missingPasswordRequirements.join(', ')}`}
+            </p>
+          )}
         </div>
 
         <div>

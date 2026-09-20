@@ -22,7 +22,8 @@ describe('MusicService.getRecommended', () => {
     const result = await MusicService.getRecommended('user-1');
 
     expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['jazz'], 20);
-    expect(result.some((t: any) => t.id === 'jazz-pick')).toBe(true);
+    expect(result.tracks.some((t: any) => t.id === 'jazz-pick')).toBe(true);
+    expect(result.personalized).toBe(true);
     // The genre branch returns before ever touching the likes/history signal query.
     expect(prismaMock.listeningHistory.findMany).not.toHaveBeenCalled();
   });
@@ -38,7 +39,8 @@ describe('MusicService.getRecommended', () => {
     const result = await MusicService.getRecommended('user-1');
 
     expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
-    expect(result.some((t: any) => t.id === 'history-based-pick')).toBe(true);
+    expect(result.tracks.some((t: any) => t.id === 'history-based-pick')).toBe(true);
+    expect(result.personalized).toBe(true);
   });
 
   it('falls back to generic trending for a user with no genres, likes, or history', async () => {
@@ -50,6 +52,7 @@ describe('MusicService.getRecommended', () => {
 
     const result = await MusicService.getRecommended('user-1');
 
-    expect(result.some((t: any) => t.id === 'generic-trending')).toBe(true);
+    expect(result.tracks.some((t: any) => t.id === 'generic-trending')).toBe(true);
+    expect(result.personalized).toBe(false);
   });
 });

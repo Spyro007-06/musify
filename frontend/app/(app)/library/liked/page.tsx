@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Heart, Play, Pause, AlertCircle, RefreshCw, Music2, Sparkles } from 'lucide-react';
+import { Heart, Play, Pause, Music2, Sparkles } from 'lucide-react';
+import { ErrorState } from '@/components/ui/error-state';
 import { useLikedSongs } from '@/hooks/use-music';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePlayerStore } from '@/stores/player-store';
@@ -148,21 +149,11 @@ export default function LikedSongsPage() {
 
       {/* 4. Error State */}
       {isError && (
-        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center">
-          <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
-          <h3 className="text-base font-semibold text-white">Failed to load liked songs</h3>
-          <p className="mt-1 text-xs text-neutral-400 max-w-sm">
-            {error?.message || 'A network error occurred while retrieving your liked tracks.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Try Again</span>
-          </button>
-        </div>
+        <ErrorState
+          title="Failed to load liked songs"
+          message={error?.message || 'A network error occurred while retrieving your liked tracks.'}
+          onRetry={() => refetch()}
+        />
       )}
 
       {/* 5. Empty State */}

@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Maximize2, ListMusic, Heart, Disc3, Play, Pause, Loader2, AlertCircle } from 'lucide-react';
+import { Maximize2, ListMusic, Heart, Disc3, Play, Pause, Loader2 } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerControls } from './player-controls';
 import { PlayerProgress } from './player-progress';
 import { PlayerVolume } from './player-volume';
 import { useLikeTrack } from '@/hooks/use-music';
+import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
 
 export function MiniPlayer() {
@@ -29,6 +30,15 @@ export function MiniPlayer() {
     setIsLiked(Boolean(currentTrack?.isLiked));
   }, [currentTrack]);
 
+  // Route playback failures through the shared toast stack instead of a
+  // bespoke floating banner — gets auto-dismiss and stacking for free, and
+  // can't get stuck on screen if the store's error is never cleared.
+  React.useEffect(() => {
+    if (!error) return;
+    toast.error(error);
+    setError(null);
+  }, [error, setError]);
+
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentTrack || likeMutation.isPending) return;
@@ -42,24 +52,6 @@ export function MiniPlayer() {
 
   return (
     <>
-      {/* Playback Error Toast if stream fails */}
-      {error && (
-        <div
-          role="alert"
-          className="fixed bottom-28 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-xl border border-danger-500/30 bg-neutral-900/95 px-4 py-2.5 text-xs text-danger-300 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2"
-        >
-          <AlertCircle className="h-4 w-4 text-danger-400 shrink-0" />
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="ml-2 rounded p-0.5 text-neutral-400 hover:text-white"
-          >
-            &times;
-          </button>
-        </div>
-      )}
-
       {/* 1. Mobile Mini Player (< md screen) */}
       {currentTrack && (
         <div

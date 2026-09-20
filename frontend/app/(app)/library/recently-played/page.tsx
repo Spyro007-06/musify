@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { History, Play, Pause, AlertCircle, RefreshCw, Compass } from 'lucide-react';
+import { History, Play, Pause, Compass } from 'lucide-react';
+import { ErrorState } from '@/components/ui/error-state';
 import { useRecentlyPlayed } from '@/hooks/use-music';
 import { usePlayerStore } from '@/stores/player-store';
 import { TrackRow } from '@/components/music/track-row';
@@ -117,21 +118,11 @@ export default function RecentlyPlayedPage() {
 
       {/* 4. Error State */}
       {isError && (
-        <div role="alert" className="flex flex-col items-center justify-center rounded-2xl border border-danger-500/20 bg-danger-950/10 p-10 text-center">
-          <AlertCircle className="h-10 w-10 text-danger-400 mb-3" />
-          <h3 className="text-base font-semibold text-white">Failed to load recently played tracks</h3>
-          <p className="mt-1 text-xs text-neutral-400 max-w-sm">
-            {error?.message || 'A network error occurred while retrieving your listening history.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Try Again</span>
-          </button>
-        </div>
+        <ErrorState
+          title="Failed to load recently played tracks"
+          message={error?.message || 'A network error occurred while retrieving your listening history.'}
+          onRetry={() => refetch()}
+        />
       )}
 
       {/* 5. Empty State */}

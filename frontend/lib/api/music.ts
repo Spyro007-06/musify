@@ -19,11 +19,18 @@ export const musicApi = {
     if (languages) params.append('languages', languages);
     if (artists) params.append('artists', artists);
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiClient.get<Album[]>(`/music/new-releases${query}`, { requiresAuth: false });
+    // Sends the auth token (when present) so the backend can apply the
+    // user's stored language preference; the route stays reachable
+    // logged-out via optionalAuthenticate.
+    return apiClient.get<Album[]>(`/music/new-releases${query}`);
   },
 
-  getRecommended: async (): Promise<ApiResponse<Track[]>> => {
-    return apiClient.get<Track[]>('/music/recommended');
+  getRecommended: async (): Promise<
+    ApiResponse<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>
+  > => {
+    return apiClient.get<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>(
+      '/music/recommended'
+    );
   },
 
   getRecommendations: async (genres?: string, limit?: number): Promise<ApiResponse<Track[]>> => {

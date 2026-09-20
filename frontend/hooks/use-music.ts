@@ -29,14 +29,20 @@ export function useNewReleases(languages?: string, artists?: string) {
 
 export function useRecommended() {
   const { isAuthenticated } = useAuthStore();
-  return useQuery({
+  const query = useQuery({
     queryKey: ['music', 'recommended', isAuthenticated],
     queryFn: async () => {
       const res = await musicApi.getRecommended();
-      return res.data || [];
+      return res.data || { tracks: [], personalized: false, basis: 'generic' as const };
     },
     staleTime: 1000 * 60 * 5,
   });
+  return {
+    ...query,
+    data: query.data?.tracks,
+    isPersonalized: query.data?.personalized ?? false,
+    personalizedBasis: query.data?.basis ?? 'generic',
+  };
 }
 
 export function useCategories() {

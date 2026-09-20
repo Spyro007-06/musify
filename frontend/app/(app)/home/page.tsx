@@ -3,12 +3,14 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useTrending, useNewReleases, useRecommended, useCategories } from '@/hooks/use-music';
+import { usePlaylists } from '@/hooks/use-playlists';
 import { HomeHeader } from '@/components/home/home-header';
 import { MusicSection } from '@/components/music/music-section';
 import { TrackCard } from '@/components/music/track-card';
 import { TrackRow } from '@/components/music/track-row';
 import { AlbumCard } from '@/components/music/album-card';
 import { CategoryCard } from '@/components/music/category-card';
+import { PlaylistCard } from '@/components/music/playlist-card';
 import { MoodSection } from '@/components/music/mood-section';
 import { Track } from '@/types/track';
 import { Album } from '@/types/album';
@@ -40,6 +42,7 @@ export default function HomePage() {
     isError: isRecommendedError,
     error: recommendedError,
     refetch: refetchRecommended,
+    personalizedBasis,
   } = useRecommended();
 
   const {
@@ -49,6 +52,20 @@ export default function HomePage() {
     error: categoriesError,
     refetch: refetchCategories,
   } = useCategories();
+
+  const {
+    data: playlists,
+    isLoading: isPlaylistsLoading,
+    isError: isPlaylistsError,
+    error: playlistsError,
+    refetch: refetchPlaylists,
+  } = usePlaylists();
+
+  // Same soundtrack/custom split used on the Playlists page.
+  const soundtrackPlaylists = React.useMemo(
+    () => (playlists || []).filter((p) => p.id.startsWith('movie-') || p.owner === 'Movie Soundtrack'),
+    [playlists]
+  );
 
   // Play handlers passing full section collections as queue context
   const handlePlayTrending = React.useCallback(
@@ -170,7 +187,15 @@ export default function HomePage() {
       {/* Made For You / Recommendations */}
       <MusicSection
         title="Made For You"
-        subtitle="Recommendations inspired by your listening history"
+        subtitle={
+          personalizedBasis === 'history'
+            ? 'Recommendations inspired by your listening history'
+            : personalizedBasis === 'taste'
+            ? 'Picked to match your favourite genres'
+            : personalizedBasis === 'language'
+            ? 'Fresh picks in your preferred languages'
+            : 'Popular picks to get you started — tune your taste in Settings'
+        }
         isLoading={isRecommendedLoading}
         isError={isRecommendedError}
         error={recommendedError}
@@ -189,6 +214,28 @@ export default function HomePage() {
           ))}
         </div>
       </MusicSection>
+
+      {/* Soundtracks & Curations (movie soundtrack playlists) */}
+      {(isPlaylistsLoading || isPlaylistsError || soundtrackPlaylists.length > 0) && (
+        <MusicSection
+          title="Soundtracks & Curations"
+          subtitle="Movie sound collections automatically compiled from your listening history"
+          seeAllHref="/library/playlists"
+          isLoading={isPlaylistsLoading}
+          isError={isPlaylistsError}
+          error={playlistsError}
+          onRetry={refetchPlaylists}
+          isEmpty={soundtrackPlaylists.length === 0}
+          skeletonType="album"
+          skeletonCount={6}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {soundtrackPlaylists.slice(0, 12).map((playlist) => (
+              <PlaylistCard key={`soundtrack-${playlist.id}`} playlist={playlist} />
+            ))}
+          </div>
+        </MusicSection>
+      )}
 
       {/* Moods & Vibes Section */}
       <MoodSection />

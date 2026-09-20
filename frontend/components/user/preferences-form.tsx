@@ -10,8 +10,6 @@ import {
   Disc3,
   Save,
   RotateCcw,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
 } from 'lucide-react';
 import { UserPreferences } from '@/lib/api/user';
@@ -19,7 +17,11 @@ import { useUserPreferences, useUpdatePreferences } from '@/hooks/use-user';
 import { ChipGroup } from './chip-group';
 import { TagInput } from './tag-input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert } from '@/components/ui/alert';
+import { ErrorState } from '@/components/ui/error-state';
+import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
+import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
 
 const GENRE_OPTIONS = [
   'Pop',
@@ -41,21 +43,6 @@ const GENRE_OPTIONS = [
   'Folk',
   'Dance',
   'Soul',
-];
-
-const LANGUAGE_OPTIONS = [
-  'Hindi',
-  'English',
-  'Punjabi',
-  'Tamil',
-  'Telugu',
-  'Spanish',
-  'Korean',
-  'Bengali',
-  'Malayalam',
-  'Kannada',
-  'Marathi',
-  'Gujarati',
 ];
 
 const MOOD_OPTIONS = [
@@ -87,7 +74,6 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
   const [artists, setArtists] = React.useState<string[]>([]);
   const [albums, setAlbums] = React.useState<string[]>([]);
 
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   // Synchronize state when initial data loads
@@ -124,13 +110,11 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       setArtists(initialPreferences.favouriteArtists || []);
       setAlbums(initialPreferences.favouriteAlbums || []);
     }
-    setSuccessMessage(null);
     setErrorMessage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage(null);
     setErrorMessage(null);
 
     const payload: UserPreferences = {
@@ -143,7 +127,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
 
     try {
       await updatePreferencesMutation.mutateAsync(payload);
-      setSuccessMessage('Music preferences updated! Recommendations have been refreshed.');
+      toast.success('Music preferences updated! Recommendations have been refreshed.');
     } catch (err: unknown) {
       const errObj = err as { response?: { data?: { message?: string } }; message?: string };
       const msg =
@@ -172,20 +156,11 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
 
   if (isError) {
     return (
-      <div className="rounded-2xl border border-danger-500/20 bg-danger-950/10 p-6 text-center space-y-3">
-        <AlertCircle className="h-8 w-8 text-danger-400 mx-auto" />
-        <h3 className="text-base font-semibold text-white">Could not load preferences</h3>
-        <p className="text-xs text-neutral-400">
-          There was an error fetching your music preference settings.
-        </p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="rounded-full bg-neutral-800 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
+      <ErrorState
+        title="Could not load preferences"
+        message="There was an error fetching your music preference settings."
+        onRetry={() => refetch()}
+      />
     );
   }
 
@@ -217,21 +192,8 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
         )}
       </div>
 
-      {/* Success Notification */}
-      {successMessage && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-brand-500/30 bg-brand-950/20 p-3.5 text-xs text-brand-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{successMessage}</span>
-        </div>
-      )}
-
       {/* Error Notification */}
-      {errorMessage && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-danger-500/30 bg-danger-950/20 p-3.5 text-xs text-danger-400">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
+      {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
 
       {/* Favourite Genres */}
       <div className="space-y-3">

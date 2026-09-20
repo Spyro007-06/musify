@@ -29,13 +29,14 @@ export class MusicController {
 
   public static async getNewReleases(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const optReq = req as OptionalAuthRequest;
       const languagesRaw = typeof req.query.languages === 'string' ? req.query.languages : '';
       const artistsRaw = typeof req.query.artists === 'string' ? req.query.artists : '';
-      
+
       const languages = languagesRaw.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean);
       const artists = artistsRaw.split(',').map((a) => a.trim()).filter(Boolean);
 
-      const albums = await MusicService.getNewReleases(languages, artists);
+      const albums = await MusicService.getNewReleases(optReq.user?.id, languages, artists);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,
@@ -50,12 +51,12 @@ export class MusicController {
   public static async getRecommended(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;
-      const tracks = await MusicService.getRecommended(optReq.user?.id);
+      const result = await MusicService.getRecommended(optReq.user?.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,
         message: 'Recommended tracks retrieved successfully.',
-        data: tracks,
+        data: result,
       });
     } catch (error) {
       next(error);

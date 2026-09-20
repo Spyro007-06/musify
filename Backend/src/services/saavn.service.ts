@@ -3,6 +3,7 @@ import { logger } from '@utils/logger';
 import { resilientCall } from '@utils/resilience';
 import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 import { withCache } from '@utils/cache';
+import { dedupeById } from '@utils/dedupe';
 
 /**
  * Per-operation circuit breakers, so a burst of failures in one feature
@@ -77,44 +78,6 @@ function unescapeHtml(str: string): string {
  * common case), then by a normalized title+artist+duration signature so a
  * different-id-but-identical-content duplicate doesn't slip through either.
  */
-// JioSaavn often re-indexes the same song under a second catalog id with a
-// "(From "Movie Name")"/"(Original Motion Picture Soundtrack)" suffix and/or
-// the artist list in a different order. Strip that suffix and sort the
-// artist set before comparing, so "Tum Hi Ho (From "Aashiqui 2")" by
-// "Arijit Singh, Mithoon" collides with the same song credited "Mithoon,
-// Arijit Singh" — duration is still required to match, so a genuinely
-// different version (a remix, a different film's title track) stays distinct.
-function normalizeTrackTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/\s*[[(](from\s+"[^"]*"|original\s+motion\s+picture\s+soundtrack)[)\]]\s*/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function dedupeById<T extends { id?: string; title?: string; duration?: number; artists?: { name: string }[] } | null>(
-  items: T[]
-): NonNullable<T>[] {
-  const seenIds = new Set<string>();
-  const seenSignatures = new Set<string>();
-  return items.filter((item): item is NonNullable<T> => {
-    if (!item) return false;
-    if (item.id) {
-      if (seenIds.has(item.id)) return false;
-      seenIds.add(item.id);
-    }
-    const artistSet = (item.artists || [])
-      .map((a) => a.name?.toLowerCase().trim())
-      .filter(Boolean)
-      .sort()
-      .join(',');
-    const signature = `${normalizeTrackTitle(item.title || '')}|${artistSet}|${item.duration || ''}`;
-    if (seenSignatures.has(signature)) return false;
-    seenSignatures.add(signature);
-    return true;
-  });
-}
-
 export class SaavnService {
   private static instance: SaavnService;
   private searchService = new SearchService();
@@ -316,8 +279,37 @@ export class SaavnService {
   private async getNewReleasesUncached(languages?: string[], artists?: string[]): Promise<any[]> {
     if ((languages && languages.length > 0) || (artists && artists.length > 0)) {
       const preferredLangsLower = (languages || []).map(l => l.toLowerCase());
+
+      // The real new-releases chart already carries an accurate language tag
+      // and genuine release recency, unlike a "<language> new release"
+      // keyword search, which matches loosely and can surface years-old
+      // catalog items under a section titled "fresh ... just dropped".
+      // Artist filtering has no chart equivalent, so that case still falls
+      // through to the keyword search below.
+      if (languages && languages.length > 0 && (!artists || artists.length === 0)) {
+        try {
+          const chart = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.discoverService.getNewReleases({ limit: 50 }));
+          const chartAlbums = (chart || [])
+            .map((a: any) => this.mapAlbum(a))
+            .filter((album: any) => {
+              if (!album) return false;
+              const albumLang = (album.genre || '').toLowerCase();
+              return preferredLangsLower.some(l => albumLang.includes(l) || l.includes(albumLang));
+            });
+          if (chartAlbums.length > 0) {
+            return chartAlbums.sort((a: any, b: any) => (b.releaseYear || 0) - (a.releaseYear || 0));
+          }
+        } catch (error) {
+          logger.error('Failed to fetch language-filtered new-releases chart — falling back to keyword search:', error);
+        }
+      }
+
       const artistQueries = (artists || []).slice(0, 3);
-      const languageQueries = (languages || []).map(lang => `${lang} new release`).slice(0, 2);
+      // "<language> new release" is a weak query on JioSaavn's search and
+      // mostly returns nothing — "<language> <current year>" reliably
+      // surfaces albums actually released this year instead.
+      const currentYear = new Date().getFullYear();
+      const languageQueries = (languages || []).map(lang => `${lang} ${currentYear}`).slice(0, 2);
       const queries = [...languageQueries, ...artistQueries];
 
       const searchPromises = queries.map(q =>
@@ -364,6 +356,12 @@ export class SaavnService {
           return true;
         });
 
+        // Keyword search has no notion of recency, so without sorting a
+        // years-old album can outrank something that actually just
+        // dropped — sort what "New Releases" shows to match what the
+        // section title promises.
+        filteredAlbums.sort((a, b) => (b.releaseYear || 0) - (a.releaseYear || 0));
+
       return filteredAlbums;
     }
 
@@ -382,10 +380,31 @@ export class SaavnService {
   }
 
   public async getRecommendationsByGenres(genres: string[], limit = 20): Promise<any[]> {
+    if (genres.length === 0) return [];
     try {
-      const query = genres.join(' ');
-      const results = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit }));
-      return results.results ? dedupeById(results.results.map((s: any) => this.mapTrack(s))) : [];
+      // Search each genre independently rather than joining them into one
+      // literal query string — "rock rap" as a single search term mostly
+      // surfaces tracks literally titled "Rock Rap" instead of a blend of
+      // rock and rap music. Cap to 3 genres per call (a user can favourite
+      // far more) and interleave the per-genre results round-robin, so a
+      // multi-genre pick returns a genuine mix rather than one genre's
+      // results followed by another's.
+      const queries = genres.slice(0, 3);
+      const searchPromises = queries.map((genre) =>
+        resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query: genre, page: 0, limit }))
+      );
+      const results = await allOrThrow(searchPromises, 'JioSaavn search is currently unavailable.');
+      const perGenreTracks = results.map((res) => (res.results || []).map((s: any) => this.mapTrack(s)));
+
+      const interleaved: any[] = [];
+      const maxLen = Math.max(0, ...perGenreTracks.map((t) => t.length));
+      for (let i = 0; i < maxLen; i++) {
+        for (const list of perGenreTracks) {
+          if (list[i]) interleaved.push(list[i]);
+        }
+      }
+
+      return dedupeById(interleaved).slice(0, limit);
     } catch (error) {
       logger.error('❌ JioSaavn recommendations by genres failed:', error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);

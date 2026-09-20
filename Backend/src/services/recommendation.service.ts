@@ -2,6 +2,7 @@ import { prisma } from '@config/database';
 import { SaavnService } from './saavn.service';
 import { MusicService } from './music.service';
 import { logger } from '@utils/logger';
+import { dedupeById } from '@utils/dedupe';
 import { getPrecomputedScores } from './recommendation/engine';
 import { contentBasedScore, type AffinityMaps } from './recommendation/contentBased';
 
@@ -840,13 +841,13 @@ export class RecommendationService {
           const trackLang = (track.genre || '').toLowerCase();
           return lowerLangs.some((l: string) => trackLang.includes(l) || l.includes(trackLang));
         });
-        return filteredCandidates;
+        return dedupeById(filteredCandidates);
       }
     } catch (err) {
       logger.error('Error generating candidate pool:', err);
     }
 
-    return candidates;
+    return dedupeById(candidates);
   }
 
   /**

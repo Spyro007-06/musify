@@ -7,8 +7,6 @@ import {
   Sliders,
   Shield,
   Volume2,
-  AlertCircle,
-  RefreshCw,
 } from 'lucide-react';
 import { useUserProfile } from '@/hooks/use-user';
 import { useAuthStore } from '@/stores/auth-store';
@@ -17,6 +15,7 @@ import { PreferencesForm } from '@/components/user/preferences-form';
 import { AccountDetails } from '@/components/user/account-details';
 import { PlaybackSettingsInfo } from '@/components/user/playback-settings-info';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/error-state';
 import { cn } from '@/lib/utils/cn';
 
 type SettingsTab = 'preferences' | 'profile' | 'account' | 'playback';
@@ -53,20 +52,12 @@ function SettingsContent() {
 
   if (isError && !displayUser) {
     return (
-      <div role="alert" className="max-w-md mx-auto my-16 rounded-2xl border border-danger-500/20 bg-danger-950/10 p-8 text-center space-y-4">
-        <AlertCircle className="h-10 w-10 text-danger-400 mx-auto" />
-        <h2 className="text-lg font-bold text-white">Could not load settings</h2>
-        <p className="text-xs text-neutral-400">
-          There was a problem retrieving your user information.
-        </p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-2 rounded-full bg-neutral-800 px-5 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Try Again
-        </button>
+      <div className="max-w-md mx-auto my-16">
+        <ErrorState
+          title="Could not load settings"
+          message="There was a problem retrieving your user information."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
