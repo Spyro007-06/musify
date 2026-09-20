@@ -80,33 +80,47 @@ export class AuthService {
 
     const supabaseUid = authData.user!.id;
 
-    // Insert public profile row linked to Supabase Auth UID
-    const user = await prisma.user.create({
-      data: {
-        supabaseId: supabaseUid,
+    // From here on, a Supabase Auth user exists but signup isn't complete yet.
+    // If anything below fails — a race-condition username collision that
+    // slipped past the pre-check above, a DB blip, a failed sign-in — the
+    // auth user must not be left behind: it permanently occupies this email,
+    // so every retry would incorrectly report "already registered" while the
+    // account itself never got a public.User row and can never log in.
+    try {
+      // Insert public profile row linked to Supabase Auth UID
+      const user = await prisma.user.create({
+        data: {
+          supabaseId: supabaseUid,
+          email: input.email,
+          username: input.username,
+          displayName: input.displayName || input.username,
+          role: input.role,
+          isVerified: true,
+          isActive: true,
+        },
+      });
+
+      // Sign the user in to get a session/tokens
+      const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
         email: input.email,
-        username: input.username,
-        displayName: input.displayName || input.username,
-        role: input.role,
-        isVerified: true,
-        isActive: true,
-      },
-    });
+        password: input.password,
+      });
 
-    // Sign the user in to get a session/tokens
-    const { data: sessionData, error: sessionError } = await supabase.auth.signInWithPassword({
-      email: input.email,
-      password: input.password,
-    });
+      if (sessionError) {
+        throw ApiError.internal(sessionError.message);
+      }
 
-    if (sessionError) {
-      throw ApiError.internal(sessionError.message);
+      return {
+        user: this.formatUser(user),
+        session: sessionData.session,
+      };
+    } catch (err) {
+      await supabaseAdmin.auth.admin.deleteUser(supabaseUid).catch(() => {
+        // Best-effort cleanup — if this also fails, the original error below
+        // still surfaces to the caller rather than being masked by it.
+      });
+      throw err;
     }
-
-    return {
-      user: this.formatUser(user),
-      session: sessionData.session,
-    };
   }
 
   /**
