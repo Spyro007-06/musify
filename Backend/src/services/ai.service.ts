@@ -29,11 +29,19 @@ const GENRE_KEYWORDS = [
 // generic energy word ("upbeat") alongside a specific occasion word
 // ("party"/"wedding"); the specific one should win so the cover actually
 // matches, not a coincidentally-earlier generic synonym.
+// Within a bucket, order matters for the *search query* (not just cover
+// selection, see parsePromptIntent's moodKeyword): "energetic"/"upbeat"/
+// "hype" are generic adjectives that plenty of unrelated tracks (kids'
+// background music, ambient loops) happen to have literally in their
+// title, so a JioSaavn search for the literal word "energetic" mostly
+// surfaces those instead of workout music. "workout"/"gym"/"pump" are
+// specific enough to reliably return actual workout tracks, so they're
+// listed first and preferred when the prompt contains both.
 const MOOD_KEYWORDS: Record<'party' | 'energetic' | 'chill', string[]> = {
   // Split out from "energetic" — a gym-themed cover doesn't fit "party",
   // "wedding", or "dance", which are their own recognizable vibe.
   party: ['party', 'dance', 'club', 'wedding', 'celebration', 'clubbing'],
-  energetic: ['energetic', 'upbeat', 'hype', 'workout', 'gym', 'pump'],
+  energetic: ['workout', 'gym', 'pump', 'energetic', 'upbeat', 'hype'],
   chill: ['chill', 'relax', 'calm', 'mellow', 'lofi', 'lo-fi', 'acoustic', 'rainy', 'study', 'focus', 'coding'],
 };
 
@@ -48,6 +56,11 @@ export interface ParsedPromptIntent {
   artistCandidate?: string;
   genre?: string;
   mood?: 'energetic' | 'party' | 'chill';
+  // The literal keyword from MOOD_KEYWORDS[mood] that matched the prompt —
+  // used as the actual search query instead of the bucket label, since
+  // e.g. "workout" is a far more specific JioSaavn search term than the
+  // generic "energetic" (see MOOD_KEYWORDS' ordering comment).
+  moodKeyword?: string;
   era?: { label: string; from: number; to: number };
 }
 
@@ -85,8 +98,10 @@ export function parsePromptIntent(prompt: string): ParsedPromptIntent {
   if (genreMatch) intent.genre = genreMatch;
 
   for (const mood of Object.keys(MOOD_KEYWORDS) as (keyof typeof MOOD_KEYWORDS)[]) {
-    if (MOOD_KEYWORDS[mood].some((kw) => lower.includes(kw))) {
+    const matchedKeyword = MOOD_KEYWORDS[mood].find((kw) => lower.includes(kw));
+    if (matchedKeyword) {
       intent.mood = mood;
+      intent.moodKeyword = matchedKeyword;
       break;
     }
   }
@@ -181,7 +196,7 @@ export class AIService {
       } else if (intent.genre || intent.mood || intent.era) {
         // Genre/mood/era — same search-query infrastructure the old
         // heuristic used (getRecommendationsByGenres wraps searchSongs).
-        const queryParts = [intent.genre, intent.mood, intent.era?.label].filter(Boolean) as string[];
+        const queryParts = [intent.genre, intent.moodKeyword, intent.era?.label].filter(Boolean) as string[];
         tracks = await saavn.getRecommendationsByGenres(queryParts, MAX_PLAYLIST_TRACKS);
 
         if (intent.era) {

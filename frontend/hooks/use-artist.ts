@@ -18,7 +18,7 @@ export function useArtist(id: string) {
   const { isAuthenticated } = useAuthStore();
 
   return useQuery<Artist, Error>({
-    queryKey: ['artists', id, isAuthenticated],
+    queryKey: ['artists', id, 'detail', isAuthenticated],
     queryFn: async () => {
       const res = await artistsApi.getArtist(id);
       if (!res.data) {
@@ -110,17 +110,24 @@ export function useToggleFollowArtist(artistId: string) {
         return;
       }
 
-      // Cancel outgoing queries matching this artist
-      await queryClient.cancelQueries({ queryKey: ['artists', artistId] });
+      // Scoped to the artist-detail query specifically — ['artists', artistId]
+      // alone also prefix-matches the top-tracks/albums/related sub-queries,
+      // whose cached data is an array, not an Artist object; spreading an
+      // array into the updater below silently corrupts it into a
+      // non-array {0: ..., 1: ...} object.
+      const detailKey = ['artists', artistId, 'detail'];
 
-      // Snapshot previous query data across all queries matching ['artists', artistId]
+      // Cancel outgoing queries matching this artist
+      await queryClient.cancelQueries({ queryKey: detailKey });
+
+      // Snapshot previous query data across all queries matching detailKey
       const previousData = queryClient.getQueriesData<Artist>({
-        queryKey: ['artists', artistId],
+        queryKey: detailKey,
       });
 
-      // Optimistically update all matching artist queries
+      // Optimistically update all matching artist-detail queries
       queryClient.setQueriesData<Artist>(
-        { queryKey: ['artists', artistId] },
+        { queryKey: detailKey },
         (old) => {
           if (!old) return old;
           const nextFollowing = !isFollowing;
@@ -153,7 +160,7 @@ export function useToggleFollowArtist(artistId: string) {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['artists', artistId] });
+      queryClient.invalidateQueries({ queryKey: ['artists', artistId, 'detail'] });
       queryClient.invalidateQueries({ queryKey: ['recommendations', 'artists'] });
     },
   });
