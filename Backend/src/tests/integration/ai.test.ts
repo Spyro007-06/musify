@@ -123,8 +123,11 @@ describe('POST /api/ai/playlist/generate', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data).toEqual({ playlistId: 'playlist-1', title: 'AI: Workout songs', trackCount: 2 });
-    // "workout" maps to the energetic mood bucket, not a raw-prompt search.
-    expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['energetic'], 30);
+    // "workout" maps to the energetic mood bucket, but searches using the
+    // specific matched keyword ("workout") rather than the generic bucket
+    // label ("energetic") — a literal "energetic" search mostly surfaces
+    // unrelated tracks that just happen to have that word in the title.
+    expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['workout'], 30);
   });
 
   it('artist-similarity prompt: resolves the named artist and routes into ArtistService top-tracks/related-artists', async () => {
