@@ -207,7 +207,11 @@ export class MusicController {
   public static async getStreamUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;
-      const url = await MusicService.getStreamUrl(req.params.trackId, optReq.user?.id);
+      // The player prefetches the next queued track's stream URL while the
+      // current one is still playing so skipping feels instant — that must
+      // not log a play in history for a track the user hasn't heard yet.
+      const isPrefetch = req.query.prefetch === 'true';
+      const url = await MusicService.getStreamUrl(req.params.trackId, isPrefetch ? undefined : optReq.user?.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,
