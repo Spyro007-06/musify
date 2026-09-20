@@ -7,6 +7,7 @@ import { Menu, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { UserMenu } from './user-menu';
+import { LanguageSelector } from './language-selector';
 import { cn } from '@/lib/utils/cn';
 
 /**
@@ -76,7 +77,10 @@ export function Topbar({ className }: { className?: string }) {
       {/* Right: User area / guest auth buttons */}
       <div className="flex items-center gap-3">
         {isAuthenticated && user ? (
-          <UserMenu user={user} />
+          <>
+            <LanguageSelector className="hidden sm:inline-block" />
+            <UserMenu user={user} />
+          </>
         ) : (
           <div className="flex items-center gap-2">
             <Link

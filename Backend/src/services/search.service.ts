@@ -2,6 +2,21 @@ import { SaavnService } from './saavn.service';
 import { MusicService } from './music.service';
 import { prisma } from '@config/database';
 
+// A track/album is kept when it carries no language tag at all (can't judge
+// it) or when its tag matches one of the preferred languages; artists and
+// playlists aren't language-tagged in JioSaavn's response shape, so they
+// pass through unfiltered.
+function filterByLanguage<T extends { genre?: string } | null>(items: T[], languages: string[]): T[] {
+  if (languages.length === 0) return items;
+  const lower = languages.map((l) => l.toLowerCase());
+  return items.filter((item) => {
+    if (!item) return false;
+    const trackLang = (item.genre || '').toLowerCase();
+    if (!trackLang) return true;
+    return lower.some((l) => trackLang.includes(l) || l.includes(trackLang));
+  });
+}
+
 export class SearchService {
   private static saavn = SaavnService.getInstance();
 
@@ -17,6 +32,16 @@ export class SearchService {
         console.error('Failed to log search history:', err);
       });
     }
+
+    const preferredLanguages = await MusicService.getPreferredLanguages(userId);
+    const applyLanguageFilter = (result: any) => {
+      if (preferredLanguages.length === 0) return result;
+      return {
+        ...result,
+        tracks: filterByLanguage(result.tracks || [], preferredLanguages),
+        albums: filterByLanguage(result.albums || [], preferredLanguages),
+      };
+    };
 
     // --- Intent Parsing ---
 
@@ -69,7 +94,7 @@ export class SearchService {
         }
         
         similarTracks = await MusicService.populateLikes(similarTracks, userId);
-        return { tracks: similarTracks, albums: searchRes.albums || [], artists: searchRes.artists || [], playlists: [] };
+        return applyLanguageFilter({ tracks: similarTracks, albums: searchRes.albums || [], artists: searchRes.artists || [], playlists: [] });
       }
     }
 
@@ -80,19 +105,19 @@ export class SearchService {
       const vibeRes = await this.saavn.getRecommendationsByGenres([vibe], 20);
       if (vibeRes && vibeRes.length > 0) {
         const populatedTracks = await MusicService.populateLikes(vibeRes, userId);
-        return { tracks: populatedTracks, albums: [], artists: [], playlists: [] };
+        return applyLanguageFilter({ tracks: populatedTracks, albums: [], artists: [], playlists: [] });
       }
       // If genre recommendation fails, it naturally falls through to standard search below
     }
 
     // 4. Standard Keyword / Fallback Intent
     const result = await this.saavn.search(query);
-    
+
     if (result.tracks && result.tracks.length > 0) {
       result.tracks = await MusicService.populateLikes(result.tracks, userId);
     }
-    
-    return result;
+
+    return applyLanguageFilter(result);
   }
 
   public static async getSuggestions(query: string): Promise<string[]> {

@@ -2,6 +2,7 @@ import { prisma } from '@config/database';
 import { SaavnService } from './saavn.service';
 import { ArtistService } from './artist.service';
 import { RecommendationService } from './recommendation.service';
+import { MusicService } from './music.service';
 import slugify from 'slugify';
 
 // Genre/language keywords already scattered across the catalog: the
@@ -200,9 +201,23 @@ export class AIService {
       // which resolves to the no-match response below rather than hitting
       // the catalog with a raw-text search.
 
-      // Deduplicate, drop duration outliers, and cap.
+      // Deduplicate, drop duration outliers, cap — and, if the user has a
+      // saved language preference, strictly hold the playlist to it too
+      // (only when that doesn't wipe out every candidate — a genre/artist
+      // match beats an empty playlist over a language mismatch on every
+      // single track JioSaavn happened to return).
       const uniqueTracks = Array.from(new Map(tracks.map((t) => [t.id, t])).values());
-      const finalTracks = uniqueTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
+      const preferredLanguages = await MusicService.getPreferredLanguages(userId);
+      let languageScopedTracks = uniqueTracks;
+      if (preferredLanguages.length > 0) {
+        const lower = preferredLanguages.map((l) => l.toLowerCase());
+        const languageMatched = uniqueTracks.filter((t) => {
+          const trackLang = (t.genre || '').toLowerCase();
+          return !trackLang || lower.some((l) => trackLang.includes(l) || l.includes(trackLang));
+        });
+        if (languageMatched.length > 0) languageScopedTracks = languageMatched;
+      }
+      const finalTracks = languageScopedTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
 
       // A deliberately chosen mood/artist cover (set above) actually
       // represents the playlist's theme — a single matched track's album

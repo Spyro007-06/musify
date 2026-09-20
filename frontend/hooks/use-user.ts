@@ -93,12 +93,17 @@ export function useUpdatePreferences() {
       queryClient.setQueryData(['user', 'preferences'], updatedPreferences);
       queryClient.invalidateQueries({ queryKey: ['user', 'preferences'] });
 
-      // Targeted invalidation of recommendation caches that depend on user preferences
+      // Targeted invalidation of caches that depend on user preferences —
+      // a language change is a strict filter now, so every section pulling
+      // from the catalog needs to refetch, not just the "recommendation"-
+      // labeled ones.
       queryClient.invalidateQueries({ queryKey: ['music', 'recommended'] });
       queryClient.invalidateQueries({ queryKey: ['music', 'trending'] });
+      queryClient.invalidateQueries({ queryKey: ['music', 'newReleases'] });
       queryClient.invalidateQueries({ queryKey: ['music', 'mood'] });
       queryClient.invalidateQueries({ queryKey: ['recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['ai', 'recommendations'] });
+      queryClient.invalidateQueries({ queryKey: ['search'] });
     },
   });
 }

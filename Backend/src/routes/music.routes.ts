@@ -28,7 +28,7 @@ router.get('/trending', optionalAuthenticate, MusicController.getTrending);
  *       200:
  *         description: OK
  */
-router.get('/new-releases', MusicController.getNewReleases);
+router.get('/new-releases', optionalAuthenticate, MusicController.getNewReleases);
 
 /**
  * @swagger

@@ -21,6 +21,7 @@ import { Alert } from '@/components/ui/alert';
 import { ErrorState } from '@/components/ui/error-state';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
+import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
 
 const GENRE_OPTIONS = [
   'Pop',
@@ -42,21 +43,6 @@ const GENRE_OPTIONS = [
   'Folk',
   'Dance',
   'Soul',
-];
-
-const LANGUAGE_OPTIONS = [
-  'Hindi',
-  'English',
-  'Punjabi',
-  'Tamil',
-  'Telugu',
-  'Spanish',
-  'Korean',
-  'Bengali',
-  'Malayalam',
-  'Kannada',
-  'Marathi',
-  'Gujarati',
 ];
 
 const MOOD_OPTIONS = [

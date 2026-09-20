@@ -29,13 +29,14 @@ export class MusicController {
 
   public static async getNewReleases(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const optReq = req as OptionalAuthRequest;
       const languagesRaw = typeof req.query.languages === 'string' ? req.query.languages : '';
       const artistsRaw = typeof req.query.artists === 'string' ? req.query.artists : '';
-      
+
       const languages = languagesRaw.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean);
       const artists = artistsRaw.split(',').map((a) => a.trim()).filter(Boolean);
 
-      const albums = await MusicService.getNewReleases(languages, artists);
+      const albums = await MusicService.getNewReleases(optReq.user?.id, languages, artists);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,

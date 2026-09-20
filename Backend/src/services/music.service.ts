@@ -39,12 +39,30 @@ export class MusicService {
     }
   }
 
+  /**
+   * Explicit languages (a query param, or a Browse/Home genre-tile click)
+   * win when given; otherwise falls back to the user's saved "Favourite
+   * Languages" preference (Settings → Music Preferences) — the single
+   * source of truth for "only show me content in this language" across
+   * the whole app, not just the one section that happens to pass it.
+   */
+  public static async getPreferredLanguages(userId?: string, explicit?: string[]): Promise<string[]> {
+    if (explicit && explicit.length > 0) return explicit;
+    if (!userId) return [];
+    const prefs = await prisma.userPreferences.findUnique({
+      where: { userId },
+      select: { favouriteLanguages: true },
+    });
+    return prefs?.favouriteLanguages || [];
+  }
+
   public static async getTrending(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
-    // No explicit language/artist filter requested — bias trending toward
-    // the user's tuned genre preference, same signal (and same priority
-    // over passive history) getRecommended already applies below, so
-    // "Popular Right Now" reacts to a genre change too, not just "Made For You".
-    if (userId && (!languages || languages.length === 0) && (!artists || artists.length === 0)) {
+    const preferredLanguages = await this.getPreferredLanguages(userId, languages);
+
+    // A language preference is authoritative — skip the genre bias branch
+    // (which doesn't language-filter) and let getTrendingTracks's own
+    // strict language filter decide below.
+    if (userId && preferredLanguages.length === 0 && (!artists || artists.length === 0)) {
       try {
         const genreRows = await prisma.genreAffinity.findMany({
           where: { userId },
@@ -64,12 +82,13 @@ export class MusicService {
       }
     }
 
-    const tracks = await this.saavn.getTrendingTracks(languages, artists);
+    const tracks = await this.saavn.getTrendingTracks(preferredLanguages, artists);
     return this.populateLikes(tracks, userId);
   }
 
-  public static async getNewReleases(languages?: string[], artists?: string[]): Promise<any[]> {
-    return this.saavn.getNewReleases(languages, artists);
+  public static async getNewReleases(userId?: string, languages?: string[], artists?: string[]): Promise<any[]> {
+    const preferredLanguages = await this.getPreferredLanguages(userId, languages);
+    return this.saavn.getNewReleases(preferredLanguages, artists);
   }
 
   /**
@@ -81,7 +100,12 @@ export class MusicService {
    * user who has none).
    */
   public static async getRecommended(userId?: string): Promise<{ tracks: any[]; personalized: boolean }> {
-    if (userId) {
+    const preferredLanguages = await this.getPreferredLanguages(userId);
+
+    // A saved language preference is authoritative for "Made For You" too —
+    // skip the genre/history-bias branches below (neither language-filters)
+    // and go straight to a strictly language-filtered set.
+    if (userId && preferredLanguages.length === 0) {
       try {
         // Explicit favourite genres (set in Settings) are the strongest signal a
         // user can give — stronger than passive likes/history, which a brand-new
@@ -128,7 +152,7 @@ export class MusicService {
         if (trackIds.length > 0) {
           // Fetch details for these tracks to extract artists and languages
           const userTracks = await this.saavn.getTracks(trackIds);
-          
+
           // Collect artist names and languages
           const artists = new Set<string>();
           const languages = new Set<string>();
@@ -169,8 +193,10 @@ export class MusicService {
       }
     }
 
-    const tracks = await this.saavn.getRecommendedTracks();
-    return { tracks: await this.populateLikes(tracks, userId), personalized: false };
+    const tracks = preferredLanguages.length > 0
+      ? await this.saavn.getTrendingTracks(preferredLanguages)
+      : await this.saavn.getRecommendedTracks();
+    return { tracks: await this.populateLikes(tracks, userId), personalized: preferredLanguages.length > 0 };
   }
 
   public static async getRecommendations(
@@ -179,7 +205,8 @@ export class MusicService {
     userId?: string,
     limit = 20
   ): Promise<any[]> {
-    const tracks = await this.saavn.getRecommendations(languages, artists, limit);
+    const preferredLanguages = await this.getPreferredLanguages(userId, languages);
+    const tracks = await this.saavn.getRecommendations(preferredLanguages, artists, limit);
     return this.populateLikes(tracks, userId);
   }
 
@@ -313,16 +340,20 @@ export class MusicService {
   public static async getMoodPlaylists(mood: string, userId?: string): Promise<any[]> {
     if (userId) {
       try {
-        const topGenre = await prisma.genreAffinity.findFirst({
-          where: { userId },
-          orderBy: { score: 'desc' },
-        });
-        if (topGenre) {
-          const biased = await this.saavn.getMoodPlaylists(`${topGenre.genre} ${mood}`);
+        const [topGenre, preferredLanguages] = await Promise.all([
+          prisma.genreAffinity.findFirst({ where: { userId }, orderBy: { score: 'desc' } }),
+          this.getPreferredLanguages(userId),
+        ]);
+        // Playlist search results don't carry per-track language metadata to
+        // strictly filter against, so a language preference biases the query
+        // (like genre already does) rather than hard-filtering the results.
+        const biasTerms = [preferredLanguages[0], topGenre?.genre].filter(Boolean) as string[];
+        if (biasTerms.length > 0) {
+          const biased = await this.saavn.getMoodPlaylists(`${biasTerms.join(' ')} ${mood}`);
           if (biased.length > 0) return biased;
         }
       } catch (error) {
-        logger.error('Failed to bias mood playlists by genre preference — falling back to unbiased mood search:', error);
+        logger.error('Failed to bias mood playlists by preference — falling back to unbiased mood search:', error);
       }
     }
     return this.saavn.getMoodPlaylists(mood);
