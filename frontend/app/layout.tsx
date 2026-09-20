@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { AppProviders } from '@/components/providers/app-providers';
+import { Analytics } from '@vercel/analytics/next';
 
 const bodyFont = localFont({
   src: '../public/fonts/dm-sans-variable.ttf',
@@ -48,6 +49,7 @@ export default function RootLayout({
     <html lang="en" className={`dark ${bodyFont.variable} ${displayFont.variable}`}>
       <body className="bg-canvas font-sans text-neutral-50 antialiased">
         <AppProviders>{children}</AppProviders>
+        <Analytics />
       </body>
     </html>
   );
