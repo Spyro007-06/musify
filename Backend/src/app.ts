@@ -43,15 +43,15 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
   getSecret: () => env.CSRF_SECRET,
   cookieName: 'x-csrf-token',
   cookieOptions: {
-    // 'strict'/'lax' cookies are never sent on a request from another
-    // registrable domain — fine when frontend and backend share one (dev's
-    // shared localhost), but this app is deployed with the frontend on
-    // Vercel and the backend on Railway, genuinely different domains.
-    // 'none' is required for the browser to attach the cookie there at
-    // all, and 'none' cookies must be 'secure', which is already only
-    // true in production — dev keeps 'strict' since it doesn't need this
-    // and 'none' without HTTPS would just get the cookie rejected outright.
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'strict',
+    // The frontend (Vercel) proxies /api/* through Next.js rewrites to
+    // this backend (Railway) — see frontend/next.config.ts — so from the
+    // browser's perspective every request is same-origin. That keeps
+    // 'strict' correct (and safer) here rather than 'none': 'none' was
+    // tried first and technically worked in Chrome, but Safari's
+    // Intelligent Tracking Prevention blocks third-party cookies outright
+    // regardless of SameSite=None, which the proxy sidesteps entirely by
+    // not making it a third-party cookie in the first place.
+    sameSite: 'strict',
     secure: env.NODE_ENV === 'production',
     httpOnly: true,
   },

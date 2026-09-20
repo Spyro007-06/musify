@@ -9,14 +9,13 @@ import { AuthenticatedRequest } from '@/types/express';
 const SESSION_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function setSessionCookie(res: Response, refreshToken: string): void {
-  // See the matching comment on the CSRF cookie in app.ts: 'strict' only
-  // works when frontend and backend share a registrable domain, which
-  // isn't the case for the Vercel + Railway split this deploys to.
-  const isProduction = process.env.NODE_ENV === 'production';
+  // See the matching comment on the CSRF cookie in app.ts: the frontend
+  // proxies /api/* to this backend via Next.js rewrites, so requests are
+  // same-origin and 'strict' is correct (and safer than 'none').
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'strict',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
     maxAge: SESSION_COOKIE_MAX_AGE,
   });
 }
