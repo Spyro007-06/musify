@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Maximize2, ListMusic, Heart, Disc3, Play, Pause, Loader2 } from 'lucide-react';
+import { Maximize2, ListMusic, Heart, Disc3, Play, Pause, Loader2, Download } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerControls } from './player-controls';
 import { PlayerProgress } from './player-progress';
 import { PlayerVolume } from './player-volume';
 import { useLikeTrack } from '@/hooks/use-music';
+import { useDownloadTrack } from '@/hooks/use-download-track';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
 
@@ -25,6 +26,7 @@ export function MiniPlayer() {
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
   const likeMutation = useLikeTrack();
+  const downloadTrack = useDownloadTrack();
 
   React.useEffect(() => {
     setIsLiked(Boolean(currentTrack?.isLiked));
@@ -198,6 +200,17 @@ export function MiniPlayer() {
 
         {/* Right column: Queue Toggle, Volume Slider, Expand Button */}
         <div className="flex items-center justify-end gap-3 w-1/4 min-w-[200px] max-w-xs">
+          {/* Download Button */}
+          <button
+            type="button"
+            onClick={() => currentTrack && downloadTrack(currentTrack)}
+            disabled={!currentTrack}
+            aria-label="Download current track"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+
           {/* Queue Button */}
           <button
             type="button"

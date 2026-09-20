@@ -22,7 +22,12 @@ const envSchema = z.object({
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().default('900000').transform(Number),
-  RATE_LIMIT_MAX: z.string().default('100').transform(Number),
+  // Now keyed per-authenticated-user rather than per-IP (see
+  // getRateLimitIdentifier), so this no longer has to cover every user
+  // behind a shared NAT/office network out of one bucket — raised
+  // accordingly to give a single active user real headroom (a page load
+  // alone fans out into several parallel API calls).
+  RATE_LIMIT_MAX: z.string().default('600').transform(Number),
   AUTH_RATE_LIMIT_MAX: z.string().default('10').transform(Number),
 
   // Security
@@ -59,6 +64,16 @@ if (!parseResult.success) {
   parseResult.error.issues.forEach((issue) => {
     console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
   });
+  process.exit(1);
+}
+
+// CSRF_SECRET has a default so local dev works with zero setup, but that
+// default is committed in this public repo — anyone can read it and forge
+// a valid CSRF token against it. A missing/forgotten override must fail
+// loudly in production rather than silently running with a known-public
+// secret and appearing to work.
+if (parseResult.data.NODE_ENV === 'production' && parseResult.data.CSRF_SECRET === 'super-secret-csrf-key-for-dev-only') {
+  console.error('❌ CSRF_SECRET is still the default dev value in a production environment. Set a real secret before starting.');
   process.exit(1);
 }
 

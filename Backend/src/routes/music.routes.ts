@@ -216,6 +216,26 @@ router.get('/tracks/:trackId/stream', optionalAuthenticate, MusicController.getS
 
 /**
  * @swagger
+ * /music/tracks/{trackId}/download:
+ *   get:
+ *     summary: Download the track's audio file
+ *     tags: [Music]
+ *     parameters:
+ *       - name: trackId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: The audio file, as an attachment
+ */
+router.get('/tracks/:trackId/download', optionalAuthenticate, MusicController.downloadTrack);
+
+/**
+ * @swagger
  * /music/recommendations:
  *   get:
  *     summary: Get personalized recommendations by genre seeds

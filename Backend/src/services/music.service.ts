@@ -389,4 +389,37 @@ export class MusicService {
 
     return track.audioUrl || '';
   }
+
+  /**
+   * Resolves everything the download route needs to proxy the file with a
+   * proper attachment filename: track metadata comes from the same
+   * JioSaavn call getStreamUrl uses, the actual audio bytes are streamed
+   * from the CDN through our server rather than redirecting the browser
+   * there directly, since cross-origin URLs are not honored by the
+   * anchor `download` attribute.
+   */
+  public static async getDownloadInfo(trackId: string, userId?: string): Promise<{ audioUrl: string; filename: string }> {
+    const track = await this.saavn.getTrackForStream(trackId);
+    if (!track || !track.audioUrl) {
+      throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_FOUND);
+    }
+
+    if (userId) {
+      await prisma.listeningHistory.create({
+        data: {
+          userId,
+          spotifyTrackId: trackId,
+        },
+      });
+    }
+
+    const artistNames = (track.artists || []).map((a: any) => a.name).join(', ');
+    const rawName = artistNames ? `${track.title} - ${artistNames}` : track.title;
+    // Strip characters that are illegal in filenames on Windows/macOS and
+    // cap the length so an unusually long title/artist list doesn't produce
+    // an unwieldy or filesystem-rejected filename.
+    const safeName = rawName.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 150) || 'track';
+
+    return { audioUrl: track.audioUrl, filename: `${safeName}.m4a` };
+  }
 }
