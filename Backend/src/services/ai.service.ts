@@ -22,8 +22,17 @@ const GENRE_KEYWORDS = [
 // recommendation.service.ts already uses for time-of-day matching. Reused
 // here rather than inventing a third vocabulary, extended with the
 // synonyms the prompt is actually likely to contain.
-const MOOD_KEYWORDS: Record<'energetic' | 'chill', string[]> = {
-  energetic: ['energetic', 'upbeat', 'hype', 'workout', 'gym', 'pump', 'party', 'dance', 'club'],
+// Order matters: the first bucket whose keyword appears wins (see
+// parsePromptIntent below), and "party" is checked before "energetic" on
+// purpose — a prompt like "upbeat songs for a wedding party" contains a
+// generic energy word ("upbeat") alongside a specific occasion word
+// ("party"/"wedding"); the specific one should win so the cover actually
+// matches, not a coincidentally-earlier generic synonym.
+const MOOD_KEYWORDS: Record<'party' | 'energetic' | 'chill', string[]> = {
+  // Split out from "energetic" — a gym-themed cover doesn't fit "party",
+  // "wedding", or "dance", which are their own recognizable vibe.
+  party: ['party', 'dance', 'club', 'wedding', 'celebration', 'clubbing'],
+  energetic: ['energetic', 'upbeat', 'hype', 'workout', 'gym', 'pump'],
   chill: ['chill', 'relax', 'calm', 'mellow', 'lofi', 'lo-fi', 'acoustic', 'rainy', 'study', 'focus', 'coding'],
 };
 
@@ -37,7 +46,7 @@ const ARTIST_PATTERNS = [
 export interface ParsedPromptIntent {
   artistCandidate?: string;
   genre?: string;
-  mood?: 'energetic' | 'chill';
+  mood?: 'energetic' | 'party' | 'chill';
   era?: { label: string; from: number; to: number };
 }
 
@@ -85,8 +94,9 @@ export function parsePromptIntent(prompt: string): ParsedPromptIntent {
 }
 
 const DEFAULT_COVER = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500&q=80';
-const MOOD_COVERS: Record<'energetic' | 'chill', string> = {
+const MOOD_COVERS: Record<'energetic' | 'party' | 'chill', string> = {
   energetic: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&q=80',
+  party: 'https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=500&q=80',
   chill: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&q=80',
 };
 
@@ -194,10 +204,17 @@ export class AIService {
       const uniqueTracks = Array.from(new Map(tracks.map((t) => [t.id, t])).values());
       const finalTracks = uniqueTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
 
-      // Prefer the actual cover art of the first track we're saving — a real
-      // depiction of what's in the playlist beats a generic mood stock photo
-      // (e.g. a fixed "energetic" gym photo showing up on a wedding playlist).
-      if (finalTracks[0]?.artwork) coverUrl = finalTracks[0].artwork;
+      // A deliberately chosen mood/artist cover (set above) actually
+      // represents the playlist's theme — a single matched track's album
+      // art doesn't, since it's whatever that one song's cover happens to
+      // be (a genre/mood search can easily surface an off-vibe track, e.g.
+      // a dark trap single for an "upbeat wedding party" prompt). Only fall
+      // back to track artwork when we have no contextual cover at all
+      // (a bare genre with no mood, where the alternative is the fully
+      // generic default).
+      if (coverUrl === DEFAULT_COVER && finalTracks[0]?.artwork) {
+        coverUrl = finalTracks[0].artwork;
+      }
 
       if (finalTracks.length === 0) {
         return {
