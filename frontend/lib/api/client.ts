@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { getCsrfToken, clearCsrfToken, setCsrfToken } from '@/lib/auth/csrf';
 import { clearSessionMarker } from '@/lib/auth/session-marker';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;

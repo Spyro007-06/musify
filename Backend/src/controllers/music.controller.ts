@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import { Readable } from 'stream';
 import { MusicService } from '@services/music.service';
 import { sendSuccess, sendPaginated } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
+import { ApiError } from '@utils/ApiError';
 import { AuthenticatedRequest, OptionalAuthRequest } from '@/types/express';
 
 export class MusicController {
@@ -212,6 +214,34 @@ export class MusicController {
         message: 'Stream URL retrieved successfully.',
         data: { url },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Proxies the track's audio through our server with a Content-Disposition
+   * attachment header instead of redirecting to the CDN URL directly — the
+   * browser's `download` attribute on an <a> only honors same-origin
+   * responses, and a cross-origin redirect would just open/play the file
+   * instead of saving it.
+   */
+  public static async downloadTrack(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const optReq = req as OptionalAuthRequest;
+      const { audioUrl, filename } = await MusicService.getDownloadInfo(req.params.trackId, optReq.user?.id);
+
+      const upstream = await fetch(audioUrl);
+      if (!upstream.ok || !upstream.body) {
+        throw ApiError.internal('Failed to fetch the audio file from the catalog source.');
+      }
+
+      res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, "'")}"`);
+      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'audio/mp4');
+      const contentLength = upstream.headers.get('content-length');
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+
+      Readable.fromWeb(upstream.body as any).pipe(res);
     } catch (error) {
       next(error);
     }

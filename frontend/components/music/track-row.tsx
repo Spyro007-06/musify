@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Pause, Heart, Volume2, ListPlus, Trash2 } from 'lucide-react';
+import { Play, Pause, Heart, Volume2, ListPlus, Trash2, Download } from 'lucide-react';
 import { Track } from '@/types/track';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { useLikeTrack } from '@/hooks/use-music';
+import { useDownloadTrack } from '@/hooks/use-download-track';
 import { usePlayerStore } from '@/stores/player-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
@@ -50,6 +51,7 @@ export function TrackRow({
 
   const [isLiked, setIsLiked] = React.useState(Boolean(track.isLiked));
   const likeMutation = useLikeTrack();
+  const downloadTrack = useDownloadTrack();
 
   React.useEffect(() => {
     setIsLiked(Boolean(track.isLiked));
@@ -79,6 +81,11 @@ export function TrackRow({
   const handleRemoveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onRemove?.(track);
+  };
+
+  const handleDownloadClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    downloadTrack(track);
   };
 
   const handleClick = () => {
@@ -180,6 +187,16 @@ export function TrackRow({
             className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
           >
             <ListPlus className="h-4 w-4" />
+          </button>
+
+          {/* Download button */}
+          <button
+            type="button"
+            onClick={handleDownloadClick}
+            aria-label={`Download ${track.title}`}
+            className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
+          >
+            <Download className="h-4 w-4" />
           </button>
 
           {/* Remove from playlist button (if playlist owner) */}
