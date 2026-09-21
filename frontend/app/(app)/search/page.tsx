@@ -62,22 +62,16 @@ function SearchPageContent() {
     isLoading: isCategoriesLoading,
   } = useCategories();
 
+  // Both just update the local input; the single debounced effect above is
+  // the only thing that ever writes the URL, so there's no race between two
+  // writers fighting over the same query param (was: this handler and the
+  // debounce effect each called router.replace independently).
   const handleSearchSubmit = (submittedQuery: string) => {
     setInputValue(submittedQuery);
-    const currentParams = new URLSearchParams(searchParams.toString());
-    if (submittedQuery.trim()) {
-      currentParams.set('q', submittedQuery.trim());
-    } else {
-      currentParams.delete('q');
-    }
-    const newQueryString = currentParams.toString();
-    const newUrl = newQueryString ? `${pathname}?${newQueryString}` : pathname;
-    router.replace(newUrl, { scroll: false });
   };
 
   const handleClear = () => {
     setInputValue('');
-    router.replace(pathname, { scroll: false });
   };
 
   return (
