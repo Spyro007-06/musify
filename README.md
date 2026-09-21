@@ -1,6 +1,10 @@
-# 🎵 Musify (Vibe)
+<p align="center">
+  <img src="frontend/public/brand/musify-logo.png" alt="Musify logo" width="120">
+</p>
 
-A full-stack music streaming web app: Next.js frontend + Express/TypeScript backend, with playlists, likes, listening history, and personalized recommendations.
+<h1 align="center">🎵 Musify</h1>
+
+<p align="center">A full-stack music streaming web app: Next.js frontend + Express/TypeScript backend, with playlists, likes, listening history, and personalized recommendations.</p>
 
 <p>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=next.js&logoColor=white">
