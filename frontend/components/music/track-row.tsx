@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Pause, Heart, Volume2, ListPlus, Trash2, Download } from 'lucide-react';
+import { Play, Pause, Heart, Volume2, ListPlus, Trash2, Download, MoreVertical } from 'lucide-react';
 import { Track } from '@/types/track';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
@@ -40,6 +40,19 @@ export function TrackRow({
   const playTrack = usePlayerStore((s) => s.playTrack);
 
   const [isAddModalOpen, setIsAddModalOpen] = React.useState(false);
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMenuOpen]);
 
   const isCurrentTrack = currentTrack?.id === track.id;
   const isTrackPlaying = isCurrentTrack && isPlaying;
@@ -179,37 +192,99 @@ export function TrackRow({
 
         {/* Right side: Actions + Duration */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Add to playlist button */}
+          {/* Add to playlist / Download / Remove — collapsed into the "..." menu on mobile
+              (persistent icons there left almost no room for the title), shown inline with
+              the existing hover-reveal behavior from sm: up where space isn't a problem. */}
           <button
             type="button"
             onClick={handleAddToPlaylistClick}
             aria-label={`Add ${track.title} to playlist`}
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
+            className="relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
           >
             <ListPlus className="h-4 w-4" />
           </button>
 
-          {/* Download button */}
           <button
             type="button"
             onClick={handleDownloadClick}
             aria-label={`Download ${track.title}`}
-            className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
+            className="relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
           >
             <Download className="h-4 w-4" />
           </button>
 
-          {/* Remove from playlist button (if playlist owner) */}
           {onRemove && (
             <button
               type="button"
               onClick={handleRemoveClick}
               aria-label={`Remove ${track.title} from playlist`}
-              className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-danger-400 hover:bg-danger-950/30 transition-all before:absolute before:-inset-1.5 before:content-['']"
+              className="relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-danger-400 hover:bg-danger-950/30 transition-all before:absolute before:-inset-1.5 before:content-['']"
             >
               <Trash2 className="h-4 w-4" />
             </button>
           )}
+
+          {/* Mobile-only overflow menu carrying the same three actions */}
+          <div ref={menuRef} className="relative sm:hidden">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMenuOpen((open) => !open);
+              }}
+              aria-label={`More options for ${track.title}`}
+              aria-expanded={isMenuOpen}
+              className="relative flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/10 transition-colors before:absolute before:-inset-1.5 before:content-['']"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            {isMenuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 py-1 shadow-2xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    setIsMenuOpen(false);
+                    handleAddToPlaylistClick(e);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-200 hover:bg-white/5"
+                >
+                  <ListPlus className="h-4 w-4" />
+                  Add to playlist
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    setIsMenuOpen(false);
+                    handleDownloadClick(e);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-200 hover:bg-white/5"
+                >
+                  <Download className="h-4 w-4" />
+                  Download
+                </button>
+                {onRemove && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      setIsMenuOpen(false);
+                      handleRemoveClick(e);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-danger-400 hover:bg-danger-950/30"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove from playlist
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Like toggle */}
           <button

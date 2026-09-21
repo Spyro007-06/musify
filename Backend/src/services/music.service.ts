@@ -341,10 +341,22 @@ export class MusicService {
     const uniqueIds = Array.from(new Set(historyIds));
     const tracks = await this.saavn.getTracks(uniqueIds);
 
-    const populated = history.map(h => {
-      const track = tracks.find(t => t.id === h.spotifyTrackId);
-      return track ? { ...track } : null;
-    }).filter(Boolean);
+    // `history` is one row per play event, not per track — replaying the
+    // same song shows it multiple times in a row otherwise. `history` is
+    // already ordered newest-first, so keeping only each track's first
+    // occurrence here keeps its most recent play and drops the repeats.
+    const seenTrackIds = new Set<string>();
+    const populated = history
+      .filter((h: any) => {
+        if (seenTrackIds.has(h.spotifyTrackId)) return false;
+        seenTrackIds.add(h.spotifyTrackId);
+        return true;
+      })
+      .map((h: any) => {
+        const track = tracks.find(t => t.id === h.spotifyTrackId);
+        return track ? { ...track } : null;
+      })
+      .filter(Boolean);
 
     return this.populateLikes(populated, userId);
   }
