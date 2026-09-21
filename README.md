@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/brand/musify-logo.png" alt="Musify logo" width="120">
+  <img src="frontend/public/brand/musify-mark.png" alt="Musify logo" width="120">
 </p>
 
 <h1 align="center">🎵 Musify</h1>
