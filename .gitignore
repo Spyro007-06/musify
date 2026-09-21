@@ -7,3 +7,7 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+.claude/
+.playwright-mcp/
+after/
+before/

@@ -9,6 +9,7 @@ export interface AuthResponseData {
 export interface RefreshResponseData {
   accessToken: string;
   expiresIn?: number;
+  user?: User | null;
 }
 
 export interface CsrfResponseData {

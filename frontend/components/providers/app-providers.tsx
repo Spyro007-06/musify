@@ -50,21 +50,28 @@ function SessionInitializer({ children }: { children: ReactNode }) {
         try {
           const res = await authApi.refresh();
           if (mounted && res.data?.accessToken) {
-            // Make the token available to apiClient (which reads it live from
-            // the store) BEFORE the next call, so getCurrentUser() actually
-            // sends it instead of firing unauthenticated and 401ing.
-            setAccessToken(res.data.accessToken);
             // The refresh above rotated the refreshToken cookie, which the
             // backend's CSRF check uses as its session identifier — the
             // cached CSRF token is now stale for any subsequent request.
             clearCsrfToken();
             markSessionActive();
-            const meRes = await authApi.getCurrentUser();
-            if (mounted && meRes.data) {
-              setAuth(meRes.data, res.data.accessToken);
-              // Seed useCurrentUser's cache for this token so it doesn't
-              // immediately re-fetch /auth/me once it becomes enabled.
-              queryClient.setQueryData(['currentUser', res.data.accessToken], meRes.data);
+
+            // /auth/refresh now returns the profile directly (the common
+            // case) — set token+user atomically via setAuth so accessToken
+            // never becomes truthy without a user alongside it, which would
+            // otherwise enable useCurrentUser's own query and race it
+            // against this flow. Only an older backend deploy omitting
+            // `user` needs the separate GET /auth/me fallback below.
+            if (res.data.user) {
+              setAuth(res.data.user, res.data.accessToken);
+              queryClient.setQueryData(['currentUser', res.data.accessToken], res.data.user);
+            } else {
+              setAccessToken(res.data.accessToken);
+              const meRes = await authApi.getCurrentUser();
+              if (mounted && meRes.data) {
+                setAuth(meRes.data, res.data.accessToken);
+                queryClient.setQueryData(['currentUser', res.data.accessToken], meRes.data);
+              }
             }
           }
         } catch {

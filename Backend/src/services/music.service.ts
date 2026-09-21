@@ -341,10 +341,22 @@ export class MusicService {
     const uniqueIds = Array.from(new Set(historyIds));
     const tracks = await this.saavn.getTracks(uniqueIds);
 
-    const populated = history.map(h => {
-      const track = tracks.find(t => t.id === h.spotifyTrackId);
-      return track ? { ...track } : null;
-    }).filter(Boolean);
+    // `history` is one row per play event, not per track — replaying the
+    // same song shows it multiple times in a row otherwise. `history` is
+    // already ordered newest-first, so keeping only each track's first
+    // occurrence here keeps its most recent play and drops the repeats.
+    const seenTrackIds = new Set<string>();
+    const populated = history
+      .filter((h: any) => {
+        if (seenTrackIds.has(h.spotifyTrackId)) return false;
+        seenTrackIds.add(h.spotifyTrackId);
+        return true;
+      })
+      .map((h: any) => {
+        const track = tracks.find(t => t.id === h.spotifyTrackId);
+        return track ? { ...track } : null;
+      })
+      .filter(Boolean);
 
     return this.populateLikes(populated, userId);
   }
@@ -384,13 +396,12 @@ export class MusicService {
       throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_FOUND);
     }
 
-    // Add to play history in Supabase
+    // Fire-and-log: history is analytics, not something playback should
+    // wait on. This was previously `await`-ed directly in front of the
+    // response, adding a full DB round-trip to every "press play".
     if (userId) {
-      await prisma.listeningHistory.create({
-        data: {
-          userId,
-          spotifyTrackId: trackId,
-        },
+      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+        console.error('Failed to log listening history:', err);
       });
     }
 
@@ -412,11 +423,8 @@ export class MusicService {
     }
 
     if (userId) {
-      await prisma.listeningHistory.create({
-        data: {
-          userId,
-          spotifyTrackId: trackId,
-        },
+      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+        console.error('Failed to log listening history:', err);
       });
     }
 

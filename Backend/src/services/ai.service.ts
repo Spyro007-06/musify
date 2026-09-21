@@ -12,10 +12,17 @@ import slugify from 'slugify';
 // acoustic). Not a new taxonomy — a consolidation of what's already used.
 const GENRE_KEYWORDS = [
   'hindi', 'punjabi', 'tamil', 'telugu', 'english', 'spanish', 'korean', 'bollywood',
-  'pop', 'rock', 'hip hop', 'hip-hop', 'rap', 'edm', 'electronic', 'dance', 'classical',
+  'pop', 'rock', 'hip hop', 'hip-hop', 'hiphop', 'rap', 'edm', 'electronic', 'dance', 'classical',
   'r&b', 'rnb', 'indie', 'metal', 'country', 'reggae', 'blues', 'folk', 'techno',
   'ambient', 'k-pop', 'kpop', 'jazz', 'lofi', 'lo-fi', 'acoustic', 'synthwave',
 ];
+
+// Longest-first: e.g. "k-pop"/"kpop" contain "pop" as a literal substring, so
+// checking GENRE_KEYWORDS in its declared order would match the generic
+// "pop" first and silently downgrade a K-pop request to a plain pop search.
+// Matching the longest (most specific) keyword instead fixes that in
+// general, not just for this one pair — self-maintaining as the list grows.
+const GENRE_KEYWORDS_BY_SPECIFICITY = [...GENRE_KEYWORDS].sort((a, b) => b.length - a.length);
 
 // /api/music/mood/:mood has no fixed category list of its own (it passes
 // the mood straight through to a JioSaavn playlist search), so the closest
@@ -94,7 +101,7 @@ export function parsePromptIntent(prompt: string): ParsedPromptIntent {
     intent.era = { label: eraMatch[0], from: startYear, to: startYear + 9 };
   }
 
-  const genreMatch = GENRE_KEYWORDS.find((g) => lower.includes(g));
+  const genreMatch = GENRE_KEYWORDS_BY_SPECIFICITY.find((g) => lower.includes(g));
   if (genreMatch) intent.genre = genreMatch;
 
   for (const mood of Object.keys(MOOD_KEYWORDS) as (keyof typeof MOOD_KEYWORDS)[]) {
@@ -193,7 +200,17 @@ export class AIService {
           );
           relatedTopTracks.forEach((t) => tracks.push(...t));
         }
-      } else if (intent.genre || intent.mood || intent.era) {
+      }
+
+      // Not "else if": a prompt can name both an artist and a genre/mood
+      // ("party songs like Imagine Dragons"), and the artist lookup above
+      // can legitimately come back empty (misspelled name, an artist
+      // JioSaavn just doesn't have, a name that also happens to match one
+      // of the ARTIST_PATTERNS regexes without actually being an artist).
+      // Previously that always fell straight through to the "couldn't find
+      // anything" response even when the same prompt had a perfectly good
+      // genre/mood/era to fall back on — the intent was there, just unused.
+      if (tracks.length === 0 && (intent.genre || intent.mood || intent.era)) {
         // Genre/mood/era — same search-query infrastructure the old
         // heuristic used (getRecommendationsByGenres wraps searchSongs).
         const queryParts = [intent.genre, intent.moodKeyword, intent.era?.label].filter(Boolean) as string[];

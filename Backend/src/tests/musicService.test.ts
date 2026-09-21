@@ -56,3 +56,21 @@ describe('MusicService.getRecommended', () => {
     expect(result.personalized).toBe(false);
   });
 });
+
+describe('MusicService.getRecentlyPlayed', () => {
+  it('collapses repeated plays of the same track into a single, most-recent entry', async () => {
+    // Newest first, matching the real query's orderBy — track-1 was played
+    // twice, track-2 once.
+    prismaMock.listeningHistory.findMany.mockResolvedValue([
+      { spotifyTrackId: 'track-1', timestamp: new Date('2026-01-03') },
+      { spotifyTrackId: 'track-2', timestamp: new Date('2026-01-02') },
+      { spotifyTrackId: 'track-1', timestamp: new Date('2026-01-01') },
+    ] as any);
+    saavnMock.getTracks.mockResolvedValue([track({ id: 'track-1' }), track({ id: 'track-2' })]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([]);
+
+    const result = await MusicService.getRecentlyPlayed('user-1');
+
+    expect(result.map((t: any) => t.id)).toEqual(['track-1', 'track-2']);
+  });
+});

@@ -50,4 +50,12 @@ describe('parsePromptIntent (rule-based, no LLM)', () => {
   it('gibberish prompt with no recognizable signal returns an empty intent, not an error', () => {
     expect(parsePromptIntent('asdkjfh qwoeiru zzzzz')).toEqual({});
   });
+
+  it('genre matching prefers the more specific keyword over a shorter one it contains', () => {
+    // "pop" is a literal substring of "k-pop"/"kpop" — matching declaration
+    // order instead of specificity would silently downgrade these to "pop".
+    expect(parsePromptIntent('some k-pop please').genre).toBe('k-pop');
+    expect(parsePromptIntent('kpop bangers').genre).toBe('kpop');
+    expect(parsePromptIntent('hip hop and rap').genre).toBe('hip hop');
+  });
 });
