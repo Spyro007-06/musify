@@ -10,6 +10,7 @@ import { useCurrentUser } from '@/hooks/use-current-user';
 import { clearCsrfToken } from '@/lib/auth/csrf';
 import { clearSessionMarker, hadSession, markSessionActive } from '@/lib/auth/session-marker';
 import { ToastViewport } from '@/components/ui/toast';
+import { AppSplash } from '@/components/layout/app-splash';
 
 function AudioEngineManager() {
   useAudio();
@@ -28,7 +29,7 @@ function ServiceWorkerRegistrar() {
 }
 
 function SessionInitializer({ children }: { children: ReactNode }) {
-  const { accessToken, setAuth, setAccessToken, setInitializing } = useAuthStore();
+  const { accessToken, isInitializing, setAuth, setAccessToken, setInitializing } = useAuthStore();
   const queryClient = useQueryClient();
   useCurrentUser();
 
@@ -82,6 +83,10 @@ function SessionInitializer({ children }: { children: ReactNode }) {
       mounted = false;
     };
   }, [accessToken, setAuth, setAccessToken, setInitializing, queryClient]);
+
+  if (isInitializing) {
+    return <AppSplash />;
+  }
 
   return <>{children}</>;
 }
