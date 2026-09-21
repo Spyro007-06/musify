@@ -177,6 +177,7 @@ export interface PlayerState {
   setDuration: (duration: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setError: (error: string | null) => void;
+  hydratePreferences: () => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -189,10 +190,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLoading: false,
   currentTime: 0,
   duration: 0,
-  volume: getSavedVolume(),
-  isMuted: getSavedMuted(),
-  shuffle: getSavedShuffle(),
-  repeat: getSavedRepeat(),
+  // Always start from these fixed defaults, even in the browser — the
+  // server has no localStorage, so seeding from it here would make the
+  // client's first render diverge from the SSR HTML and fail hydration.
+  // The real saved values are applied after mount via hydratePreferences().
+  volume: DEFAULT_VOLUME,
+  isMuted: false,
+  shuffle: false,
+  repeat: 'off',
   error: null,
   isExpanded: false,
   isQueueOpen: false,
@@ -532,4 +537,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setDuration: (duration: number) => set({ duration }),
   setIsPlaying: (playing: boolean) => set({ isPlaying: playing }),
   setError: (error: string | null) => set({ error }),
+
+  hydratePreferences: () => {
+    set({
+      volume: getSavedVolume(),
+      isMuted: getSavedMuted(),
+      shuffle: getSavedShuffle(),
+      repeat: getSavedRepeat(),
+    });
+  },
 }));

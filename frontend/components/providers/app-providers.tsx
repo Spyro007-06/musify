@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QueryProvider } from './query-provider';
 import { useAudio } from '@/hooks/use-audio';
 import { useAuthStore } from '@/stores/auth-store';
+import { usePlayerStore } from '@/stores/player-store';
 import { authApi } from '@/lib/api/auth';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { clearCsrfToken } from '@/lib/auth/csrf';
@@ -14,6 +15,11 @@ import { AppSplash } from '@/components/layout/app-splash';
 
 function AudioEngineManager() {
   useAudio();
+
+  useEffect(() => {
+    usePlayerStore.getState().hydratePreferences();
+  }, []);
+
   return null;
 }
 
@@ -84,11 +90,14 @@ function SessionInitializer({ children }: { children: ReactNode }) {
     };
   }, [accessToken, setAuth, setAccessToken, setInitializing, queryClient]);
 
-  if (isInitializing) {
-    return <AppSplash />;
-  }
-
-  return <>{children}</>;
+  // Render children unconditionally and layer the splash on top instead of
+  // swapping the tree for it — see AppSplash's doc comment for why.
+  return (
+    <>
+      {children}
+      {isInitializing && <AppSplash />}
+    </>
+  );
 }
 
 export function AppProviders({ children }: { children: ReactNode }) {

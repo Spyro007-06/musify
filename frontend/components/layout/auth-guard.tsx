@@ -43,26 +43,31 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, isProtected, isAuthenticated, isInitializing, router]);
 
-  // While initializing session on a protected route, show a minimal structural loading state
-  if (isProtected && isInitializing) {
-    return (
-      <div
-        role="status"
-        aria-label="Checking authentication"
-        className="flex h-screen w-full items-center justify-center bg-black"
-      >
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
-          <span className="text-xs text-neutral-500 font-medium tracking-wide">Loading MUSIFY...</span>
-        </div>
-      </div>
-    );
-  }
-
   // If on a protected route and not authenticated (and initialization finished), prevent flashing protected content
-  if (isProtected && !isAuthenticated) {
+  if (isProtected && !isInitializing && !isAuthenticated) {
     return null;
   }
 
-  return <>{children}</>;
+  // Render children unconditionally and layer the loading state on top
+  // instead of swapping it in for children — session initialization can
+  // finish very soon after mount, and replacing the whole tree at that
+  // point risks racing React's hydration of it (see AppSplash's doc
+  // comment for the full explanation of that failure mode).
+  return (
+    <>
+      {children}
+      {isProtected && isInitializing && (
+        <div
+          role="status"
+          aria-label="Checking authentication"
+          className="fixed inset-0 z-[100] flex h-screen w-full items-center justify-center bg-black"
+        >
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+            <span className="text-xs text-neutral-500 font-medium tracking-wide">Loading MUSIFY...</span>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
