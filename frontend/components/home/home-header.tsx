@@ -32,9 +32,6 @@ export function HomeHeader() {
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
             {greeting}, <span className="text-brand-400">{displayName}</span>
           </h1>
-          <p className="text-sm sm:text-base leading-relaxed text-neutral-300 max-w-lg">
-            Discover trending tracks, explore new releases, and vibe to handpicked playlists crafted for every mood.
-          </p>
         </div>
       </div>
     </div>
