@@ -26,6 +26,10 @@ function LoginForm() {
     }
   }, [isAuthenticated, isInitializing, router, redirectUrl]);
 
+  if (isAuthenticated) {
+    return null;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {

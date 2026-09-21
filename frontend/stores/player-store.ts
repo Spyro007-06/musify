@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { Track } from '@/types/track';
-import { DEFAULT_VOLUME, PREVIOUS_TRACK_THRESHOLD, SKIP_LOG_THRESHOLD } from '@/lib/player/player-constants';
+import {
+  AUTO_QUEUE_REFILL_THRESHOLD,
+  DEFAULT_VOLUME,
+  PREVIOUS_TRACK_THRESHOLD,
+  SKIP_LOG_THRESHOLD,
+} from '@/lib/player/player-constants';
 import { shuffleArray } from '@/lib/player/player-utils';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
 import { musicApi } from '@/lib/api/music';
@@ -83,6 +88,12 @@ function getSavedRepeat(): RepeatMode {
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
 
+// The queue is meant to feel endless, like radio: once only a few tracks
+// remain after the current one, quietly fetch more of the same personalized
+// feed and append them, instead of waiting for the queue to actually run
+// dry. This flag just prevents two overlapping top-up fetches.
+let isToppingUpQueue = false;
+
 // Warms the upcoming queue track's stream URL while the current one is
 // still playing, so skipping to it doesn't wait on a fresh network round
 // trip. Single-use and short-lived — these are signed CDN URLs, not meant
@@ -154,6 +165,7 @@ export interface PlayerState {
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
+  maybeTopUpQueue: () => void;
   addToQueue: (track: Track) => void;
   removeFromQueue: (trackId: string) => void;
   clearQueue: () => void;
@@ -280,6 +292,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const { queue: liveQueue, currentIndex: liveIndex, repeat: liveRepeat } = get();
       const upcoming = liveQueue[liveIndex + 1] ?? (liveRepeat === 'all' ? liveQueue[0] : undefined);
       if (upcoming) prefetchTrackStream(upcoming);
+
+      get().maybeTopUpQueue();
     } catch (err: unknown) {
       if (requestGen !== activePlaybackGeneration) return;
 
@@ -344,7 +358,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } else {
       // End of queue reached and repeat is off — log the outgoing track,
       // then keep the music going with a personalized batch instead of
-      // just stopping.
+      // just stopping. In practice maybeTopUpQueue (called after every
+      // track starts) should have already refilled the queue well before
+      // it got this far — this is the fallback for a fetch that failed or
+      // hadn't landed yet.
       if (currentTrack) {
         logOutgoingTrack(currentTrack, currentTime, duration, reason === 'ended');
       }
@@ -455,6 +472,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       currentIndex: startIndex,
       currentTime: 0,
     });
+  },
+
+  maybeTopUpQueue: () => {
+    if (isToppingUpQueue) return;
+    const { queue, currentIndex, repeat } = get();
+    if (repeat === 'one') return; // stuck replaying one track — nothing to top up
+    const remaining = queue.length - currentIndex - 1;
+    if (remaining >= AUTO_QUEUE_REFILL_THRESHOLD) return;
+
+    isToppingUpQueue = true;
+    fetchAutoQueueTracks(queue)
+      .then((more) => {
+        if (more.length > 0) {
+          set((s) => ({ queue: [...s.queue, ...more], originalQueue: [...s.originalQueue, ...more] }));
+        }
+      })
+      .finally(() => {
+        isToppingUpQueue = false;
+      });
   },
 
   addToQueue: (track: Track) => {

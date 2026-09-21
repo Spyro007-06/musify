@@ -16,6 +16,7 @@ import { TrackRow } from '@/components/music/track-row';
 import { AlbumCard } from '@/components/music/album-card';
 import { CategoryCard } from '@/components/music/category-card';
 import { PlaylistCard } from '@/components/music/playlist-card';
+import { ShelfRow, ShelfItem } from '@/components/music/shelf-row';
 import { MoodSection } from '@/components/music/mood-section';
 import { Track } from '@/types/track';
 import { Album } from '@/types/album';
@@ -75,6 +76,18 @@ export default function HomePage() {
     [playlists]
   );
 
+  // "Popular Right Now" already spends the first 6 trending tracks; "Trending
+  // Now" picks up right after it instead of showing the same songs twice.
+  const quickPlayTracks = React.useMemo(() => trendingTracks?.slice(0, 6) || [], [trendingTracks]);
+  const trendingShelfTracks = React.useMemo(() => trendingTracks?.slice(6, 18) || [], [trendingTracks]);
+
+  // "Made For You" drops anything already surfaced above so the same track
+  // doesn't visually repeat across sections on one page.
+  const recommendedShelfTracks = React.useMemo(() => {
+    const shown = new Set(trendingTracks?.slice(0, 18).map((t) => t.id));
+    return (recommendedTracks || []).filter((t) => !shown.has(t.id)).slice(0, 12);
+  }, [recommendedTracks, trendingTracks]);
+
   // Play handlers passing full section collections as queue context
   const handlePlayTrending = React.useCallback(
     (track: Track) => {
@@ -110,11 +123,11 @@ export default function HomePage() {
       <HomeHeader />
 
       {/* Quick Play Rows - Top 6 Trending */}
-      {trendingTracks && trendingTracks.length > 0 && (
+      {quickPlayTracks.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">Popular Right Now</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-            {trendingTracks.slice(0, 6).map((track, index) => (
+            {quickPlayTracks.map((track, index) => (
               <TrackRow
                 key={`quick-${track.id}-${index}`}
                 track={track}
@@ -134,19 +147,17 @@ export default function HomePage() {
         isError={isTrendingError}
         error={trendingError}
         onRetry={refetchTrending}
-        isEmpty={!trendingTracks || trendingTracks.length === 0}
+        isEmpty={trendingShelfTracks.length === 0}
         skeletonType="card"
         skeletonCount={6}
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {trendingTracks?.slice(0, 12).map((track) => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              onPlay={handlePlayTrending}
-            />
+        <ShelfRow>
+          {trendingShelfTracks.map((track) => (
+            <ShelfItem key={track.id}>
+              <TrackCard track={track} onPlay={handlePlayTrending} />
+            </ShelfItem>
           ))}
-        </div>
+        </ShelfRow>
       </MusicSection>
 
       {/* Explore Categories / Genres */}
@@ -181,15 +192,13 @@ export default function HomePage() {
         skeletonType="album"
         skeletonCount={6}
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+        <ShelfRow>
           {newReleases?.slice(0, 12).map((album) => (
-            <AlbumCard
-              key={album.id}
-              album={album}
-              onPlay={handlePlayAlbum}
-            />
+            <ShelfItem key={album.id}>
+              <AlbumCard album={album} onPlay={handlePlayAlbum} />
+            </ShelfItem>
           ))}
-        </div>
+        </ShelfRow>
       </MusicSection>
 
       {/* Made For You / Recommendations */}
@@ -208,19 +217,17 @@ export default function HomePage() {
         isError={isRecommendedError}
         error={recommendedError}
         onRetry={refetchRecommended}
-        isEmpty={!recommendedTracks || recommendedTracks.length === 0}
+        isEmpty={recommendedShelfTracks.length === 0}
         skeletonType="card"
         skeletonCount={6}
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {recommendedTracks?.slice(0, 12).map((track) => (
-            <TrackCard
-              key={`rec-${track.id}`}
-              track={track}
-              onPlay={handlePlayRecommended}
-            />
+        <ShelfRow>
+          {recommendedShelfTracks.map((track) => (
+            <ShelfItem key={`rec-${track.id}`}>
+              <TrackCard track={track} onPlay={handlePlayRecommended} />
+            </ShelfItem>
           ))}
-        </div>
+        </ShelfRow>
       </MusicSection>
 
       {/* Soundtracks & Curations (movie soundtrack playlists) */}
@@ -237,11 +244,13 @@ export default function HomePage() {
           skeletonType="album"
           skeletonCount={6}
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <ShelfRow>
             {soundtrackPlaylists.slice(0, 12).map((playlist) => (
-              <PlaylistCard key={`soundtrack-${playlist.id}`} playlist={playlist} />
+              <ShelfItem key={`soundtrack-${playlist.id}`}>
+                <PlaylistCard playlist={playlist} />
+              </ShelfItem>
             ))}
-          </div>
+          </ShelfRow>
         </MusicSection>
       )}
 
