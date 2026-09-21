@@ -250,7 +250,11 @@ export class SaavnService {
           return true;
         });
 
-      return filteredTracks;
+      // JioSaavn's own ranking for a given query is static — without this,
+      // "trending" would show the exact same tracks in the exact same order
+      // on every cache refresh, forever. Shuffled once per cache window
+      // (see getTrendingTracks's withCache), not per request.
+      return filteredTracks.sort(() => Math.random() - 0.5);
     }
 
     try {
@@ -261,7 +265,7 @@ export class SaavnService {
           this.playlistService.getPlaylistById({ id: firstChart.id, page: 0, limit: 20 })
         );
         if (playlist && playlist.songs) {
-          return dedupeById(playlist.songs.map((s: any) => this.mapTrack(s)));
+          return dedupeById(playlist.songs.map((s: any) => this.mapTrack(s))).sort(() => Math.random() - 0.5);
         }
       }
       return [];
@@ -404,7 +408,9 @@ export class SaavnService {
         }
       }
 
-      return dedupeById(interleaved).slice(0, limit);
+      return dedupeById(interleaved)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, limit);
     } catch (error) {
       logger.error('❌ JioSaavn recommendations by genres failed:', error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);

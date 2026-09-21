@@ -94,6 +94,13 @@ let activePlaybackGeneration = 0;
 // dry. This flag just prevents two overlapping top-up fetches.
 let isToppingUpQueue = false;
 
+// Every track played this session, so the auto-refill (below) never re-adds
+// something the user already listened to — a radio station shouldn't repeat
+// a song it just played. Deliberately session-only (resets on reload): this
+// is about not re-suggesting within one continuous listening session, not a
+// permanent "never play again" list.
+const playedTrackIds = new Set<string>();
+
 // Warms the upcoming queue track's stream URL while the current one is
 // still playing, so skipping to it doesn't wait on a fresh network round
 // trip. Single-use and short-lived — these are signed CDN URLs, not meant
@@ -115,7 +122,7 @@ async function fetchAutoQueueTracks(existingQueue: Track[]): Promise<Track[]> {
   try {
     const res = await musicApi.getRecommended();
     const existingIds = new Set(existingQueue.map((t) => t.id));
-    return (res.data?.tracks || []).filter((t) => !existingIds.has(t.id));
+    return (res.data?.tracks || []).filter((t) => !existingIds.has(t.id) && !playedTrackIds.has(t.id));
   } catch {
     return [];
   }
@@ -200,6 +207,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip') => {
     // 1. Race-condition protection: increment generation counter
     const requestGen = ++activePlaybackGeneration;
+
+    playedTrackIds.add(track.id);
 
     const { shuffle, originalQueue, queue, currentTrack, currentTime, duration } = get();
     const engine = getAudioEngine();
