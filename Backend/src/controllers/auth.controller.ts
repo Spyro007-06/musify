@@ -116,6 +116,7 @@ export class AuthController {
         data: {
           accessToken: result.accessToken,
           expiresIn: result.session?.expires_in,
+          user: result.user,
         },
       });
     } catch (error) {

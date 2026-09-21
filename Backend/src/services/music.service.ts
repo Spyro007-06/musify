@@ -384,13 +384,12 @@ export class MusicService {
       throw ApiError.notFound(ERROR_MESSAGES.TRACK_NOT_FOUND);
     }
 
-    // Add to play history in Supabase
+    // Fire-and-log: history is analytics, not something playback should
+    // wait on. This was previously `await`-ed directly in front of the
+    // response, adding a full DB round-trip to every "press play".
     if (userId) {
-      await prisma.listeningHistory.create({
-        data: {
-          userId,
-          spotifyTrackId: trackId,
-        },
+      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+        console.error('Failed to log listening history:', err);
       });
     }
 
@@ -412,11 +411,8 @@ export class MusicService {
     }
 
     if (userId) {
-      await prisma.listeningHistory.create({
-        data: {
-          userId,
-          spotifyTrackId: trackId,
-        },
+      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+        console.error('Failed to log listening history:', err);
       });
     }
 

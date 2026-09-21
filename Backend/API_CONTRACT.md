@@ -67,7 +67,7 @@ Playlist (catalog-sourced, e.g. mood results) {
 - **POST /auth/signup** — body: `{ email: string, username: string, password: string, displayName?: string, role?: 'USER'|'ARTIST' }` → `201`, `data`: created user profile + session tokens.
 - **POST /auth/login** — body: `{ email? or username?: string, password: string }` (one of email/username required) → `200`, `data`: user profile + session tokens.
 - **POST /auth/logout** — body: `{ refreshToken?: string }` → `200`.
-- **POST /auth/refresh** — body: `{ refreshToken: string }` → `200`, `data`: new session tokens.
+- **POST /auth/refresh** — body: `{ refreshToken: string }` → `200`, `data`: new session tokens plus `user` (current profile, resolved server-side so callers don't need a follow-up `GET /auth/me`; `null` if the profile lookup itself failed).
 - **GET /auth/me** — → `200`, `data`: current user profile.
 - **GET /auth/csrf** — → `200`, `{ csrfToken: string }` (not wrapped in the standard envelope).
 

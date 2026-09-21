@@ -187,17 +187,32 @@ export class AuthService {
 
   /**
    * Refresh session using a Supabase refresh token.
+   *
+   * Also returns the public profile, resolved from the same session's
+   * supabaseId — the frontend's app-boot flow used to always follow this
+   * with a separate GET /auth/me for it, adding a full sequential network
+   * round trip to every cold load before the app could render. Fetching it
+   * here means one round trip instead of two.
    */
-  public static async refresh(refreshToken: string): Promise<{ accessToken: string; session: any }> {
+  public static async refresh(refreshToken: string): Promise<{ accessToken: string; session: any; user: IUser | null }> {
     const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
 
     if (error || !data.session) {
       throw ApiError.unauthorized(ERROR_MESSAGES.REFRESH_TOKEN_INVALID);
     }
 
+    let user: IUser | null = null;
+    try {
+      user = await this.getProfile(data.session.user.id);
+    } catch {
+      // Profile lookup failing shouldn't fail the refresh itself — the
+      // frontend already falls back to its own GET /auth/me if user is null.
+    }
+
     return {
       accessToken: data.session.access_token,
       session: data.session,
+      user,
     };
   }
 
