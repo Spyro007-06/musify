@@ -7,6 +7,7 @@ import { useAudio } from '@/hooks/use-audio';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePlayerStore } from '@/stores/player-store';
 import { authApi } from '@/lib/api/auth';
+import { ApiError } from '@/types/api';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { clearCsrfToken } from '@/lib/auth/csrf';
 import { clearSessionMarker, hadSession, markSessionActive } from '@/lib/auth/session-marker';
@@ -74,10 +75,18 @@ function SessionInitializer({ children }: { children: ReactNode }) {
               }
             }
           }
-        } catch {
-          // No active session cookie or invalid token; proceed as guest, and
-          // stop treating this browser as having a session to retry next time.
-          clearSessionMarker();
+        } catch (err) {
+          // Only an actual auth rejection (expired/invalid refresh token)
+          // means there's truly no session to recover — stop retrying it.
+          // A network hiccup or a cold-starting backend (very common on
+          // mobile, where the app also gets backgrounded/killed and
+          // relaunched far more often than a desktop tab) is not proof the
+          // session is gone, and clearing the marker here would otherwise
+          // permanently disable auto-login after one bad network blip.
+          const isAuthRejection = err instanceof ApiError && err.status >= 400 && err.status < 500;
+          if (isAuthRejection) {
+            clearSessionMarker();
+          }
         } finally {
           if (mounted) {
             setInitializing(false);
