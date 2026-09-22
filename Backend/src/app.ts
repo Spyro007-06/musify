@@ -32,6 +32,20 @@ const app: Express = express();
 // (including errors) has a request id available.
 app.use(requestContext);
 
+// Every response here is per-session (auth state, personalized data) —
+// without an explicit Cache-Control, this API is served through Vercel's
+// rewrite proxy (frontend/next.config.ts), and Vercel's edge fills in its
+// own default of `public, max-age=0, must-revalidate` for any response
+// that doesn't set one. That's a shared/CDN-cacheable directive, and none
+// of these responses vary the cache key by cookie — so a shared cache is
+// technically permitted to serve one request's body (session data,
+// Set-Cookie included) to a different, unrelated request that lands on
+// the same cache key. `no-store` forbids caching outright, at every layer.
+app.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
 // Utility Middlewares (must be before CSRF so cookies can be parsed)
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
