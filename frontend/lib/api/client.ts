@@ -35,8 +35,16 @@ async function performTokenRefresh(): Promise<string | null> {
     });
 
     if (!res.ok) {
-      logout();
-      clearSessionMarker();
+      // Only a genuine auth rejection (expired/invalid refresh token) means
+      // the session is actually gone. A 5xx (e.g. a cold-starting backend)
+      // is not proof of that, and logging out + clearing the "had session"
+      // marker here would permanently disable auto-login after one bad
+      // response — the exact trap that made mobile users see the login
+      // screen on every app open after a single flaky-network refresh.
+      if (res.status >= 400 && res.status < 500) {
+        logout();
+        clearSessionMarker();
+      }
       return null;
     }
 
@@ -57,8 +65,8 @@ async function performTokenRefresh(): Promise<string | null> {
     clearSessionMarker();
     return null;
   } catch {
-    useAuthStore.getState().logout();
-    clearSessionMarker();
+    // Network error (offline, timeout, DNS) — not an auth rejection, so
+    // don't log out or clear the session marker; just fail this refresh.
     return null;
   } finally {
     refreshPromise = null;
