@@ -3,6 +3,7 @@ import { logger } from '@utils/logger';
 import { resilientCall } from '@utils/resilience';
 import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 import { withCache } from '@utils/cache';
+import { redis, redisEnabled } from '@config/redis';
 import { dedupeById } from '@utils/dedupe';
 
 /**
@@ -442,6 +443,56 @@ export class SaavnService {
       logger.error('❌ JioSaavn getTracks failed:', error);
       throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
     }
+  }
+
+  /**
+   * Cache-aside variant of getTracks, for background/batch callers (the
+   * processMusicMetadata job) where a few hours of staleness is fine —
+   * unlike getTrack/getTracks, which stay live-only for user-facing reads.
+   *
+   * Batches cache misses through getTracks (one upstream call, missing ids
+   * just omitted from its result) rather than one getTrack call per id —
+   * deliberately not built on withCache per-id like getTrendingTracks does,
+   * because getTrack (unlike getTracks) can't distinguish "no such track"
+   * from a real upstream failure for a single id, so N parallel per-id
+   * calls means one bad id in a batch throws and (via Promise.all) fails
+   * every other track in it too. Missing ids here are simply left out of
+   * the result, matching getTracks' own behavior.
+   */
+  public async getTracksCached(ids: string[], ttlSeconds = 21600): Promise<any[]> {
+    if (ids.length === 0) return [];
+
+    const cached = new Map<string, any>();
+    if (redisEnabled) {
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const hit = await redis!.get<any>(`saavn:track:${id}`);
+            if (hit) cached.set(id, hit);
+          } catch (err) {
+            logger.warn(`Redis cache read failed for track "${id}", will re-fetch:`, err);
+          }
+        })
+      );
+    }
+
+    const misses = ids.filter((id) => !cached.has(id));
+    const fetched = misses.length > 0 ? await this.getTracks(misses) : [];
+
+    if (redisEnabled && fetched.length > 0) {
+      await Promise.all(
+        fetched.map((track: any) =>
+          redis!.set(`saavn:track:${track.id}`, track, { ex: ttlSeconds }).catch((err) => {
+            logger.warn(`Redis cache write failed for track "${track.id}":`, err);
+          })
+        )
+      );
+    }
+
+    for (const track of fetched) cached.set(track.id, track);
+
+    // Preserve input order; ids that were never found (by either path) are simply omitted.
+    return ids.map((id) => cached.get(id)).filter(Boolean);
   }
 
   /**

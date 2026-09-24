@@ -177,6 +177,44 @@ describe('SaavnService', () => {
     });
   });
 
+  describe('getTracksCached — batches through getTracks rather than one call per id', () => {
+    // Redis is unconfigured in the test env (see tests/setup/env.ts), so
+    // every id is a cache "miss" and this exercises the real fetch path —
+    // the actual bug this covers (one bad id must not sink the whole
+    // batch) lives entirely in that path regardless of caching.
+    it('returns [] without calling the catalog for an empty id list', async () => {
+      const result = await saavn.getTracksCached([]);
+      expect(result).toEqual([]);
+      expect(mockGetSongByIds).not.toHaveBeenCalled();
+    });
+
+    it('fetches every id in a single batched call, not one call per id', async () => {
+      mockGetSongByIds.mockResolvedValue([rawSong({ id: 's1' }), rawSong({ id: 's2' })]);
+      await saavn.getTracksCached(['s1', 's2']);
+      expect(mockGetSongByIds).toHaveBeenCalledTimes(1);
+    });
+
+    it('a track the catalog has no data for is simply omitted, not thrown — valid ids in the same batch still resolve', async () => {
+      // getTracks already drops ids missing from the catalog's response
+      // rather than erroring per-id (see the block above) — this is what
+      // getTracksCached relies on for one bad id not failing the batch.
+      mockGetSongByIds.mockResolvedValue([rawSong({ id: 's1' })]);
+      const result = await saavn.getTracksCached(['s1', 'missing']);
+      expect(result.map((t: any) => t.id)).toEqual(['s1']);
+    });
+
+    it('preserves input order', async () => {
+      mockGetSongByIds.mockResolvedValue([rawSong({ id: 's2' }), rawSong({ id: 's1' })]);
+      const result = await saavn.getTracksCached(['s1', 's2']);
+      expect(result.map((t: any) => t.id)).toEqual(['s1', 's2']);
+    });
+
+    it('a genuine upstream failure for the batch still propagates as SaavnUpstreamError', async () => {
+      mockGetSongByIds.mockRejectedValue(new Error('ECONNRESET'));
+      await expect(saavn.getTracksCached(['s1'])).rejects.toBeInstanceOf(SaavnUpstreamError);
+    });
+  });
+
   describe('getTrendingTracks — normal path (both branches) and error classification', () => {
     it('with no language/artist filter: pulls the first chart and maps its playlist songs', async () => {
       mockGetCharts.mockResolvedValue([{ id: 'chart-1' }]);

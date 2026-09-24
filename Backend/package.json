@@ -23,7 +23,9 @@
     "recommendations:compute": "ts-node -r tsconfig-paths/register src/scripts/computeRecommendations.ts",
     "recommendations:evaluate": "ts-node -r tsconfig-paths/register src/scripts/evaluateRecommendations.ts",
     "loadtest": "ts-node -r tsconfig-paths/register src/scripts/loadTest.ts",
-    "seed:loadtest": "ts-node -r tsconfig-paths/register src/scripts/seedLoadTestData.ts"
+    "seed:loadtest": "ts-node -r tsconfig-paths/register src/scripts/seedLoadTestData.ts",
+    "worker:dev": "nodemon --exec \"ts-node -r tsconfig-paths/register\" src/jobs/workerMain.ts",
+    "worker:start": "node dist/jobs/workerMain.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -31,6 +33,7 @@
     "@supabase/supabase-js": "^2.44.4",
     "@upstash/ratelimit": "^2.1.0",
     "@upstash/redis": "^1.38.4",
+    "bullmq": "^6.3.8",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -42,6 +45,7 @@
     "express-slow-down": "^2.0.3",
     "helmet": "^7.1.0",
     "hpp": "^0.2.3",
+    "ioredis": "^6.0.0",
     "jiosaavn-sdk": "^1.0.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
@@ -84,6 +88,7 @@
     "nodemon": "^3.1.4",
     "prettier": "^3.3.2",
     "prisma": "^5.14.0",
+    "redis-memory-server": "^0.17.1",
     "supertest": "^7.0.0",
     "ts-jest": "^29.1.5",
     "ts-node": "^10.9.2",

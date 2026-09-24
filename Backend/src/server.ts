@@ -9,6 +9,7 @@ import { env } from '@config/env';
 import { connectDatabase, disconnectDatabase } from '@config/database';
 import { logger } from '@utils/logger';
 import { startRecommendationCron, stopRecommendationCron } from '@jobs/recommendationCron';
+import { scheduleMaintenanceJobs, closeQueues } from '@jobs/queue';
 
 const port = env.PORT;
 const server = http.createServer(app);
@@ -39,6 +40,10 @@ const startServer = async () => {
     // 3. Start the periodic recommendation recompute job (not in tests)
     if (env.NODE_ENV !== 'test') {
       startRecommendationCron();
+      // Registers (idempotently) the hourly cache-cleanup schedule — this
+      // process only enqueues/schedules jobs, it never runs them; that's
+      // the separate worker process (src/jobs/workerMain.ts).
+      await scheduleMaintenanceJobs();
     }
   } catch (error) {
     logger.error('Failed to start server:', error);
@@ -55,6 +60,7 @@ const handleShutdown = async (signal: string) => {
   server.close(async () => {
     logger.info('HTTP server closed.');
 
+    await closeQueues();
     await disconnectDatabase();
 
     logger.info('Graceful shutdown completed.');

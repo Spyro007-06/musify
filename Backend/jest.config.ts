@@ -17,6 +17,7 @@ const config: Config = {
     '^@interfaces/(.*)$': '<rootDir>/src/interfaces/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@constants/(.*)$': '<rootDir>/src/constants/$1',
+    '^@jobs/(.*)$': '<rootDir>/src/jobs/$1',
   },
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
@@ -28,6 +29,11 @@ const config: Config = {
     '!src/tests/**',
     '!src/server.ts',
     '!src/app.ts',
+    // Process bootstrap only (connects, starts workers, wires signal
+    // handlers) — same shape as server.ts above, exercised by actually
+    // running the worker process (see Backend/README section "Testing"),
+    // not meaningfully unit-testable.
+    '!src/jobs/workerMain.ts',
   ],
   coverageThreshold: {
     global: {

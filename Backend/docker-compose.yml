@@ -1,0 +1,28 @@
+# Local development only — production runs on Railway (see RUNBOOK.md and
+# railway.json), which has no docker-compose concept. This file exists
+# solely to give the BullMQ background job queue (src/jobs/) a local Redis
+# to talk to, without requiring a hosted Upstash database for dev.
+#
+# Usage:
+#   docker compose up -d redis
+#   # then, in separate terminals, from Backend/:
+#   npm run dev          # API (producer — enqueues jobs)
+#   npm run worker:dev    # worker (consumer — executes jobs)
+#
+# Set REDIS_URL=redis://localhost:6379 in your .env to point at this.
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - musify_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  musify_redis_data:
