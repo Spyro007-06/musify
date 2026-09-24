@@ -28,10 +28,15 @@ export function useCurrentUser() {
     if (query.data) {
       setUser(query.data);
     }
-    if (!query.isLoading) {
+    // Only this hook's own (enabled) fetch finishing means anything here.
+    // When disabled — no accessToken/isAuthenticated yet, i.e. still booting —
+    // query.isLoading is trivially false (nothing is fetching), which used to
+    // clear isInitializing before SessionInitializer's silent-refresh had a
+    // chance to resolve, sending every cold app-open through a login flash.
+    if ((accessToken || isAuthenticated) && !query.isLoading) {
       setInitializing(false);
     }
-  }, [query.data, query.isLoading, setUser, setInitializing]);
+  }, [query.data, query.isLoading, accessToken, isAuthenticated, setUser, setInitializing]);
 
   return {
     user: query.data || useAuthStore.getState().user,
