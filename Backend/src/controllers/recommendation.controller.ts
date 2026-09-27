@@ -4,6 +4,8 @@ import { sendSuccess } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { AuthenticatedRequest, OptionalAuthRequest } from '@/types/express';
 import { SaavnService } from '@services/saavn.service';
+import { ApiError } from '@utils/ApiError';
+import { enqueueGenerateUserRecommendations } from '@jobs/queue';
 
 export class RecommendationController {
   private static saavn = SaavnService.getInstance();
@@ -274,6 +276,26 @@ export class RecommendationController {
           ...prefs,
           favouriteLanguages: prefs.favouriteLanguages?.length ? prefs.favouriteLanguages : ['tamil'],
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async refreshRecommendations(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const enqueued = await enqueueGenerateUserRecommendations(authReq.user.id);
+
+      if (!enqueued) {
+        throw ApiError.internal('Background job queue is not configured (REDIS_URL not set).');
+      }
+
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.ACCEPTED,
+        message: 'Recommendation refresh queued.',
+        data: enqueued,
       });
     } catch (error) {
       next(error);

@@ -14,4 +14,10 @@ router.get('/discover', authenticate, RecommendationController.getDiscoverWeekly
 router.post('/feedback', authenticate, validate(logFeedbackSchema), RecommendationController.logFeedback);
 router.post('/smart-queue', authenticate, validate(smartQueueSchema), RecommendationController.getSmartQueue);
 
+// Recomputing scores is a full collaborative-filtering pass across every
+// user (see src/jobs/processors/recommendations.processor.ts) — too slow
+// for a synchronous request, so this enqueues a background job and returns
+// immediately instead of blocking until it finishes.
+router.post('/refresh', authenticate, RecommendationController.refreshRecommendations);
+
 export default router;

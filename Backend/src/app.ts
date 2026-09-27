@@ -24,6 +24,7 @@ import searchRoutes from '@routes/search.routes';
 import recommendationsRoutes from '@routes/recommendation.routes';
 import userRoutes from '@routes/user.routes';
 import aiRoutes from '@routes/ai.routes';
+import taskRoutes from '@routes/tasks.routes';
 import healthRoutes from '@routes/health.routes';
 
 const app: Express = express();
@@ -126,6 +127,7 @@ app.use(`${env.API_PREFIX}/search`, searchRoutes);
 app.use(`${env.API_PREFIX}/recommendations`, recommendationsRoutes);
 app.use(`${env.API_PREFIX}/user`, userRoutes);
 app.use(`${env.API_PREFIX}/ai`, aiRoutes);
+app.use(`${env.API_PREFIX}/tasks`, taskRoutes);
 
 // Health check endpoints (basic, liveness, readiness — see health.routes.ts)
 app.use(`${env.API_PREFIX}/health`, healthRoutes);

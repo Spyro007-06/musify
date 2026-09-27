@@ -58,6 +58,14 @@ const envSchema = z.object({
   // Redis database still works)
   UPSTASH_REDIS_REST_URL: z.string().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+  // Background job queue (BullMQ) — a real TCP Redis connection, distinct
+  // from the REST-based UPSTASH_REDIS_REST_URL/TOKEN pair above (BullMQ
+  // needs raw Redis commands/blocking ops that the REST client can't do).
+  // Optional — with it unset, background jobs are simply not enqueued
+  // (callers log a warning and skip) so the rest of the API keeps working
+  // without a Redis instance in local dev.
+  REDIS_URL: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

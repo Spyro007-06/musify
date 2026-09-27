@@ -4,7 +4,10 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+# redis-memory-server (devDependency, tests only) compiles Redis from source
+# in its postinstall, and Alpine has no `make`. The image never runs tests
+# and `npm prune` removes the package below, so skip that step here.
+RUN REDISMS_DISABLE_POSTINSTALL=1 npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
