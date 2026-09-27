@@ -189,6 +189,45 @@ export class MusicController {
     }
   }
 
+  public static async getAutoplay(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const optReq = req as OptionalAuthRequest;
+      // Comma-separated catalog ids from the client: keep only id-shaped
+      // values and cap the counts, so a crafted query can't fan out into
+      // unbounded upstream calls or a huge exclusion set.
+      const ids = (value: unknown, max: number) =>
+        String(value || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => /^[\w-]{1,40}$/.test(s))
+          .slice(0, max);
+      const tracks = await MusicService.getAutoplayTracks(optReq.user?.id, ids(req.query.seeds, 3), ids(req.query.exclude, 500));
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: 'Autoplay tracks retrieved successfully.',
+        data: tracks,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async getTopHits(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const optReq = req as OptionalAuthRequest;
+      const playlists = await MusicService.getTopHitsPlaylists(optReq.user?.id);
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: 'Top hits playlists retrieved successfully.',
+        data: playlists,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async getMoodPlaylists(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;

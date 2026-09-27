@@ -50,6 +50,16 @@ body {
   }
 }
 
+@layer utilities {
+  /* Swipeable rows (shelves, chips): still scroll by touch/trackpad/shift+wheel, no bar. */
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

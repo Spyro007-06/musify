@@ -25,6 +25,7 @@ const mockSearchSongs = jest.fn();
 const mockSearchAlbums = jest.fn();
 const mockSearchArtists = jest.fn();
 const mockSearchPlaylists = jest.fn();
+const mockSearchAll = jest.fn();
 const mockGetSongByIds = jest.fn();
 const mockGetCharts = jest.fn();
 const mockGetNewReleases = jest.fn();
@@ -38,6 +39,7 @@ jest.mock('jiosaavn-sdk', () => ({
     searchAlbums: mockSearchAlbums,
     searchArtists: mockSearchArtists,
     searchPlaylists: mockSearchPlaylists,
+    searchAll: mockSearchAll,
   })),
   SongService: jest.fn().mockImplementation(() => ({ getSongByIds: mockGetSongByIds })),
   DiscoverService: jest.fn().mockImplementation(() => ({
@@ -93,7 +95,7 @@ describe('SaavnService', () => {
 
   beforeEach(() => {
     [
-      mockSearchSongs, mockSearchAlbums, mockSearchArtists, mockSearchPlaylists,
+      mockSearchSongs, mockSearchAlbums, mockSearchArtists, mockSearchPlaylists, mockSearchAll,
       mockGetSongByIds, mockGetCharts, mockGetNewReleases, mockGetArtistById,
       mockGetAlbumById, mockGetPlaylistById,
     ].forEach((m) => m.mockReset());
@@ -118,6 +120,20 @@ describe('SaavnService', () => {
       expect(result.albums).toEqual([expect.objectContaining({ id: 'al1', title: 'Test Album' })]);
       expect(result.artists).toEqual([expect.objectContaining({ id: 'a1', name: 'Some Artist' })]);
       expect(result.playlists).toEqual([expect.objectContaining({ id: 'p1', title: 'Playlist & Vibes' })]);
+    });
+
+    it("uses JioSaavn's top match as the Top result — an artist links out, a song carries its playable track", async () => {
+      mockSearchSongs.mockResolvedValue({ results: [rawSong()] });
+      mockSearchAll.mockResolvedValue({
+        topQuery: { results: [{ id: 'a1', type: 'artist', title: 'Anirudh', image: [{ url: 'http://img/artist.jpg' }] }] },
+      });
+      expect((await saavn.search('anirudh')).top).toEqual(
+        expect.objectContaining({ type: 'artist', id: 'a1', title: 'Anirudh', image: 'http://img/artist.jpg' })
+      );
+
+      mockSearchAll.mockResolvedValue({ topQuery: { results: [{ id: 's1', type: 'song', title: 'Test Song' }] } });
+      const { top } = await saavn.search('test song');
+      expect(top).toEqual(expect.objectContaining({ type: 'song', id: 's1', track: expect.objectContaining({ id: 's1' }) }));
     });
 
     it('a partial failure (some categories reject) still returns the categories that succeeded', async () => {
@@ -400,6 +416,28 @@ describe('SaavnService', () => {
     it('getMoodPlaylists classifies an upstream failure as SaavnUpstreamError', async () => {
       mockSearchPlaylists.mockRejectedValue(new Error('down'));
       await expect(saavn.getMoodPlaylists('chill')).rejects.toBeInstanceOf(SaavnUpstreamError);
+    });
+
+    it('getTopHitsPlaylists keeps the top result(s) per chart search, dedupes, and subtitles with the top artists', async () => {
+      mockSearchPlaylists.mockImplementation(async ({ query }: { query: string }) =>
+        query === 'tamil top 50'
+          ? { results: [{ id: 'top50', name: 'Tamil: India Superhits Top 50' }, { id: 'ignored', name: 'Second result' }] }
+          : query === 'latest tamil'
+          ? { results: [{ id: 'top50', name: 'Tamil: India Superhits Top 50' }] } // same playlist again
+          : { results: [] }
+      );
+      mockGetPlaylistById.mockResolvedValue({
+        id: 'top50',
+        name: 'Tamil: India Superhits Top 50',
+        songs: [
+          rawSong({ id: 'a', artists: { primary: [{ id: '1', name: 'Anirudh' }] } }),
+          rawSong({ id: 'b', artists: { primary: [{ id: '1', name: 'Anirudh' }, { id: '2', name: 'Sid Sriram' }] } }),
+        ],
+      });
+
+      const result = await saavn.getTopHitsPlaylists('Tamil');
+
+      expect(result).toEqual([expect.objectContaining({ id: 'top50', description: 'Anirudh, Sid Sriram' })]);
     });
 
     it('getRecommendations strictly filters by language and artist, and shuffles/caps at the limit', async () => {

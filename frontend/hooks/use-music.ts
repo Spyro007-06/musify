@@ -56,6 +56,15 @@ export function useCategories() {
   });
 }
 
+export function useTopHits() {
+  const { isAuthenticated } = useAuthStore();
+  return useQuery({
+    queryKey: ['music', 'topHits', isAuthenticated],
+    queryFn: async () => (await musicApi.getTopHits()).data || [],
+    staleTime: 1000 * 60 * 15,
+  });
+}
+
 export function useMood(mood: string) {
   const { isAuthenticated } = useAuthStore();
   return useQuery({
@@ -73,7 +82,10 @@ export function useMood(mood: string) {
 import { Track } from '@/types/track';
 import { usePlayerStore } from '@/stores/player-store';
 
-export function useLikedSongs(page = 1, limit = 50) {
+// Every screen showing liked songs / history uses these defaults, so they
+// share one cached list and their counts can't disagree (the Library tiles
+// used to count a 10-item page while the full pages showed up to 100).
+export function useLikedSongs(page = 1, limit = 100) {
   const { isAuthenticated, isInitializing } = useAuthStore();
   return useQuery<Track[], Error>({
     queryKey: ['music', 'liked', page, limit],
@@ -86,7 +98,7 @@ export function useLikedSongs(page = 1, limit = 50) {
   });
 }
 
-export function useRecentlyPlayed(page = 1, limit = 20) {
+export function useRecentlyPlayed(page = 1, limit = 50) {
   const { isAuthenticated, isInitializing } = useAuthStore();
   return useQuery<Track[], Error>({
     queryKey: ['music', 'recentlyPlayed', page, limit],

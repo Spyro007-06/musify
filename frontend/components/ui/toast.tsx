@@ -42,6 +42,18 @@ function Toast({ toast }: { toast: ToastItem }) {
     >
       <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', styles.icon)} />
       <span className="min-w-0 flex-1 leading-relaxed">{toast.message}</span>
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action!.onClick();
+            dismiss(toast.id);
+          }}
+          className="shrink-0 rounded px-1.5 text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => dismiss(toast.id)}

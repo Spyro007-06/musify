@@ -3,6 +3,12 @@ import { prisma } from '@config/database';
 import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';
 import { logger } from '@utils/logger';
+import { dedupeById } from '@utils/dedupe';
+
+// Autoplay refill size, and the point below which the seeds' suggestions get
+// topped up from the "Made For You" feed.
+const AUTOPLAY_BATCH = 15;
+const AUTOPLAY_MIN_BATCH = 5;
 
 export class MusicService {
   private static saavn = SaavnService.getInstance();
@@ -365,6 +371,55 @@ export class MusicService {
     return this.saavn.getCategories();
   }
 
+  /**
+   * Songs to keep the queue going after what you picked runs out — never one
+   * you've already played or skipped. Seeded from the latest songs played
+   * (JioSaavn song radio), so each refill follows the listening and keeps
+   * finding new songs; falls back to the "Made For You" feed when the seeds
+   * come up short. Excludes the signed-in user's whole listening history and
+   * skip list, plus whatever the client says it already has (this session's
+   * plays and the current queue — guests only have that).
+   */
+  public static async getAutoplayTracks(userId: string | undefined, seeds: string[], exclude: string[]): Promise<any[]> {
+    const excluded = new Set([...seeds, ...exclude]);
+    if (userId) {
+      const [history, skipped] = await Promise.all([
+        prisma.listeningHistory.findMany({ where: { userId }, select: { spotifyTrackId: true }, distinct: ['spotifyTrackId'] }),
+        prisma.skippedSongs.findMany({ where: { userId }, select: { spotifyTrackId: true } }),
+      ]);
+      for (const row of [...history, ...skipped]) excluded.add(row.spotifyTrackId);
+    }
+
+    const picked: any[] = [];
+    const take = (tracks: any[]) => {
+      for (const t of tracks) {
+        if (t?.id && !excluded.has(t.id)) {
+          picked.push(t);
+          excluded.add(t.id);
+        }
+      }
+    };
+
+    for (const seed of seeds) {
+      take(await this.saavn.getSongSuggestions(seed).catch(() => []));
+      if (picked.length >= AUTOPLAY_BATCH) break;
+    }
+    if (picked.length < AUTOPLAY_MIN_BATCH) {
+      take((await this.getRecommended(userId).catch(() => ({ tracks: [] as any[] }))).tracks);
+    }
+    return this.populateLikes(dedupeById(picked).slice(0, AUTOPLAY_BATCH), userId);
+  }
+
+  /**
+   * "Today's biggest hits" in the user's first preferred language. Same
+   * defaults as getTrending: Tamil for a signed-in user who hasn't picked
+   * one; guests get JioSaavn's own default, Hindi.
+   */
+  public static async getTopHitsPlaylists(userId?: string): Promise<any[]> {
+    const [language] = await this.getPreferredLanguages(userId);
+    return this.saavn.getTopHitsPlaylists(language || (userId ? 'tamil' : 'hindi'));
+  }
+
   public static async getMoodPlaylists(mood: string, userId?: string): Promise<any[]> {
     if (userId) {
       try {
@@ -375,7 +430,8 @@ export class MusicService {
         // Playlist search results don't carry per-track language metadata to
         // strictly filter against, so a language preference biases the query
         // (like genre already does) rather than hard-filtering the results.
-        const biasTerms = [preferredLanguages[0], topGenre?.genre].filter(Boolean) as string[];
+        // Genre is often just the language again ("tamil"); dedupe so the query isn't "tamil tamil hits".
+        const biasTerms = [...new Set([preferredLanguages[0], topGenre?.genre].filter(Boolean).map((t) => (t as string).toLowerCase()))];
         if (biasTerms.length > 0) {
           const biased = await this.saavn.getMoodPlaylists(`${biasTerms.join(' ')} ${mood}`);
           if (biased.length > 0) return biased;

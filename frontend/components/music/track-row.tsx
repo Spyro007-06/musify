@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Pause, Heart, Volume2, ListPlus, Trash2, Download, MoreVertical } from 'lucide-react';
+import { Play, Pause, Heart, Volume2, ListPlus, ListEnd, Trash2, Download, MoreVertical } from 'lucide-react';
 import { Track } from '@/types/track';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
@@ -12,6 +12,7 @@ import { useDownloadTrack } from '@/hooks/use-download-track';
 import { usePlayerStore } from '@/stores/player-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
+import { queueTrack } from '@/lib/player/queue-track';
 
 export interface TrackRowProps {
   track: Track;
@@ -89,6 +90,11 @@ export function TrackRow({
     } else {
       setIsAddModalOpen(true);
     }
+  };
+
+  const handleAddToQueueClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    queueTrack(track);
   };
 
   const handleRemoveClick = (e: React.MouseEvent) => {
@@ -192,9 +198,19 @@ export function TrackRow({
 
         {/* Right side: Actions + Duration */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Add to playlist / Download / Remove — collapsed into the "..." menu on mobile
+          {/* Add to queue / Add to playlist / Download / Remove — collapsed into the "..." menu on mobile
               (persistent icons there left almost no room for the title), shown inline with
               the existing hover-reveal behavior from sm: up where space isn't a problem. */}
+          <button
+            type="button"
+            onClick={handleAddToQueueClick}
+            aria-label={`Add ${track.title} to queue`}
+            title="Add to queue"
+            className="relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
+          >
+            <ListEnd className="h-4 w-4" />
+          </button>
+
           <button
             type="button"
             onClick={handleAddToPlaylistClick}
@@ -224,7 +240,7 @@ export function TrackRow({
             </button>
           )}
 
-          {/* Mobile-only overflow menu carrying the same three actions */}
+          {/* Mobile-only overflow menu carrying the same actions */}
           <div ref={menuRef} className="relative sm:hidden">
             <button
               type="button"
@@ -244,6 +260,18 @@ export function TrackRow({
                 role="menu"
                 className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 py-1 shadow-2xl"
               >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    setIsMenuOpen(false);
+                    handleAddToQueueClick(e);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-200 hover:bg-white/5"
+                >
+                  <ListEnd className="h-4 w-4" />
+                  Add to queue
+                </button>
                 <button
                   type="button"
                   role="menuitem"

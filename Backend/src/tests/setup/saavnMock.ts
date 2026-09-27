@@ -30,6 +30,8 @@ jest.mock('@services/saavn.service', () => {
     getRelatedArtists: jest.fn(),
     getCategories: jest.fn(),
     getMoodPlaylists: jest.fn(),
+    getPlaylist: jest.fn(),
+    getSongSuggestions: jest.fn(),
     search: jest.fn(),
     getRecommendations: jest.fn(),
     getSuggestions: jest.fn(),
@@ -58,6 +60,8 @@ export const saavnMock = SaavnService.getInstance() as {
   getRelatedArtists: jest.Mock;
   getCategories: jest.Mock;
   getMoodPlaylists: jest.Mock;
+  getPlaylist: jest.Mock;
+  getSongSuggestions: jest.Mock;
   search: jest.Mock;
   getRecommendations: jest.Mock;
   getSuggestions: jest.Mock;

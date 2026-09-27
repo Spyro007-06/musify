@@ -35,7 +35,7 @@ interface ArtistPageProps {
 export default function ArtistPage({ params }: ArtistPageProps) {
   const { id: artistId } = React.use(params);
 
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
 
   const {
     data: artist,
@@ -66,9 +66,9 @@ export default function ArtistPage({ params }: ArtistPageProps) {
   // Play handler with full top tracks queue context
   const handlePlayTrack = React.useCallback(
     (track: Track) => {
-      playTrack(track, topTracks);
+      playFrom(artist?.name || 'Artist', track, topTracks);
     },
-    [playTrack, topTracks]
+    [playFrom, artist?.name, topTracks]
   );
 
   // Loading state

@@ -19,25 +19,8 @@ export function useSearchQuery(query: string) {
     enabled: !!trimmed,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
-  });
-}
-
-/**
- * Hook to query autocomplete suggestions while typing.
- * Only triggers if query length is >= 2 chars.
- */
-export function useSearchSuggestions(query: string) {
-  const trimmed = query.trim();
-
-  return useQuery<string[]>({
-    queryKey: ['search-suggestions', trimmed],
-    queryFn: async () => {
-      if (!trimmed || trimmed.length < 2) return [];
-      const res = await searchApi.getSuggestions(trimmed);
-      return res.data || [];
-    },
-    enabled: trimmed.length >= 2,
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    retry: false,
+    // Keep showing the previous query's results while the next one loads,
+    // instead of flashing skeletons on every keystroke pause.
+    placeholderData: (previous) => previous,
   });
 }

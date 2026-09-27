@@ -24,7 +24,7 @@ export function DiscoverWeeklyHero({
   isGuest = false,
   className,
 }: DiscoverWeeklyHeroProps) {
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
 
@@ -36,11 +36,11 @@ export function DiscoverWeeklyHero({
 
   const handlePlayAll = () => {
     if (!hasTracks) return;
-    playTrack(tracks[0], tracks);
+    playFrom('Discover Weekly', tracks[0], tracks);
   };
 
   const handlePlayTrack = (track: Track) => {
-    playTrack(track, tracks);
+    playFrom('Discover Weekly', track, tracks);
   };
 
   if (isLoading) {

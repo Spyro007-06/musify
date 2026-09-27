@@ -33,7 +33,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
   const { id: playlistId } = React.use(params);
 
   const user = useAuthStore((s) => s.user);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -84,12 +84,12 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
     if (isCollectionPlaying) {
       togglePlay();
     } else {
-      playTrack(tracks[0], tracks);
+      playFrom(playlist?.title || 'Playlist', tracks[0], tracks);
     }
   };
 
   const handlePlayTrack = (track: Track) => {
-    playTrack(track, tracks);
+    playFrom(playlist?.title || 'Playlist', track, tracks);
   };
 
   const handleRemoveTrack = async (track: Track) => {

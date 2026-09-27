@@ -9,13 +9,11 @@ export class PlaylistService {
   private static saavn = SaavnService.getInstance();
 
   public static async getPlaylists(userId: string): Promise<any[]> {
+    // Only the user's own: this list backs "Your playlists" and the
+    // "Add to playlist" picker, and adding to someone else's playlist is
+    // forbidden anyway. (It used to OR in every user's public playlists.)
     const playlists = await prisma.playlist.findMany({
-      where: {
-        OR: [
-          { ownerId: userId },
-          { isPublic: true }
-        ]
-      },
+      where: { ownerId: userId },
       include: {
         _count: {
           select: { tracks: true }
@@ -129,7 +127,10 @@ export class PlaylistService {
     });
 
     if (!playlist) {
-      throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
+      // Not one of ours: home-page rows link straight to JioSaavn editorial playlists.
+      const saavnPlaylist = await this.saavn.getPlaylist(playlistId);
+      if (!saavnPlaylist) throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
+      return { ...saavnPlaylist, tracks: await MusicService.populateLikes(saavnPlaylist.tracks, userId) };
     }
 
     if (!playlist.isPublic && playlist.ownerId !== userId) {

@@ -14,7 +14,7 @@ import { pluralize } from '@/lib/utils/pluralize';
 
 export default function LikedSongsPage() {
   const user = useAuthStore((s) => s.user);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -25,7 +25,7 @@ export default function LikedSongsPage() {
     isError,
     error,
     refetch,
-  } = useLikedSongs(1, 100);
+  } = useLikedSongs();
 
   const hasTracks = Boolean(likedSongs && likedSongs.length > 0);
 
@@ -57,13 +57,13 @@ export default function LikedSongsPage() {
     if (isCollectionPlaying) {
       togglePlay();
     } else {
-      playTrack(likedSongs[0], likedSongs);
+      playFrom('Liked Songs', likedSongs[0], likedSongs);
     }
   };
 
   const handlePlayTrack = (track: Track) => {
     if (!likedSongs) return;
-    playTrack(track, likedSongs);
+    playFrom('Liked Songs', track, likedSongs);
   };
 
   return (

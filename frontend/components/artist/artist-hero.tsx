@@ -27,7 +27,7 @@ interface ArtistHeroProps {
 export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
 
   const [isAboutOpen, setIsAboutOpen] = React.useState(false);
@@ -57,7 +57,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
     } else if (isCurrentArtistPaused) {
       togglePlay();
     } else if (topTracks.length > 0) {
-      playTrack(topTracks[0], topTracks);
+      playFrom(artist.name, topTracks[0], topTracks);
     }
   };
 
