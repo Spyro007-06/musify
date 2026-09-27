@@ -36,8 +36,13 @@ async function shutdown(signal: string): Promise<void> {
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
+// State is undefined after an uncaught exception (per Node's docs), so don't
+// keep processing jobs: exit non-zero and let the supervisor restart a clean
+// worker. Nothing is lost — BullMQ re-queues any job this process held once
+// its lock goes stale.
 process.on('uncaughtException', (error) => {
-  logger.error('Worker uncaught exception:', error);
+  logger.error('Worker uncaught exception, exiting:', error);
+  process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
   logger.error('Worker unhandled promise rejection:', reason);
