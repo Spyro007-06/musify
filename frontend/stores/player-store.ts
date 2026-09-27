@@ -102,18 +102,17 @@ let isToppingUpQueue = false;
 const playedTrackIds = new Set<string>();
 
 // Warms the upcoming queue track's stream URL while the current one is
-// still playing, so skipping to it doesn't wait on a fresh network round
-// trip. Single-use and short-lived — these are signed CDN URLs, not meant
-// to be replayed long after being issued.
-const STREAM_URL_CACHE_TTL_MS = 4 * 60 * 1000;
-const streamUrlCache = new Map<string, { url: string; cachedAt: number }>();
+// still playing, so switching to it doesn't wait on a network round trip.
+// Single-use, but no expiry: the backend returns plain JioSaavn CDN paths
+// (jiosaavn-sdk decrypts them; no signature), not time-limited links. The
+// old 4-minute TTL just made every longer song fall back to a live fetch
+// at the track change. If the backend ever serves signed URLs, add a TTL back.
+const streamUrlCache = new Map<string, string>();
 
 function takeCachedStreamUrl(trackId: string): string | null {
-  const entry = streamUrlCache.get(trackId);
-  if (!entry) return null;
+  const url = streamUrlCache.get(trackId) ?? null;
   streamUrlCache.delete(trackId);
-  if (Date.now() - entry.cachedAt > STREAM_URL_CACHE_TTL_MS) return null;
-  return entry.url;
+  return url;
 }
 
 // Auto-continues playback once the queue runs out, using the same
@@ -134,7 +133,7 @@ function prefetchTrackStream(track: Track) {
     .prefetchStream(track.id)
     .then((res) => {
       const url = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
-      if (url) streamUrlCache.set(track.id, { url, cachedAt: Date.now() });
+      if (url) streamUrlCache.set(track.id, url);
     })
     .catch(() => {
       // Best-effort — playTrack just falls back to a normal fetch if this never lands.
@@ -302,11 +301,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         error: null,
       });
 
-      // 5. Warm the next queue track's stream URL now, while this one plays.
-      const { queue: liveQueue, currentIndex: liveIndex, repeat: liveRepeat } = get();
-      const upcoming = liveQueue[liveIndex + 1] ?? (liveRepeat === 'all' ? liveQueue[0] : undefined);
-      if (upcoming) prefetchTrackStream(upcoming);
-
+      // 5. Keep the queue from running dry (the next track's stream URL is
+      // warmed by the subscription at the bottom of this file).
       get().maybeTopUpQueue();
     } catch (err: unknown) {
       if (requestGen !== activePlaybackGeneration) return;
@@ -556,3 +552,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
   },
 }));
+
+function upcomingTrack({ queue, currentIndex, repeat }: PlayerState): Track | undefined {
+  return queue[currentIndex + 1] ?? (repeat === 'all' ? queue[0] : undefined);
+}
+
+// Warm the next track's stream URL whenever what "next" is changes — a
+// track starting, an auto top-up landing, a shuffle, a queue edit. With the
+// screen off, mobile browsers suspend the page as soon as the current song
+// ends; if the 'ended' handler has to fetch a URL before calling play(),
+// that fetch never finishes and playback silently stops. With the URL
+// cached, playTrack switches tracks synchronously inside 'ended'.
+usePlayerStore.subscribe((state, prev) => {
+  const next = upcomingTrack(state);
+  if (next && next.id !== upcomingTrack(prev)?.id) prefetchTrackStream(next);
+});
