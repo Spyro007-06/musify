@@ -26,7 +26,13 @@ export function ImageWithFallback({
     setError(false);
   }, [src]);
 
-  if (!src || error) {
+  // next/image throws (crashing the whole page) on anything that isn't an
+  // absolute URL or root-relative path — and JioSaavn occasionally returns
+  // junk like an HTML error page as an image URL.
+  // (data: URLs are legit — uploaded avatars are stored that way.)
+  const isUsableSrc = !!src && (src.startsWith('/') || /^(https?:\/\/|data:image\/)/.test(src));
+
+  if (!isUsableSrc || error) {
     return (
       <div
         className={cn(
@@ -43,7 +49,7 @@ export function ImageWithFallback({
 
   return (
     <Image
-      src={src}
+      src={src!}
       alt={alt}
       className={className}
       onError={() => setError(true)}

@@ -22,6 +22,19 @@ const SAAVN_BREAKER = {
   CATALOG: 'jiosaavn:catalog', // charts, new releases, album lookup, playlist lookup
 } as const;
 
+/** "A, B, C and more": the artists appearing on the most tracks, like Spotify's playlist subtitles. */
+export function topArtistsLine(tracks: { artists?: { name: string }[] }[], max = 3): string {
+  const counts = new Map<string, number>();
+  for (const t of tracks) {
+    for (const a of t.artists || []) {
+      if (a.name && a.name !== 'Unknown Artist') counts.set(a.name, (counts.get(a.name) || 0) + 1);
+    }
+  }
+  const names = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([name]) => name);
+  if (names.length === 0) return '';
+  return counts.size > max ? `${names.join(', ')} and more` : names.join(', ');
+}
+
 /**
  * Runs a batch of independent Saavn calls in parallel. If at least one
  * succeeds, returns the successful results (a partial failure among many
@@ -202,7 +215,8 @@ export class SaavnService {
 
   public async getTrendingTracks(languages?: string[], artists?: string[]): Promise<any[]> {
     const cacheKey = `saavn:trending:${(languages || []).sort().join(',')}:${(artists || []).sort().join(',')}`;
-    return withCache(cacheKey, 300, () => this.getTrendingTracksUncached(languages, artists));
+    // 6 h window: the shuffled order stays put across visits within a day.
+    return withCache(cacheKey, 21600, () => this.getTrendingTracksUncached(languages, artists));
   }
 
   private async getTrendingTracksUncached(languages?: string[], artists?: string[]): Promise<any[]> {
@@ -607,27 +621,118 @@ export class SaavnService {
     ];
   }
 
+  // Cached for 6 h so the home page's playlist rows stay the same across
+  // visits within a day (Spotify-style), instead of re-querying on every load.
   public async getMoodPlaylists(moodId: string): Promise<any[]> {
+    return withCache(`saavn:mood:${moodId.toLowerCase()}`, 21600, () => this.getMoodPlaylistsUncached(moodId));
+  }
+
+  /**
+   * JioSaavn's song radio: playable songs similar to the seed (same language
+   * and scene). Deterministic per seed, so cached — callers get variety by
+   * moving the seed along with what's being played.
+   */
+  public async getSongSuggestions(songId: string, limit = 20): Promise<any[]> {
+    return withCache(`saavn:suggestions:${songId}:${limit}`, 21600, async () => {
+      try {
+        const songs = await resilientCall(SAAVN_BREAKER.CATALOG, () =>
+          this.songService.getSongSuggestions({ songId, limit })
+        );
+        return dedupeById((songs || []).map((s: any) => this.mapTrack(s)));
+      } catch (error) {
+        logger.error(`❌ JioSaavn getSongSuggestions failed for ${songId}:`, error);
+        throw new SaavnUpstreamError(`JioSaavn is currently unavailable (suggestions for ${songId}).`, error);
+      }
+    });
+  }
+
+  /** A JioSaavn editorial playlist with its tracks, or null if it doesn't exist. */
+  public async getPlaylist(id: string): Promise<any | null> {
+    return withCache(`saavn:playlist:${id}`, 3600, async () => {
+      try {
+        const p = await resilientCall(SAAVN_BREAKER.CATALOG, () =>
+          this.playlistService.getPlaylistById({ id, page: 0, limit: 50 })
+        );
+        if (!p) return null;
+        return {
+          id: p.id,
+          title: unescapeHtml(p.name || ''),
+          description: unescapeHtml(p.description || ''),
+          cover: p.image?.[p.image.length - 1]?.url || null,
+          tracksCount: p.songCount ? Number(p.songCount) : p.songs?.length || 0,
+          owner: 'JioSaavn',
+          isPublic: true,
+          tracks: dedupeById((p.songs || []).map((s: any) => this.mapTrack(s))),
+        };
+      } catch (error) {
+        logger.error(`❌ JioSaavn getPlaylist failed for ${id}:`, error);
+        throw new SaavnUpstreamError(`JioSaavn is currently unavailable (playlist ${id}).`, error);
+      }
+    });
+  }
+
+  private async getMoodPlaylistsUncached(moodId: string): Promise<any[]> {
     try {
       // Find charts or playlists related to this mood
       const searchPlaylists = await resilientCall(SAAVN_BREAKER.SEARCH, () =>
-        this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 5 })
+        this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 10 })
       );
-      return searchPlaylists.results
-        ? searchPlaylists.results.map((p: any) => ({
-            id: p.id,
-            title: unescapeHtml(p.name || ''),
-            description: unescapeHtml(p.subtitle || p.description || `${moodId} playlist`),
-            cover: p.image?.[p.image.length - 1]?.url || null,
-            tracksCount: p.songCount ? Number(p.songCount) : 10,
-            owner: 'JioSaavn',
-            isPublic: true
-          }))
-        : [];
+      return (searchPlaylists.results || []).map((p: any) => this.mapPlaylistSummary(p, `${moodId} playlist`));
     } catch (error) {
       logger.error(`❌ JioSaavn getMoodPlaylists failed for ${moodId}:`, error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
     }
+  }
+
+  private mapPlaylistSummary(p: any, fallbackDescription: string) {
+    return {
+      id: p.id,
+      title: unescapeHtml(p.name || ''),
+      description: unescapeHtml(p.subtitle || p.description || fallbackDescription),
+      cover: p.image?.[p.image.length - 1]?.url || null,
+      tracksCount: p.songCount ? Number(p.songCount) : 10,
+      owner: 'JioSaavn',
+      isPublic: true,
+    };
+  }
+
+  /**
+   * "Today's biggest hits": JioSaavn's current chart playlists for a
+   * language. Its charts endpoint is Hindi-only and a plain "<lang> hits"
+   * search returns decade collections (Tamil 1990s...), so this runs a few
+   * targeted searches and keeps the top result(s) of each.
+   */
+  public async getTopHitsPlaylists(language: string): Promise<any[]> {
+    const lang = language.toLowerCase();
+    const year = new Date().getFullYear();
+    return withCache(`saavn:top-hits:v2:${lang}:${year}`, 21600, async () => {
+      // [query, how many of its top results to keep]
+      const plan: [string, number][] = [
+        [`${lang} top 50`, 1],
+        [`trending ${lang}`, 2],
+        [`${lang} hits ${year}`, 4],
+        [`latest ${lang}`, 1],
+        [`${lang} viral`, 1],
+      ];
+      const batches = await allOrThrow(
+        plan.map(([query, keep]) =>
+          resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchPlaylists({ query, page: 0, limit: keep })).then(
+            (r: any) => (r.results || []).slice(0, keep)
+          )
+        ),
+        'JioSaavn search is currently unavailable.'
+      );
+      const playlists = dedupeById(batches.flat().map((p: any) => this.mapPlaylistSummary(p, `${language} hits`)));
+
+      // Spotify-style subtitle: the artists the playlist features most.
+      // Best-effort — a playlist whose details fail keeps its search subtitle.
+      const details = await Promise.allSettled(playlists.map((p) => this.getPlaylist(p.id)));
+      return playlists.map((p, i) => {
+        const detail = details[i];
+        const line = detail.status === 'fulfilled' && detail.value ? topArtistsLine(detail.value.tracks) : '';
+        return line ? { ...p, description: line } : p;
+      });
+    });
   }
 
   public async search(query: string): Promise<any> {
@@ -635,11 +740,13 @@ export class SaavnService {
       return { tracks: [], albums: [], artists: [], playlists: [] };
     }
 
-    const [tracksRes, albumsRes, artistsRes, playlistsRes] = await Promise.allSettled([
+    const [tracksRes, albumsRes, artistsRes, playlistsRes, allRes] = await Promise.allSettled([
       resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 10 })),
       resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchAlbums({ query, page: 0, limit: 10 })),
       resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchArtists({ query, page: 0, limit: 10 })),
       resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchPlaylists({ query, page: 0, limit: 10 })),
+      // Only for the "Top result" card: JioSaavn's own best match across all types.
+      resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchAll(query)),
     ]);
 
     if ([tracksRes, albumsRes, artistsRes, playlistsRes].every((r) => r.status === 'rejected')) {
@@ -649,8 +756,9 @@ export class SaavnService {
 
     const value = <T,>(r: PromiseSettledResult<T>): T | undefined => (r.status === 'fulfilled' ? r.value : undefined);
 
+    const tracks = dedupeById(value(tracksRes)?.results?.map((t: any) => this.mapTrack(t)) || []);
     return {
-      tracks: dedupeById(value(tracksRes)?.results?.map((t: any) => this.mapTrack(t)) || []),
+      tracks,
       albums: dedupeById(value(albumsRes)?.results?.map((a: any) => this.mapAlbum(a)) || []),
       artists: dedupeById(value(artistsRes)?.results?.map((a: any) => this.mapArtist(a)) || []),
       playlists: dedupeById(value(playlistsRes)?.results?.map((p: any) => ({
@@ -661,8 +769,28 @@ export class SaavnService {
         tracksCount: p.songCount ? Number(p.songCount) : 0,
         owner: 'JioSaavn',
         isPublic: true
-      })) || [])
+      })) || []),
+      top: await this.resolveTopResult(value(allRes)?.topQuery?.results?.[0], tracks),
     };
+  }
+
+  /**
+   * Turns JioSaavn's top match into the "Top result" card. A song needs a
+   * full playable track: taken from the song results when it's there,
+   * fetched otherwise. Best-effort — no card rather than a failed search.
+   */
+  private async resolveTopResult(item: any, tracks: any[]): Promise<any | null> {
+    if (!item?.id || !['song', 'artist', 'album', 'playlist'].includes(item.type)) return null;
+    const top = {
+      type: item.type,
+      id: item.id,
+      title: unescapeHtml(item.title || ''),
+      subtitle: unescapeHtml(item.description || ''),
+      image: item.image?.[item.image.length - 1]?.url || null,
+    };
+    if (item.type !== 'song') return top;
+    const track = tracks.find((t) => t.id === item.id) ?? (await this.getTrack(item.id).catch(() => null));
+    return track ? { ...top, subtitle: track.artists.map((a: any) => a.name).join(', '), track } : null;
   }
 
   public async getRecommendations(languages: string[], artists: string[], limit = 20): Promise<any[]> {

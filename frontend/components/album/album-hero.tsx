@@ -15,7 +15,7 @@ interface AlbumHeroProps {
 export function AlbumHero({ album }: AlbumHeroProps) {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
 
   const [copied, setCopied] = React.useState(false);
@@ -62,14 +62,14 @@ export function AlbumHero({ album }: AlbumHeroProps) {
     } else if (isCurrentAlbumPaused) {
       togglePlay();
     } else {
-      playTrack(tracks[0], tracks);
+      playFrom(album.title, tracks[0], tracks);
     }
   };
 
   const handleShufflePlay = () => {
     if (!hasTracks) return;
     const randomIndex = Math.floor(Math.random() * tracks.length);
-    playTrack(tracks[randomIndex], tracks);
+    playFrom(album.title, tracks[randomIndex], tracks);
   };
 
   const handleShareClick = async () => {

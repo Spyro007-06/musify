@@ -34,3 +34,8 @@ export function captureException(error: unknown, context?: Record<string, unknow
   if (!sentryEnabled) return;
   Sentry.captureException(error, context ? { extra: context } : undefined);
 }
+
+/** Waits up to `timeoutMs` for queued events to send — call before a deliberate exit. */
+export function flushSentry(timeoutMs: number): Promise<boolean> {
+  return sentryEnabled ? Sentry.flush(timeoutMs) : Promise.resolve(true);
+}

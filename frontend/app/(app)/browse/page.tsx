@@ -17,7 +17,7 @@ function BrowsePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const genre = searchParams.get('genre') || undefined;
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
 
   const {
     data: albums = [],
@@ -45,9 +45,9 @@ function BrowsePageContent() {
 
   const handlePlayGenreTrack = React.useCallback(
     (track: Track) => {
-      playTrack(track, genreTracks);
+      playFrom(genreLabel || 'Browse', track, genreTracks);
     },
-    [playTrack, genreTracks]
+    [playFrom, genreLabel, genreTracks]
   );
 
   return (

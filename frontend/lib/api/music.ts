@@ -51,6 +51,18 @@ export const musicApi = {
     return apiClient.get<Playlist[]>(`/music/mood/${encodeURIComponent(mood)}`);
   },
 
+  // Songs to continue the queue with, never ones already played or skipped.
+  // seeds: latest played ids (newest first); exclude: ids the player already has.
+  getAutoplay: async (seeds: string[], exclude: string[]): Promise<ApiResponse<Track[]>> => {
+    const params = new URLSearchParams({ seeds: seeds.join(','), exclude: exclude.join(',') });
+    return apiClient.get<Track[]>(`/music/autoplay?${params.toString()}`);
+  },
+
+  // Current chart playlists ("Today's biggest hits") in the user's language.
+  getTopHits: async (): Promise<ApiResponse<Playlist[]>> => {
+    return apiClient.get<Playlist[]>('/music/top-hits');
+  },
+
   getTrack: async (id: string): Promise<ApiResponse<Track>> => {
     return apiClient.get<Track>(`/music/tracks/${encodeURIComponent(id)}`);
   },

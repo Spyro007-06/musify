@@ -101,6 +101,18 @@ let isToppingUpQueue = false;
 // permanent "never play again" list.
 const playedTrackIds = new Set<string>();
 
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+// Sleep timer: a wall-clock deadline, checked on every playback time update
+// (those keep firing with the screen off, unlike throttled background
+// timers) plus a plain timeout as the backstop for when playback is paused.
+let sleepTimeout: ReturnType<typeof setTimeout> | null = null;
+
 // Warms the upcoming queue track's stream URL while the current one is
 // still playing, so switching to it doesn't wait on a network round trip.
 // Single-use, but no expiry: the backend returns plain JioSaavn CDN paths
@@ -115,13 +127,23 @@ function takeCachedStreamUrl(trackId: string): string | null {
   return url;
 }
 
-// Auto-continues playback once the queue runs out, using the same
-// personalized feed as Home's "Made For You" — reuse, not a new engine.
-async function fetchAutoQueueTracks(existingQueue: Track[]): Promise<Track[]> {
+// This session's plays in order, newest last — the seeds for autoplay.
+const playOrder: string[] = [];
+
+// Keeps the queue going once what you picked runs out (Spotify's autoplay).
+// The backend seeds JioSaavn's song radio from the latest plays, so each
+// refill follows what you're listening to and keeps finding new songs, and
+// it drops anything in your listening history or skip list. This session's
+// plays and everything already queued are sent along (guests have only that).
+async function fetchAutoQueueTracks(alreadyQueued: Track[]): Promise<Track[]> {
+  const seeds = playOrder.slice(-3).reverse();
+  if (seeds.length === 0) return [];
+  const have = new Set([...playedTrackIds, ...alreadyQueued.map((t) => t.id)]);
   try {
-    const res = await musicApi.getRecommended();
-    const existingIds = new Set(existingQueue.map((t) => t.id));
-    return (res.data?.tracks || []).filter((t) => !existingIds.has(t.id) && !playedTrackIds.has(t.id));
+    // ponytail: newest 400 ids keeps the URL short; the server already
+    // excludes the signed-in user's full history, so older ones aren't lost.
+    const res = await musicApi.getAutoplay(seeds, [...have].slice(-400));
+    return (res.data || []).filter((t) => !have.has(t.id));
   } catch {
     return [];
   }
@@ -140,12 +162,37 @@ function prefetchTrackStream(track: Track) {
     });
 }
 
+/** A row in the queue screen: "queued" = userQueue[index], "next" = queue[currentIndex + 1 + index]. */
+export interface QueueRef {
+  section: 'queued' | 'next';
+  index: number;
+}
+
+export type SleepTimerOption = number | 'end-of-track' | null;
+
 export interface PlayerState {
   currentTrack: Track | null;
   streamUrl: string | null;
+  /**
+   * The context being played (an album, playlist, search results...) plus the
+   * auto-added recommendations after it. queue[currentIndex] is the context
+   * song playing now — or the one before, while a queued song plays.
+   */
   queue: Track[];
   originalQueue: Track[];
   currentIndex: number;
+  /**
+   * Songs added with "Add to queue" (Spotify's "Queued"). Played before the
+   * context continues, in the order added; shuffle and Clear only touch this
+   * list the way Spotify does (shuffle never, Clear only this).
+   */
+  userQueue: Track[];
+  /** What the context is, for "Playing …" / "Next from: …". Null = unnamed. */
+  queueSource: string | null;
+  /** Ids of auto-added recommendations in the queue, shown as "Next up: Recommended tracks". */
+  recommendedIds: string[];
+  sleepEndsAt: number | null;
+  sleepAtTrackEnd: boolean;
   isPlaying: boolean;
   isLoading: boolean;
   currentTime: number;
@@ -159,7 +206,21 @@ export interface PlayerState {
   isQueueOpen: boolean;
 
   // Actions
-  playTrack: (track: Track, contextQueue?: Track[], transitionReason?: 'skip' | 'completed') => Promise<void>;
+  /**
+   * opts.atIndex: which context slot this is, when the caller knows (the same
+   * song can appear twice). opts.fromUserQueue: play it without moving the
+   * context position.
+   */
+  playTrack: (
+    track: Track,
+    contextQueue?: Track[],
+    transitionReason?: 'skip' | 'completed',
+    opts?: { atIndex?: number; fromUserQueue?: boolean }
+  ) => Promise<void>;
+  /** playTrack with a name for the context, shown as "Playing …" / "Next from: …". */
+  playFrom: (source: string, track: Track, tracks: Track[]) => Promise<void>;
+  /** Tap on a row in the queue screen. */
+  playFromQueue: (ref: QueueRef) => Promise<void>;
   pause: () => void;
   resume: () => void;
   togglePlay: () => void;
@@ -169,12 +230,21 @@ export interface PlayerState {
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   toggleShuffle: () => void;
+  /** Shuffle the upcoming context again (shown while shuffle is on). */
+  reshuffle: () => void;
   cycleRepeat: () => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
   maybeTopUpQueue: () => void;
-  addToQueue: (track: Track) => void;
-  removeFromQueue: (trackId: string) => void;
+  /** Appends to the Queued list; plays it right away if nothing is loaded yet. */
+  addToQueue: (track: Track) => 'queued' | 'playing';
+  removeFromQueue: (refs: QueueRef[]) => void;
+  /** Drag-reorder within one section. */
+  moveInQueue: (section: QueueRef['section'], from: number, to: number) => void;
+  /** Edit mode's "Move up": the selected songs go to the top of Queued, in on-screen order. */
+  moveToTopOfQueue: (refs: QueueRef[]) => void;
+  /** Like Spotify's Clear: empties only the Queued list. */
   clearQueue: () => void;
+  setSleepTimer: (option: SleepTimerOption) => void;
   openExpanded: () => void;
   closeExpanded: () => void;
   toggleQueue: () => void;
@@ -192,6 +262,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   queue: [],
   originalQueue: [],
   currentIndex: -1,
+  userQueue: [],
+  queueSource: null,
+  recommendedIds: [],
+  sleepEndsAt: null,
+  sleepAtTrackEnd: false,
   isPlaying: false,
   isLoading: false,
   currentTime: 0,
@@ -208,11 +283,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isExpanded: false,
   isQueueOpen: false,
 
-  playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip') => {
+  playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip', opts = {}) => {
     // 1. Race-condition protection: increment generation counter
     const requestGen = ++activePlaybackGeneration;
 
     playedTrackIds.add(track.id);
+    if (playOrder[playOrder.length - 1] !== track.id) playOrder.push(track.id);
 
     const { shuffle, originalQueue, queue, currentTrack, currentTime, duration } = get();
     const engine = getAudioEngine();
@@ -227,7 +303,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     let nextQueue = queue;
     let nextIndex = 0;
 
-    if (contextQueue && contextQueue.length > 0) {
+    if (opts.fromUserQueue) {
+      // A queued song plays "outside" the context: keep its position so the
+      // context resumes right after once the queued songs are done.
+    } else if (contextQueue && contextQueue.length > 0) {
       nextOriginalQueue = contextQueue;
       if (shuffle) {
         const others = contextQueue.filter((t) => t.id !== track.id);
@@ -240,7 +319,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
     } else {
       // Check if track is already in queue
-      const foundInQueue = nextQueue.findIndex((t) => t.id === track.id);
+      const foundInQueue =
+        opts.atIndex !== undefined && nextQueue[opts.atIndex]?.id === track.id
+          ? opts.atIndex
+          : nextQueue.findIndex((t) => t.id === track.id);
       if (foundInQueue !== -1) {
         nextIndex = foundInQueue;
       } else {
@@ -251,11 +333,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     // Set optimistic player state: track selected, loading begins, error cleared
+    const isNewContext = !opts.fromUserQueue && Boolean(contextQueue && contextQueue.length > 0);
     set({
       currentTrack: track,
-      currentIndex: nextIndex,
-      queue: nextQueue,
-      originalQueue: nextOriginalQueue,
+      ...(opts.fromUserQueue ? {} : { currentIndex: nextIndex, queue: nextQueue, originalQueue: nextOriginalQueue }),
+      // A new context starts unnamed (playFrom names it) with no recommendations yet.
+      ...(isNewContext ? { queueSource: null, recommendedIds: [] } : {}),
       isLoading: true,
       error: null,
       currentTime: 0,
@@ -318,6 +401,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  playFrom: (source: string, track: Track, tracks: Track[]) => {
+    // playTrack sets its state synchronously before its first await, so the
+    // name lands on the new context (not the old one) and before any re-render.
+    const started = get().playTrack(track, tracks);
+    set({ queueSource: source });
+    return started;
+  },
+
+  playFromQueue: ({ section, index }: QueueRef) => {
+    const { userQueue, currentIndex } = get();
+    if (section === 'queued') {
+      const track = userQueue[index];
+      if (!track) return Promise.resolve();
+      set({ userQueue: userQueue.filter((_, i) => i !== index) });
+      return get().playTrack(track, undefined, 'skip', { fromUserQueue: true });
+    }
+    const at = currentIndex + 1 + index;
+    const track = get().queue[at];
+    return track ? get().playTrack(track, undefined, 'skip', { atIndex: at }) : Promise.resolve();
+  },
+
   pause: () => {
     getAudioEngine().pause();
     set({ isPlaying: false });
@@ -343,8 +447,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   nextTrack: async (reason = 'manual') => {
-    const { queue, currentIndex, repeat, playTrack, currentTrack, currentTime, duration } = get();
-    if (queue.length === 0) return;
+    const { queue, currentIndex, repeat, playTrack, currentTrack, currentTime, duration, userQueue } = get();
+
+    // Sleep timer set to "End of track": stop here instead of moving on.
+    if (reason === 'ended' && get().sleepAtTrackEnd) {
+      set({ sleepAtTrackEnd: false, isPlaying: false });
+      return;
+    }
+    if (queue.length === 0 && userQueue.length === 0) return;
 
     if (repeat === 'one' && currentTrack) {
       // Replay current track: reset to 0. A natural "ended" here is still a
@@ -361,10 +471,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     const nextIndex = currentIndex + 1;
     const transitionReason = reason === 'ended' ? 'completed' : 'skip';
-    if (nextIndex < queue.length) {
-      await playTrack(queue[nextIndex], undefined, transitionReason);
+    if (userQueue.length > 0) {
+      // Queued songs always go first, in the order they were added.
+      const [queued, ...rest] = userQueue;
+      set({ userQueue: rest });
+      await playTrack(queued, undefined, transitionReason, { fromUserQueue: true });
+    } else if (nextIndex < queue.length) {
+      await playTrack(queue[nextIndex], undefined, transitionReason, { atIndex: nextIndex });
     } else if (repeat === 'all' && queue.length > 0) {
-      await playTrack(queue[0], undefined, transitionReason);
+      await playTrack(queue[0], undefined, transitionReason, { atIndex: 0 });
     } else {
       // End of queue reached and repeat is off — log the outgoing track,
       // then keep the music going with a personalized batch instead of
@@ -375,9 +490,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (currentTrack) {
         logOutgoingTrack(currentTrack, currentTime, duration, reason === 'ended');
       }
-      const more = await fetchAutoQueueTracks(queue);
+      const more = await fetchAutoQueueTracks([...queue, ...userQueue]);
       if (more.length > 0) {
-        set((s) => ({ queue: [...s.queue, ...more], originalQueue: [...s.originalQueue, ...more] }));
+        set((s) => ({
+          queue: [...s.queue, ...more],
+          originalQueue: [...s.originalQueue, ...more],
+          recommendedIds: [...s.recommendedIds, ...more.map((t) => t.id)],
+        }));
         await get().nextTrack(reason);
         return;
       }
@@ -387,7 +506,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   previousTrack: async () => {
-    const { queue, currentIndex, currentTime, playTrack } = get();
+    const { queue, currentIndex, currentTime, playTrack, currentTrack } = get();
     if (queue.length === 0) return;
 
     // If meaningfully progressed past threshold, restart current track
@@ -397,9 +516,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return;
     }
 
-    const prevIndex = currentIndex - 1;
+    // While a queued song plays, the context is still parked on the song
+    // before it — so "previous" means that one, not the one before it.
+    const onContext = queue[currentIndex]?.id === currentTrack?.id;
+    const prevIndex = onContext ? currentIndex - 1 : currentIndex;
     if (prevIndex >= 0) {
-      await playTrack(queue[prevIndex]);
+      await playTrack(queue[prevIndex], undefined, 'skip', { atIndex: prevIndex });
     } else {
       getAudioEngine().seek(0);
       set({ currentTime: 0 });
@@ -437,16 +559,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   toggleShuffle: () => {
-    const { shuffle, queue, currentTrack, originalQueue } = get();
+    const { shuffle, queue, currentIndex, currentTrack, originalQueue } = get();
     const nextShuffle = !shuffle;
+    // Shuffle only reorders the context; the Queued list is never touched.
+    // Anchor on the context's current song (a queued song may be playing).
+    const anchor = queue[currentIndex] ?? currentTrack;
 
     if (nextShuffle) {
-      const remaining = originalQueue.filter((t) => t.id !== currentTrack?.id);
+      const remaining = originalQueue.filter((t) => t.id !== anchor?.id);
       const shuffled = shuffleArray(remaining);
-      const newQueue = currentTrack ? [currentTrack, ...shuffled] : shuffled;
+      const newQueue = anchor ? [anchor, ...shuffled] : shuffled;
       set({ shuffle: true, queue: newQueue, currentIndex: 0 });
     } else {
-      const index = originalQueue.findIndex((t) => t.id === currentTrack?.id);
+      const index = originalQueue.findIndex((t) => t.id === anchor?.id);
       set({
         shuffle: false,
         queue: originalQueue,
@@ -459,6 +584,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch {
       // Ignore
     }
+  },
+
+  reshuffle: () => {
+    const { shuffle, queue, currentIndex } = get();
+    if (!shuffle) return;
+    set({ queue: [...queue.slice(0, currentIndex + 1), ...shuffleArray(queue.slice(currentIndex + 1))] });
   },
 
   cycleRepeat: () => {
@@ -486,16 +617,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   maybeTopUpQueue: () => {
     if (isToppingUpQueue) return;
-    const { queue, currentIndex, repeat } = get();
+    const { queue, currentIndex, repeat, userQueue } = get();
     if (repeat === 'one') return; // stuck replaying one track — nothing to top up
     const remaining = queue.length - currentIndex - 1;
     if (remaining >= AUTO_QUEUE_REFILL_THRESHOLD) return;
 
     isToppingUpQueue = true;
-    fetchAutoQueueTracks(queue)
+    fetchAutoQueueTracks([...queue, ...userQueue])
       .then((more) => {
         if (more.length > 0) {
-          set((s) => ({ queue: [...s.queue, ...more], originalQueue: [...s.originalQueue, ...more] }));
+          set((s) => ({
+            queue: [...s.queue, ...more],
+            originalQueue: [...s.originalQueue, ...more],
+            recommendedIds: [...s.recommendedIds, ...more.map((t) => t.id)],
+          }));
         }
       })
       .finally(() => {
@@ -504,32 +639,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   addToQueue: (track: Track) => {
-    set((state) => ({
-      queue: [...state.queue, track],
-      originalQueue: [...state.originalQueue, track],
-    }));
+    if (!get().currentTrack) {
+      get().playTrack(track, [track]);
+      return 'playing';
+    }
+    set((s) => ({ userQueue: [...s.userQueue, track] }));
+    return 'queued';
   },
 
-  removeFromQueue: (trackId: string) => {
-    set((state) => {
-      const filtered = state.queue.filter((t) => t.id !== trackId);
-      const origFiltered = state.originalQueue.filter((t) => t.id !== trackId);
-      const currentIdx = filtered.findIndex((t) => t.id === state.currentTrack?.id);
-      return {
-        queue: filtered,
-        originalQueue: origFiltered,
-        currentIndex: currentIdx !== -1 ? currentIdx : 0,
-      };
-    });
-  },
+  removeFromQueue: (refs: QueueRef[]) =>
+    set((s) => {
+      const queued = new Set(refs.filter((r) => r.section === 'queued').map((r) => r.index));
+      const next = new Set(refs.filter((r) => r.section === 'next').map((r) => s.currentIndex + 1 + r.index));
+      return { userQueue: s.userQueue.filter((_, i) => !queued.has(i)), ...withoutContextIndices(s, next) };
+    }),
 
-  clearQueue: () => {
-    const { currentTrack } = get();
-    set({
-      queue: currentTrack ? [currentTrack] : [],
-      originalQueue: currentTrack ? [currentTrack] : [],
-      currentIndex: currentTrack ? 0 : -1,
-    });
+  moveInQueue: (section, from, to) =>
+    set((s) => {
+      if (from === to) return {};
+      if (section === 'queued') return { userQueue: moveItem(s.userQueue, from, to) };
+      const base = s.currentIndex + 1;
+      const queue = moveItem(s.queue, base + from, base + to);
+      return s.shuffle ? { queue } : { queue, originalQueue: queue };
+    }),
+
+  moveToTopOfQueue: (refs: QueueRef[]) =>
+    set((s) => {
+      const queuedIdx = refs.filter((r) => r.section === 'queued').map((r) => r.index).sort((a, b) => a - b);
+      const nextAbs = refs.filter((r) => r.section === 'next').map((r) => s.currentIndex + 1 + r.index).sort((a, b) => a - b);
+      const moving = [...queuedIdx.map((i) => s.userQueue[i]), ...nextAbs.map((i) => s.queue[i])];
+      const staying = s.userQueue.filter((_, i) => !queuedIdx.includes(i));
+      return { userQueue: [...moving, ...staying], ...withoutContextIndices(s, new Set(nextAbs)) };
+    }),
+
+  clearQueue: () => set({ userQueue: [] }),
+
+  setSleepTimer: (option: SleepTimerOption) => {
+    if (sleepTimeout) clearTimeout(sleepTimeout);
+    sleepTimeout = null;
+    const endsAt = typeof option === 'number' ? Date.now() + option * 60_000 : null;
+    if (endsAt) sleepTimeout = setTimeout(expireSleepTimer, endsAt - Date.now());
+    set({ sleepEndsAt: endsAt, sleepAtTrackEnd: option === 'end-of-track' });
   },
 
   openExpanded: () => set({ isExpanded: true }),
@@ -538,7 +688,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   toggleQueue: () => set((state) => ({ isQueueOpen: !state.isQueueOpen })),
   setQueueOpen: (open: boolean) => set({ isQueueOpen: open }),
 
-  setCurrentTime: (time: number) => set({ currentTime: time }),
+  setCurrentTime: (time: number) => {
+    set({ currentTime: time });
+    const { sleepEndsAt } = get();
+    if (sleepEndsAt && Date.now() >= sleepEndsAt) expireSleepTimer();
+  },
   setDuration: (duration: number) => set({ duration }),
   setIsPlaying: (playing: boolean) => set({ isPlaying: playing }),
   setError: (error: string | null) => set({ error }),
@@ -553,8 +707,32 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 }));
 
-function upcomingTrack({ queue, currentIndex, repeat }: PlayerState): Track | undefined {
-  return queue[currentIndex + 1] ?? (repeat === 'all' ? queue[0] : undefined);
+/**
+ * Drops the given absolute queue positions (all after currentIndex) from the
+ * context. With shuffle off originalQueue mirrors queue; with it on, one
+ * matching copy is dropped from the unshuffled order too.
+ */
+function withoutContextIndices(s: PlayerState, positions: Set<number>): Pick<PlayerState, 'queue' | 'originalQueue'> {
+  if (positions.size === 0) return { queue: s.queue, originalQueue: s.originalQueue };
+  const queue = s.queue.filter((_, i) => !positions.has(i));
+  if (!s.shuffle) return { queue, originalQueue: queue };
+  const originalQueue = [...s.originalQueue];
+  for (const i of positions) {
+    const at = originalQueue.findIndex((t) => t.id === s.queue[i].id);
+    if (at !== -1) originalQueue.splice(at, 1);
+  }
+  return { queue, originalQueue };
+}
+
+function expireSleepTimer() {
+  if (sleepTimeout) clearTimeout(sleepTimeout);
+  sleepTimeout = null;
+  usePlayerStore.getState().pause();
+  usePlayerStore.setState({ sleepEndsAt: null });
+}
+
+function upcomingTrack({ queue, currentIndex, repeat, userQueue }: PlayerState): Track | undefined {
+  return userQueue[0] ?? queue[currentIndex + 1] ?? (repeat === 'all' ? queue[0] : undefined);
 }
 
 // Warm the next track's stream URL whenever what "next" is changes — a

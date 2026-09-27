@@ -74,3 +74,34 @@ describe('MusicService.getRecentlyPlayed', () => {
     expect(result.map((t: any) => t.id)).toEqual(['track-1', 'track-2']);
   });
 });
+
+describe('MusicService.getAutoplayTracks', () => {
+  const songs = (...ids: string[]) => ids.map((id) => track({ id, title: `Song ${id}` }));
+
+  beforeEach(() => {
+    prismaMock.listeningHistory.findMany.mockResolvedValue([{ spotifyTrackId: 'played' }] as any);
+    prismaMock.skippedSongs.findMany.mockResolvedValue([{ spotifyTrackId: 'skipped' }] as any);
+    prismaMock.likedTrack.findMany.mockResolvedValue([]);
+  });
+
+  it('never returns a song the user already played, skipped, or already has queued', async () => {
+    saavnMock.getSongSuggestions.mockResolvedValue(songs('played', 'seed', 'skipped', 'queued', 'n1', 'n2', 'n3', 'n4', 'n5'));
+
+    const result = await MusicService.getAutoplayTracks('user-1', ['seed'], ['queued']);
+
+    expect(saavnMock.getSongSuggestions).toHaveBeenCalledWith('seed');
+    expect(result.map((t: any) => t.id)).toEqual(['n1', 'n2', 'n3', 'n4', 'n5']);
+  });
+
+  it('tops up from "Made For You" when the seeds come up short — same filter applied', async () => {
+    saavnMock.getSongSuggestions.mockResolvedValue(songs('played', 'n1'));
+    const feed = jest
+      .spyOn(MusicService, 'getRecommended')
+      .mockResolvedValue({ tracks: songs('skipped', 'n1', 'f1', 'f2'), personalized: true, basis: 'history' });
+
+    const result = await MusicService.getAutoplayTracks('user-1', ['seed'], []);
+
+    expect(result.map((t: any) => t.id)).toEqual(['n1', 'f1', 'f2']);
+    feed.mockRestore();
+  });
+});

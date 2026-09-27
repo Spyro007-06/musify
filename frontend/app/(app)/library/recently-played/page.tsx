@@ -12,7 +12,7 @@ import { Track } from '@/types/track';
 import { pluralize } from '@/lib/utils/pluralize';
 
 export default function RecentlyPlayedPage() {
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -23,7 +23,7 @@ export default function RecentlyPlayedPage() {
     isError,
     error,
     refetch,
-  } = useRecentlyPlayed(1, 50);
+  } = useRecentlyPlayed();
 
   const hasTracks = Boolean(recentlyPlayed && recentlyPlayed.length > 0);
 
@@ -36,13 +36,13 @@ export default function RecentlyPlayedPage() {
     if (isCollectionPlaying) {
       togglePlay();
     } else {
-      playTrack(recentlyPlayed[0], recentlyPlayed);
+      playFrom('Recently Played', recentlyPlayed[0], recentlyPlayed);
     }
   };
 
   const handlePlayTrack = (track: Track) => {
     if (!recentlyPlayed) return;
-    playTrack(track, recentlyPlayed);
+    playFrom('Recently Played', track, recentlyPlayed);
   };
 
   return (

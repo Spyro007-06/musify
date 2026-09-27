@@ -196,6 +196,41 @@ router.get('/mood/:mood', optionalAuthenticate, MusicController.getMoodPlaylists
 
 /**
  * @swagger
+ * /music/top-hits:
+ *   get:
+ *     summary: Current chart playlists ("Today's biggest hits") in the user's preferred language
+ *     tags: [Music]
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get('/top-hits', optionalAuthenticate, MusicController.getTopHits);
+
+/**
+ * @swagger
+ * /music/autoplay:
+ *   get:
+ *     summary: Songs to continue the queue — never ones the user already played or skipped
+ *     tags: [Music]
+ *     parameters:
+ *       - name: seeds
+ *         in: query
+ *         description: Comma-separated ids of the latest played songs (up to 3), newest first
+ *         schema:
+ *           type: string
+ *       - name: exclude
+ *         in: query
+ *         description: Comma-separated ids the client already has (session plays, current queue)
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get('/autoplay', optionalAuthenticate, MusicController.getAutoplay);
+
+/**
+ * @swagger
  * /music/tracks/{trackId}/stream:
  *   get:
  *     summary: Get track stream URL and log play

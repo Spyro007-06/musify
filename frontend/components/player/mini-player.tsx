@@ -20,7 +20,8 @@ export function MiniPlayer() {
   const duration = usePlayerStore((s) => s.duration);
   const error = usePlayerStore((s) => s.error);
   const isQueueOpen = usePlayerStore((s) => s.isQueueOpen);
-  const queue = usePlayerStore((s) => s.queue);
+  // Songs still to come: your queued ones plus the rest of the context.
+  const upNext = usePlayerStore((s) => s.userQueue.length + Math.max(0, s.queue.length - s.currentIndex - 1));
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const openExpanded = usePlayerStore((s) => s.openExpanded);
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
@@ -234,9 +235,9 @@ export function MiniPlayer() {
             )}
           >
             <ListMusic className="h-4 w-4" />
-            {queue.length > 0 && (
+            {upNext > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand-500 text-[9px] font-bold text-black">
-                {queue.length > 99 ? '99+' : queue.length}
+                {upNext > 99 ? '99+' : upNext}
               </span>
             )}
           </button>

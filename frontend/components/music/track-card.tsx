@@ -1,11 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, ListEnd } from 'lucide-react';
 import { Track } from '@/types/track';
 import { cn } from '@/lib/utils/cn';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { usePlayerStore } from '@/stores/player-store';
+import { queueTrack } from '@/lib/player/queue-track';
 
 export interface TrackCardProps {
   track: Track;
@@ -69,6 +70,24 @@ export function TrackCard({ track, onPlay, className }: TrackCardProps) {
             isCurrentTrack ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
           )}
         />
+
+        {/* Add to queue — hover-revealed on desktop, always shown on touch screens (no hover there) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            queueTrack(track);
+          }}
+          aria-label={`Add ${track.title} to queue`}
+          title="Add to queue"
+          className={cn(
+            'absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full',
+            'bg-black/60 text-white backdrop-blur-sm hover:bg-black/80 hover:scale-105 active:scale-95 transition-all',
+            'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100'
+          )}
+        >
+          <ListEnd className="h-4 w-4" />
+        </button>
 
         {/* Floating Play/Pause Button */}
         <button

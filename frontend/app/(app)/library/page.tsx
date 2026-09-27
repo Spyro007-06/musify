@@ -10,11 +10,20 @@ import { MusicSection } from '@/components/music/music-section';
 import { TrackRow } from '@/components/music/track-row';
 import { PlaylistCard } from '@/components/music/playlist-card';
 import { Track } from '@/types/track';
+import { Playlist } from '@/types/playlist';
 import { cn } from '@/lib/utils/cn';
 import { pluralize } from '@/lib/utils/pluralize';
 
+// Same split and wording as the Playlists page's two sections, so the tile's
+// numbers match what opening it shows.
+function playlistsSummary(playlists: Playlist[]): string {
+  const soundtracks = playlists.filter((p) => p.id.startsWith('movie-') || p.owner === 'Movie Soundtrack').length;
+  const personal = playlists.length - soundtracks;
+  return soundtracks > 0 ? `${pluralize(personal, 'playlist')} · ${pluralize(soundtracks, 'album')}` : pluralize(personal, 'playlist');
+}
+
 export default function LibraryPage() {
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
 
   const {
     data: likedSongs,
@@ -22,7 +31,7 @@ export default function LibraryPage() {
     isError: isLikedError,
     error: likedError,
     refetch: refetchLiked,
-  } = useLikedSongs(1, 10);
+  } = useLikedSongs();
 
   const {
     data: recentlyPlayed,
@@ -30,7 +39,7 @@ export default function LibraryPage() {
     isError: isRecentError,
     error: recentError,
     refetch: refetchRecent,
-  } = useRecentlyPlayed(1, 10);
+  } = useRecentlyPlayed();
 
   const {
     data: playlists,
@@ -41,18 +50,18 @@ export default function LibraryPage() {
   } = usePlaylists();
 
   const handlePlayLiked = (track: Track) => {
-    playTrack(track, likedSongs || [track]);
+    playFrom('Liked Songs', track, likedSongs || [track]);
   };
 
   const handlePlayRecent = (track: Track) => {
-    playTrack(track, recentlyPlayed || [track]);
+    playFrom('Recently Played', track, recentlyPlayed || [track]);
   };
 
   const handlePlayAllLiked = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (likedSongs && likedSongs.length > 0) {
-      playTrack(likedSongs[0], likedSongs);
+      playFrom('Liked Songs', likedSongs[0], likedSongs);
     }
   };
 
@@ -60,7 +69,7 @@ export default function LibraryPage() {
     e.preventDefault();
     e.stopPropagation();
     if (recentlyPlayed && recentlyPlayed.length > 0) {
-      playTrack(recentlyPlayed[0], recentlyPlayed);
+      playFrom('Recently Played', recentlyPlayed[0], recentlyPlayed);
     }
   };
 
@@ -178,7 +187,7 @@ export default function LibraryPage() {
                   Playlists
                 </h2>
                 <p className="text-xs text-neutral-400">
-                  {playlists ? pluralize(playlists.length, 'playlist') : 'Curated collections'}
+                  {playlists ? playlistsSummary(playlists) : 'Curated collections'}
                 </p>
               </div>
             </div>

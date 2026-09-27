@@ -25,7 +25,7 @@ interface AlbumPageProps {
 export default function AlbumPage({ params }: AlbumPageProps) {
   const { id: albumId } = React.use(params);
 
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const playFrom = usePlayerStore((s) => s.playFrom);
 
   const {
     data: album,
@@ -40,9 +40,9 @@ export default function AlbumPage({ params }: AlbumPageProps) {
   // Track playback handler: passes full album tracks collection as queue context
   const handlePlayTrack = React.useCallback(
     (track: Track) => {
-      playTrack(track, tracks);
+      playFrom(album?.title || 'Album', track, tracks);
     },
-    [playTrack, tracks]
+    [playFrom, album?.title, tracks]
   );
 
   // Loading state

@@ -1,8 +1,10 @@
+import '../setup/saavnMock';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../../app';
 import { getCsrfToken } from '../helpers/csrf';
 import { prismaMock } from '../setup/prismaMock';
+import { saavnMock } from '../setup/saavnMock';
 
 const owner = {
   id: 'owner-1',
@@ -100,5 +102,41 @@ describe('DELETE /api/playlists/:id — ownership enforcement', () => {
 
     expect(res.status).toBe(200);
     expect(prismaMock.playlist.delete).toHaveBeenCalledWith({ where: { id: 'playlist-1' } });
+  });
+});
+
+describe('GET /api/playlists/:id — JioSaavn editorial playlists', () => {
+  it('serves a JioSaavn playlist when the id is not one of ours', async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue(null);
+    saavnMock.getPlaylist.mockResolvedValue({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'JioSaavn', isPublic: true, tracks: [] });
+
+    const res = await request(app).get('/api/playlists/1134543272');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'JioSaavn' });
+  });
+
+  it('still 404s when JioSaavn has no such playlist either', async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue(null);
+    saavnMock.getPlaylist.mockResolvedValue(null);
+
+    const res = await request(app).get('/api/playlists/does-not-exist');
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/playlists — only the signed-in user\'s playlists', () => {
+  it("never includes other users' public playlists", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(owner as any);
+    prismaMock.playlist.findMany.mockResolvedValue([]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([]);
+    prismaMock.listeningHistory.findMany.mockResolvedValue([]);
+    prismaMock.playlistTrack.findMany.mockResolvedValue([]);
+
+    const res = await request(app).get('/api/playlists').set('Authorization', bearerFor(owner));
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.playlist.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { ownerId: owner.id } }));
   });
 });

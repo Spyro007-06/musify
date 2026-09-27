@@ -1,5 +1,5 @@
 import http from 'http';
-import { initSentry, captureException } from '@config/sentry';
+import { initSentry, captureException, flushSentry } from '@config/sentry';
 
 // Must run before anything else can throw.
 initSentry();
@@ -16,9 +16,14 @@ const server = http.createServer(app);
 
 // Last line of defense: log + report to Sentry rather than let the process
 // crash silently or with an unhandled promise rejection warning.
+// After an uncaught exception, state is undefined (per Node's docs), so
+// don't keep serving: exit non-zero and Railway restarts a clean process
+// (restartPolicyType ON_FAILURE). Sentry's own handler won't exit while this
+// one is registered, so flush its report first (bounded) and exit here.
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception:', error);
+  logger.error('Uncaught exception, exiting:', error);
   captureException(error);
+  void flushSentry(2000).finally(() => process.exit(1));
 });
 
 process.on('unhandledRejection', (reason) => {
