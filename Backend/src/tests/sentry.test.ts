@@ -73,3 +73,20 @@ describe('initSentry', () => {
     expect(sentryInit).toHaveBeenCalledWith(expect.objectContaining({ tracesSampleRate: 0 }));
   });
 });
+
+describe('flushSentry', () => {
+  it('waits on the SDK flush (bounded by the timeout) when a DSN is set', async () => {
+    jest.resetModules();
+    const flush = jest.fn().mockResolvedValue(true);
+    jest.doMock('@sentry/node', () => ({ flush }));
+    jest.doMock('@config/env', () => ({
+      env: { NODE_ENV: 'production', SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0' },
+    }));
+    jest.doMock('@utils/logger', () => ({ logger: { info: jest.fn(), warn: jest.fn() } }));
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { flushSentry } = require('@config/sentry');
+    await expect(flushSentry(2000)).resolves.toBe(true);
+    expect(flush).toHaveBeenCalledWith(2000);
+  });
+});
