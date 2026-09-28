@@ -775,6 +775,24 @@ export class SaavnService {
   }
 
   /**
+   * First song result whose duration is within `toleranceSec` of the
+   * expected one — picks the right version (radio edit vs extended) when
+   * matching a track from another service — and, when `artist` is given,
+   * credited to that artist, so a same-length cover doesn't slip through.
+   * Null when nothing fits.
+   */
+  public async findSongByDuration(query: string, durationSec: number, artist?: string, toleranceSec = 5): Promise<any | null> {
+    const res = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
+    const tracks = (res?.results || []).map((t: any) => this.mapTrack(t));
+    const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const wanted = artist ? norm(artist) : '';
+    return tracks.find((t: any) =>
+      t && Math.abs(t.duration - durationSec) <= toleranceSec &&
+      (!wanted || t.artists.some((a: any) => { const n = norm(a.name); return n.includes(wanted) || wanted.includes(n); }))
+    ) ?? null;
+  }
+
+  /**
    * Turns JioSaavn's top match into the "Top result" card. A song needs a
    * full playable track: taken from the song results when it's there,
    * fetched otherwise. Best-effort — no card rather than a failed search.

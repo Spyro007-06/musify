@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PlaylistService } from '@services/playlist.service';
-import { createPlaylistSchema, addTrackSchema } from '@validators/playlist.validator';
+import { SpotifyImportService } from '@services/spotifyImport.service';
+import { createPlaylistSchema, addTrackSchema, importSpotifySchema } from '@validators/playlist.validator';
 import { sendSuccess } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
@@ -48,6 +49,23 @@ export class PlaylistController {
         statusCode: HTTP_STATUS.CREATED,
         message: SUCCESS_MESSAGES.PLAYLIST_CREATED,
         data: playlist,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async importFromSpotify(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { url } = importSpotifySchema.parse(req.body);
+      const result = await SpotifyImportService.importPlaylist(authReq.user.id, url);
+
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.CREATED,
+        message: `Imported ${result.matched.length} of ${result.total} songs.`,
+        data: result,
       });
     } catch (error) {
       next(error);
