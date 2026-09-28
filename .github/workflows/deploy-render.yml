@@ -1,0 +1,26 @@
+name: Deploy backend to Render
+
+# Render's own GitHub auto-deploy never fired for this repo, so deploy from
+# here instead: once Backend CI (lint, tests, Docker health check) passes on a
+# push to main, call the service's Deploy Hook for that exact commit. Backend
+# CI only runs for Backend/** changes, so frontend-only merges don't redeploy.
+# Keep Render's Auto-Deploy set to Off, or a working GitHub link would deploy twice.
+
+on:
+  workflow_run:
+    workflows: [Backend CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"; exit 1; fi
+          curl -fsS -X POST "$HOOK&ref=$SHA" -o /dev/null -w "Render deploy hook: HTTP %{http_code}\n"
