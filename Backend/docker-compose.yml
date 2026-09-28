@@ -1,5 +1,5 @@
-# Local development only — production runs on Railway (see RUNBOOK.md and
-# railway.json), which has no docker-compose concept. This file exists
+# Local development only — production runs on Render (see RUNBOOK.md),
+# which has no docker-compose concept. This file exists
 # solely to give the BullMQ background job queue (src/jobs/) a local Redis
 # to talk to, without requiring a hosted Upstash database for dev.
 #

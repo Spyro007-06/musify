@@ -14,7 +14,9 @@ name: Production Auth Smoke Test
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # Every 10 min, which also keeps Render's free instance awake: it sleeps
+    # after 15 idle minutes, and requests through Vercel 502 until it wakes.
+    - cron: '*/10 * * * *'
   workflow_dispatch: {}
 
 jobs:
@@ -38,7 +40,7 @@ jobs:
       - name: Run auth smoke test against live production
         run: node authSmokeTest.mjs
         env:
-          SMOKE_BACKEND_URL: https://musify-production-6f35.up.railway.app
+          SMOKE_BACKEND_URL: https://musify-api-m2dw.onrender.com
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
           SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}

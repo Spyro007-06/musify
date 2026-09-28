@@ -27,7 +27,7 @@ function connect(role: string, options: RedisOptions): IORedis {
  * The API side's connection: enqueueing jobs and the readiness check. Fails
  * fast — a command errors after 5 s (queued-while-disconnected ones too)
  * instead of waiting forever for Redis to come back, so a Redis outage can't
- * hang requests or Railway's /api/health/ready deploy healthcheck.
+ * hang requests or the host's /api/health/ready deploy healthcheck.
  */
 export const queueConnection = queueEnabled ? connect('api', { maxRetriesPerRequest: 1, commandTimeout: 5000 }) : null;
 
