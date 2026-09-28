@@ -430,8 +430,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   resume: () => {
     const { streamUrl, currentTrack } = get();
     if (streamUrl) {
-      getAudioEngine().play();
       set({ isPlaying: true });
+      // A background play() can be refused; don't stay stuck on "playing".
+      getAudioEngine().play().then((played) => {
+        if (!played) set({ isPlaying: false });
+      });
     } else if (currentTrack) {
       get().playTrack(currentTrack);
     }
