@@ -20,7 +20,6 @@ export function useAudio() {
   } = usePlayerStore();
 
   const currentTrack = usePlayerStore((s) => s.currentTrack);
-  const isPlaying = usePlayerStore((s) => s.isPlaying);
   const duration = usePlayerStore((s) => s.duration);
   const currentTime = usePlayerStore((s) => s.currentTime);
 
@@ -47,11 +46,6 @@ export function useAudio() {
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     if (!duration || !isFinite(duration)) return;
     try {
       navigator.mediaSession.setPositionState({
@@ -67,9 +61,17 @@ export function useAudio() {
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 
-    const { togglePlay, nextTrack: goNext, previousTrack, seek } = usePlayerStore.getState();
-    navigator.mediaSession.setActionHandler('play', () => togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+    // Explicit play/pause, never toggle: with the screen off the store and
+    // the OS can disagree, and a toggle then turns a "play" gesture into a pause.
+    const { resume, pause, nextTrack: goNext, previousTrack, seek } = usePlayerStore.getState();
+    navigator.mediaSession.setActionHandler('play', () => resume());
+    navigator.mediaSession.setActionHandler('pause', () => pause());
+    // Some Bluetooth devices send "stop"; without a handler it ends the session.
+    try {
+      navigator.mediaSession.setActionHandler('stop', () => pause());
+    } catch {
+      // "stop" unsupported in this browser.
+    }
     navigator.mediaSession.setActionHandler('previoustrack', () => previousTrack());
     navigator.mediaSession.setActionHandler('nexttrack', () => goNext());
     navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -82,6 +84,11 @@ export function useAudio() {
       navigator.mediaSession.setActionHandler('previoustrack', null);
       navigator.mediaSession.setActionHandler('nexttrack', null);
       navigator.mediaSession.setActionHandler('seekto', null);
+      try {
+        navigator.mediaSession.setActionHandler('stop', null);
+      } catch {
+        // "stop" unsupported in this browser.
+      }
     };
   }, []);
 
@@ -101,11 +108,16 @@ export function useAudio() {
       onEnded: () => {
         nextTrack('ended');
       },
+      // playbackState is set here, straight from the audio element, not from a
+      // React effect: effects can lag with the screen off, leaving the OS
+      // showing a stale state and sending the wrong action.
       onPlay: () => {
         setIsPlaying(true);
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       },
       onPause: () => {
         setIsPlaying(false);
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
       },
       onError: (err) => {
         setError(err.message || 'Audio playback error occurred.');
