@@ -35,6 +35,24 @@ function ServiceWorkerRegistrar() {
   return null;
 }
 
+const isAuthRejection = (err: unknown) => err instanceof ApiError && err.status >= 400 && err.status < 500;
+
+// The backend (Render free tier) sleeps when idle, and every request through
+// Vercel 502s for the ~30-50s it takes to wake. Keep the splash up and retry
+// instead of dropping a still-valid session onto the login page.
+const REFRESH_RETRY_DELAYS_MS = [2000, 4000, 8000, 15000, 30000]; // ~60s total
+
+async function refreshWithRetry(isMounted: () => boolean) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await authApi.refresh();
+    } catch (err) {
+      if (isAuthRejection(err) || attempt >= REFRESH_RETRY_DELAYS_MS.length || !isMounted()) throw err;
+      await new Promise((r) => setTimeout(r, REFRESH_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
+
 function SessionInitializer({ children }: { children: ReactNode }) {
   const { accessToken, isInitializing, setAuth, setAccessToken, setInitializing } = useAuthStore();
   const queryClient = useQueryClient();
@@ -49,7 +67,7 @@ function SessionInitializer({ children }: { children: ReactNode }) {
       // refresh cookie at all, so skip the doomed round-trip entirely for them.
       if (!accessToken && hadSession()) {
         try {
-          const res = await authApi.refresh();
+          const res = await refreshWithRetry(() => mounted);
           if (mounted && res.data?.accessToken) {
             // The refresh above rotated the refreshToken cookie, which the
             // backend's CSRF check uses as its session identifier — the
@@ -83,8 +101,7 @@ function SessionInitializer({ children }: { children: ReactNode }) {
           // relaunched far more often than a desktop tab) is not proof the
           // session is gone, and clearing the marker here would otherwise
           // permanently disable auto-login after one bad network blip.
-          const isAuthRejection = err instanceof ApiError && err.status >= 400 && err.status < 500;
-          if (isAuthRejection) {
+          if (isAuthRejection(err)) {
             clearSessionMarker();
           }
         } finally {
