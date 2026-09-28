@@ -3,8 +3,10 @@
  * (from the backend's Singapore host, "Starboy" finds only karaoke covers),
  * so the backend sends its JioSaavn calls here instead (SAAVN_PROXY_URL).
  * Only ever forwards to JioSaavn's api.php, with the caller's query string.
+ * It must run in Mumbai: frontend/vercel.json pins the project's functions to
+ * bom1 (a per-route preferredRegion is ignored on the Hobby plan — it ran in
+ * iad1, where JioSaavn's catalog is just as small).
  */
-export const preferredRegion = 'bom1';
 export const dynamic = 'force-dynamic';
 
 const JIOSAAVN_API = 'https://www.jiosaavn.com/api.php';
