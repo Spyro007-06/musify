@@ -29,6 +29,14 @@ import healthRoutes from '@routes/health.routes';
 
 const app: Express = express();
 
+// Requests arrive via Vercel's /api proxy and Render's load balancer, so the
+// socket address is a proxy's. Without this every signed-out visitor shares
+// one IP-keyed rate-limit bucket (10 logins / 15 min for everyone).
+// ponytail: `true` takes the leftmost X-Forwarded-For, which a client calling
+// Render directly can spoof to dodge IP limits; if that's abused, have Vercel
+// send a shared-secret header and reject requests to Render without it.
+app.set('trust proxy', true);
+
 // Request tracing — must be first so every subsequent middleware/log line
 // (including errors) has a request id available.
 app.use(requestContext);

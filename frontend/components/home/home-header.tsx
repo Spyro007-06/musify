@@ -7,11 +7,13 @@ import { Sparkles } from 'lucide-react';
 export function HomeHeader() {
   const { user } = useCurrentUser();
 
-  const greeting = React.useMemo(() => {
+  // The server (UTC, or frozen at build time) can't know the visitor's local
+  // hour, so render a neutral greeting first and switch after hydration —
+  // computing it during render caused a hydration mismatch.
+  const [greeting, setGreeting] = React.useState('Welcome');
+  React.useEffect(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    setGreeting(hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
   }, []);
 
   const displayName = user?.displayName || user?.username || 'Music Lover';

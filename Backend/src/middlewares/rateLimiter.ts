@@ -121,6 +121,8 @@ export const globalLimiter = redisEnabled
       }),
       standardHeaders: true,
       legacyHeaders: false,
+      // trust proxy is deliberately `true` (see app.ts); skip the lib's warning about it.
+      validate: { trustProxy: false },
       skip: (req) => req.originalUrl.includes('/health'),
       keyGenerator: getRateLimitIdentifier,
     });
@@ -145,4 +147,6 @@ export const authLimiter = redisEnabled
       }),
       standardHeaders: true,
       legacyHeaders: false,
+      // trust proxy is deliberately `true` (see app.ts); skip the lib's warning about it.
+      validate: { trustProxy: false },
     });
