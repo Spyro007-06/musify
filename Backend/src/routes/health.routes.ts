@@ -24,17 +24,18 @@ router.get('/ready', async (_req, res) => {
   // enqueueing) — its state is reported for visibility but, unlike the
   // database, never fails overall readiness: the API serves the rest of
   // its routes fine with jobs disabled.
-  const queueStatus = await checkQueueRedis();
+  // Started now, awaited below: runs alongside the DB check instead of before it.
+  const queueCheck = checkQueueRedis();
   try {
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('DB readiness check timed out')), 3000);
     });
     await Promise.race([prisma.$queryRaw`SELECT 1`, timeout]);
-    res.json({ status: 'ok', checks: { database: 'ok', queue: queueStatus }, timestamp: new Date() });
+    res.json({ status: 'ok', checks: { database: 'ok', queue: await queueCheck }, timestamp: new Date() });
   } catch (error) {
     res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
       status: 'not_ready',
-      checks: { database: 'unreachable', queue: queueStatus },
+      checks: { database: 'unreachable', queue: await queueCheck },
       timestamp: new Date(),
     });
   } finally {

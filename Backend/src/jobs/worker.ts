@@ -1,5 +1,5 @@
 import { Worker, type Job } from 'bullmq';
-import { queueConnection, queueEnabled } from '@config/queue';
+import { createWorkerConnection, queueEnabled } from '@config/queue';
 import { JOB_NAMES } from '@jobs/queue';
 import { processMusicMetadata } from '@jobs/processors/music.processor';
 import { generateUserRecommendations } from '@jobs/processors/recommendations.processor';
@@ -65,7 +65,7 @@ export function startWorkers(): void {
   }
   if (workers.length > 0) return; // already started
 
-  const connection = queueConnection!;
+  const connection = createWorkerConnection();
 
   workers = [
     new Worker('music', wrap('music', musicProcessor), { connection, concurrency: 5 }),
