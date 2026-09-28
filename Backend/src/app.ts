@@ -59,7 +59,7 @@ const { doubleCsrfProtection, generateCsrfToken } = doubleCsrf({
   cookieName: 'x-csrf-token',
   cookieOptions: {
     // The frontend (Vercel) proxies /api/* through Next.js rewrites to
-    // this backend (Railway) — see frontend/next.config.ts — so from the
+    // this backend (Render) — see frontend/next.config.ts — so from the
     // browser's perspective every request is same-origin. That keeps
     // 'strict' correct (and safer) here rather than 'none': 'none' was
     // tried first and technically worked in Chrome, but Safari's

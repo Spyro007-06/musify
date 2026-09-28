@@ -19,7 +19,7 @@
  */
 import * as Sentry from '@sentry/node';
 
-const BACKEND_URL = (process.env.SMOKE_BACKEND_URL || 'https://musify-production-6f35.up.railway.app').replace(/\/$/, '');
+const BACKEND_URL = (process.env.SMOKE_BACKEND_URL || 'https://musify-api-m2dw.onrender.com').replace(/\/$/, '');
 const EMAIL = process.env.SMOKE_TEST_EMAIL;
 const PASSWORD = process.env.SMOKE_TEST_PASSWORD;
 const EXPECTED_USERNAME = process.env.SMOKE_TEST_USERNAME || 'musify_uptime_monitor';

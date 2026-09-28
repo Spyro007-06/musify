@@ -63,62 +63,49 @@ CI (`.github/workflows/backend-ci.yml`) runs `prisma generate → lint →
 build → test → audit` on every push/PR — a red run there means don't
 deploy, full stop.
 
-## Production deployment (Railway)
+## Production deployment (Render)
 
-The backend runs on Railway as a single service (`musify`, project
-`affectionate-appreciation`), building from the exact Dockerfile verified
-in CI's `docker-build` job — not Railway's Nixpacks/Railpack
-auto-detection. This is declared in `Backend/railway.json`
-(`build.builder: "DOCKERFILE"`, `build.dockerfilePath: "Dockerfile"`);
-Railway auto-discovers this file from the service's configured root
-directory (`Backend`). **Do not delete or rename this file** — without it,
-Railway falls back to Railpack's own language auto-detection, which picks
-up `package.json` and builds a plain Node app instead of the Docker image
-(this is exactly the failure mode that happened before `railway.json`
-existed: the build technically succeeded but produced the wrong artifact
-entirely, silently).
+The backend runs on Render as a single free web service (`musify-api`,
+region Singapore, next to the Supabase database), building
+`Backend/Dockerfile` — the same image CI's `docker-build` job verifies.
+It was moved off Railway on 2026-09-28; there is no background worker.
 
-- **Live URL**: `https://musify-production-6f35.up.railway.app`
-- **Triggers on**: every push to `main` (Railway watches the
-  `Spyro007-06/musify` GitHub repo directly, root directory `Backend`).
-  `main` has branch protection requiring `build-lint-test` and
-  `Docker build & container health check` to pass — a PR can't merge
-  without both green, though a repo admin can still push directly
-  (`enforce_admins: false`), same as this project's established workflow.
-- **Health check**: Railway polls `GET /api/health/ready`
-  (`healthcheckTimeout: 300`s) after each deploy and won't cut traffic
-  over to a new instance until it returns 200 — a build that succeeds but
-  produces a container that crashes or can't reach the DB stays on the
-  previous instance instead of going live.
-- **Replicas**: pinned to `numReplicas: 1` deliberately — `DATABASE_URL`'s
-  `connection_limit=10` (see Prerequisites above) assumes exactly one
-  instance. Do not raise `numReplicas` without first revisiting that
-  connection limit, or multiple instances can collectively exhaust the
-  database's connection ceiling.
-- **Environment variables**: set directly in Railway (`railway variable
-  set KEY --stdin --service musify`, or the dashboard's Variables tab) —
-  never committed to the repo. `.env.example` is the source of truth for
-  which variables exist and what they mean; keep it in sync when adding a
-  new one, including ones read outside `config/env.ts` (e.g.
-  `RECOMMENDATION_CRON_SCHEDULE`, read directly via `process.env`).
-- **Checking deploy health**: `railway status --service musify` (or the
-  dashboard) shows current deploy state (`Building` / `Online` / `Failed`).
-  `railway deployment list --service musify --json` lists deployment
-  history with status, commit, and image digest.
-- **Logs**: `railway logs --service musify` (build logs: add `--build`;
-  runtime logs of the current deployment: add `--deployment`), or the
-  Railway dashboard's Logs tab for the same data with search/filtering.
-  This is the first place to look for a live incident — Sentry has the
-  aggregated/alerted view, Railway logs have the raw stdout/stderr
-  including anything printed before Sentry initialized.
-- **If a deploy fails**: Railway keeps every previous successful
-  deployment's build artifact. Roll back via the dashboard's Deployments
-  tab — find the last `SUCCESS` entry before the bad one and hit
-  "Redeploy" on it (this re-runs that exact prior image, not a fresh
-  build). `railway deployment list --service musify --json` gives the
-  deployment IDs and commit hashes needed to identify which one that is
-  from the CLI. Same schema-migration caution as the generic Rollback
-  section below applies.
+- **Live URL**: `https://musify-api-m2dw.onrender.com`. The frontend never
+  calls it directly: Vercel proxies `/api/*` to it via
+  `NEXT_PUBLIC_BACKEND_URL` (see `frontend/next.config.ts`), which keeps
+  the auth/CSRF cookies first-party. Leave `NEXT_PUBLIC_API_URL` unset on
+  Vercel — pointing the browser straight at Render breaks those cookies
+  and CORS.
+- **Triggers on**: every push to `main` (Render watches the
+  `Spyro007-06/musify` repo, Dockerfile `./Backend/Dockerfile`, context
+  `./Backend`). `main` has branch protection requiring `build-lint-test`
+  and `Docker build & container health check` to pass.
+- **Free plan sleeps** after 15 idle minutes, and requests through the
+  Vercel proxy 502 until it wakes (~20-50s). The auth smoke test runs every
+  10 minutes partly to keep it awake. The daily recommendation cron runs
+  in-process, so it only fires while the instance is awake.
+- **No background worker**: `REDIS_URL` is set to an empty value, which
+  turns the BullMQ queue off (`src/config/queue.ts`); `/api/health/ready`
+  reports `queue: "disabled"`. To bring jobs back, add a paid Render
+  background worker running `node dist/jobs/workerMain.js` and set
+  `REDIS_URL` on both services.
+- **Health check**: `GET /api/health/ready` (set under the service's
+  Settings → Health Check Path). Returns 503 only when the database is
+  unreachable.
+- **Single instance**: `DATABASE_URL`'s `connection_limit=10` assumes one
+  instance. Revisit that limit before scaling out.
+- **Environment variables**: set in the Render dashboard (service →
+  Environment) — never committed to the repo. `.env.example` is the source
+  of truth for which variables exist; keep it in sync when adding one,
+  including ones read outside `config/env.ts` (e.g.
+  `RECOMMENDATION_CRON_SCHEDULE`). `DIRECT_URL` is only needed where
+  `prisma migrate` runs, not on Render.
+- **Deploy state, logs, rollback**: the Render dashboard's Events tab
+  lists deploys (with commit) and their status; the Logs tab has build and
+  runtime logs — the first place to look in an incident, before Sentry
+  initialized output included. To roll back, open a previous successful
+  deploy in Events and choose "Rollback". Same schema-migration caution as
+  the generic Rollback section below applies.
 
 ## Rollback
 
@@ -254,11 +241,12 @@ unrelated backend build/install problem.
 - **Not on every PR/push**: it needs live production credentials and real
   external state; gating normal development on that would make CI flaky
   for reasons unrelated to the code being reviewed.
-- **Schedule, every 15 minutes** (`cron: '*/15 * * * *'`), rather than a
-  Railway post-deploy webhook triggering `workflow_dispatch`: a working
+- **Schedule, every 10 minutes** (`cron: '*/10 * * * *'`; it also keeps
+  Render's free instance from sleeping), rather than a
+  post-deploy webhook triggering `workflow_dispatch`: a working
   webhook integration is real infrastructure to build and maintain
-  (Railway-side webhook config, a GitHub token with `workflow_dispatch`
-  permission stored as a Railway secret, and handling for webhook
+  (host-side webhook config, a GitHub token with `workflow_dispatch`
+  permission stored as a host secret, and handling for webhook
   delivery failures). A 15-minute recurring check catches the same class
   of outage within, worst case, 15 minutes of a bad deploy — acceptable
   detection latency for a smoke test on a project this size, for
@@ -277,8 +265,9 @@ the repo owner already has for failed scheduled runs) is a free secondary
 signal on top, not a replacement — the workflow always exits non-zero on
 failure regardless of whether Sentry is configured. **Action needed**: add
 a `SENTRY_DSN` repository secret (see "Getting a DSN" below) — this wasn't
-set as part of building the check because the value lives only in
-Railway's env vars, not anywhere this session could read it. Until it's
+set as part of building the check because the value lived only in the
+old Railway service's env vars (the Sentry project's settings have it
+too), not anywhere this session could read it. Until it's
 set, failures are still visible (workflow goes red) but don't generate a
 Sentry alert; the script logs this explicitly when it happens.
 
@@ -311,7 +300,7 @@ recipe as the incident: fetch `/auth/csrf`, log in, call `/auth/me` with
 the token), check Supabase's status page, check whether Supabase's signing
 keys were rotated (`https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json`
 should return the key matching a real token's `kid`), and check recent
-deploys (`railway deployment list --service musify --json`) for anything
+deploys (Render dashboard → Events) for anything
 touching `src/middlewares/auth.ts`, `src/config/supabase.ts`, or
 `SUPABASE_*` env vars.
 
