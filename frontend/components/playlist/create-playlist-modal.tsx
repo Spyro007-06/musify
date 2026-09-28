@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Music2, Globe2, Lock } from 'lucide-react';
 import { useCreatePlaylist, useImportSpotifyPlaylist } from '@/hooks/use-playlists';
-import type { SpotifyImportResult } from '@/lib/api/playlists';
+import { playlistsApi, type ImportSong } from '@/lib/api/playlists';
+import { dedupeSongs, importInBatches, parseSpotifyTrackIds, screenshotToSlices } from '@/lib/playlist-import';
 import { Dialog, DialogHeader, DialogActions } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
 import { toast } from '@/stores/toast-store';
@@ -16,18 +18,45 @@ export interface CreatePlaylistModalProps {
   onCreated?: (playlistId: string, playlistTitle: string) => void;
 }
 
+type Mode = 'create' | 'import' | 'screenshots';
+
+const MODE_LABELS: Record<Mode, string> = { create: 'New playlist', import: 'Spotify link', screenshots: 'Screenshots' };
+
+/** Where an import stands; shown on the result screen and grown by "add the rest". */
+interface ImportSummary {
+  playlist: { id: string; title: string };
+  total: number;
+  unmatched: ImportSong[];
+  /** Songs never sent because the connection kept failing. */
+  notSent: number;
+  /** Spotify songs already covered, skipped when the user pastes the full list. */
+  knownSpotifyIds: string[];
+  /** The link only gave the first 100 songs; offer the paste step. */
+  mayHaveMore: boolean;
+}
+
+interface Progress {
+  label: string;
+  done: number;
+  total: number;
+}
+
 export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModalProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const createMutation = useCreatePlaylist();
   const importMutation = useImportSpotifyPlaylist();
-  const isBusy = createMutation.isPending || importMutation.isPending;
+  const [progress, setProgress] = React.useState<Progress | null>(null);
+  const isBusy = createMutation.isPending || importMutation.isPending || progress !== null;
 
   // Importing only makes sense from the library; the "add to playlist" flow
   // (onCreated) needs a fresh, empty playlist.
   const canImport = !onCreated;
-  const [mode, setMode] = React.useState<'create' | 'import'>('create');
+  const [mode, setMode] = React.useState<Mode>('create');
   const [spotifyUrl, setSpotifyUrl] = React.useState('');
-  const [importResult, setImportResult] = React.useState<SpotifyImportResult | null>(null);
+  const [pastedSongs, setPastedSongs] = React.useState('');
+  const [screenshots, setScreenshots] = React.useState<File[]>([]);
+  const [summary, setSummary] = React.useState<ImportSummary | null>(null);
 
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
@@ -45,7 +74,10 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
       setValidationError(null);
       setMode('create');
       setSpotifyUrl('');
-      setImportResult(null);
+      setPastedSongs('');
+      setScreenshots([]);
+      setSummary(null);
+      setProgress(null);
     }
   }, [isOpen]);
 
@@ -122,14 +154,113 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
     try {
       const result = await importMutation.mutateAsync(spotifyUrl.trim());
       if (!result) return;
-      if (result.unmatched.length === 0) {
+      if (result.unmatched.length === 0 && !result.mayHaveMore) {
         toast.success(`Imported "${result.playlist.title}" with all ${result.total} songs.`);
         openPlaylist(result.playlist.id);
       } else {
-        setImportResult(result);
+        setSummary({
+          playlist: result.playlist,
+          total: result.total,
+          unmatched: result.unmatched,
+          notSent: 0,
+          knownSpotifyIds: result.spotifyIds ?? [],
+          mayHaveMore: result.mayHaveMore,
+        });
       }
     } catch (err) {
       setValidationError(err instanceof Error ? err.message : 'Import failed. Please try again.');
+    }
+  };
+
+  const refreshPlaylist = (id: string) => {
+    queryClient.invalidateQueries({ queryKey: ['playlists', 'detail', id] });
+    queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
+  };
+
+  // Step two of a big Spotify import: the songs the link couldn't give us,
+  // pasted from Spotify's own "select all, copy".
+  const handleAddRest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!summary) return;
+    setValidationError(null);
+
+    const pasted = parseSpotifyTrackIds(pastedSongs);
+    const known = new Set(summary.knownSpotifyIds);
+    const ids = pasted.filter((id) => !known.has(id));
+    if (ids.length === 0) {
+      setValidationError(
+        pasted.length > 0
+          ? 'Those songs are already in the playlist.'
+          : 'No Spotify songs found in what you pasted. Copy the songs themselves, not the playlist link.'
+      );
+      return;
+    }
+
+    try {
+      const r = await importInBatches(summary.playlist.id, { spotifyIds: ids }, (done, total) =>
+        setProgress({ label: 'Adding songs', done, total })
+      );
+      const sent = ids.slice(0, ids.length - r.notSent); // batches go in order, so the unsent are the tail
+      setSummary({
+        ...summary,
+        total: summary.total + sent.length,
+        unmatched: [...summary.unmatched, ...r.unmatched],
+        notSent: r.notSent,
+        knownSpotifyIds: [...summary.knownSpotifyIds, ...sent],
+        mayHaveMore: r.notSent > 0, // keep the paste box so they can retry
+      });
+      setPastedSongs('');
+      refreshPlaylist(summary.playlist.id);
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  const handleScreenshots = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationError(null);
+    if (screenshots.length === 0) {
+      setValidationError('Choose at least one screenshot.');
+      return;
+    }
+
+    try {
+      const found: ImportSong[] = [];
+      for (let i = 0; i < screenshots.length; i++) {
+        setProgress({ label: 'Reading screenshots', done: i, total: screenshots.length });
+        for (const slice of await screenshotToSlices(screenshots[i])) {
+          const read = () => playlistsApi.readScreenshot('image/jpeg', slice);
+          // One retry: the backend may be waking up, or the model briefly busy.
+          const res = await read().catch(() => new Promise((r) => setTimeout(r, 2000)).then(read));
+          found.push(...(res.data?.songs ?? []));
+        }
+      }
+      const songs = dedupeSongs(found);
+      if (songs.length === 0) {
+        setValidationError('No songs found in those screenshots. Make sure the song names are readable.');
+        return;
+      }
+
+      const playlistTitle = (title.trim() || 'Imported playlist').slice(0, 100);
+      const playlist = await createMutation.mutateAsync({ title: playlistTitle, description: 'Imported from screenshots.' });
+      if (!playlist?.id) throw new Error('Could not create the playlist.');
+
+      const r = await importInBatches(playlist.id, { songs }, (done, total) =>
+        setProgress({ label: 'Matching songs', done, total })
+      );
+      refreshPlaylist(playlist.id);
+      setSummary({
+        playlist: { id: playlist.id, title: playlistTitle },
+        total: songs.length,
+        unmatched: r.unmatched,
+        notSent: r.notSent,
+        knownSpotifyIds: [],
+        mayHaveMore: false,
+      });
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : 'Import failed. Please try again.');
+    } finally {
+      setProgress(null);
     }
   };
 
@@ -147,16 +278,22 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
     <Dialog isOpen={isOpen} onClose={onClose} labelledBy="create-playlist-title" isBusy={isBusy}>
       <DialogHeader
         icon={Music2}
-        title={mode === 'import' ? 'Import from Spotify' : 'Create Playlist'}
+        title={mode === 'import' ? 'Import from Spotify' : mode === 'screenshots' ? 'Import from screenshots' : 'Create Playlist'}
         titleId="create-playlist-title"
-        subtitle={mode === 'import' ? 'Bring a public Spotify playlist into Musify' : 'Add a new collection to your library'}
+        subtitle={
+          mode === 'import'
+            ? 'Bring a public Spotify playlist into Musify'
+            : mode === 'screenshots'
+              ? 'Snap a playlist in any music app and bring it into Musify'
+              : 'Add a new collection to your library'
+        }
         onClose={onClose}
         closeDisabled={isBusy}
       />
 
-      {canImport && !importResult && (
-        <div role="tablist" aria-label="Playlist source" className="mb-4 grid grid-cols-2 gap-1 rounded-full border border-neutral-800 bg-neutral-950 p-1">
-          {(['create', 'import'] as const).map((m) => (
+      {canImport && !summary && (
+        <div role="tablist" aria-label="Playlist source" className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-neutral-800 bg-neutral-950 p-1">
+          {(['create', 'import', 'screenshots'] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -169,7 +306,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
                 mode === m ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-white'
               )}
             >
-              {m === 'create' ? 'New playlist' : 'Import from Spotify'}
+              {MODE_LABELS[m]}
             </button>
           ))}
         </div>
@@ -181,29 +318,122 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
         </div>
       )}
 
-      {importResult ? (
+      {summary ? (
         <div className="space-y-4">
           <Alert variant="success">
-            Imported {importResult.matched.length} of {importResult.total} songs into &ldquo;{importResult.playlist.title}&rdquo;.
+            Imported {summary.total - summary.unmatched.length - summary.notSent} of {summary.total} songs into &ldquo;
+            {summary.playlist.title}&rdquo;.
           </Alert>
-          <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-neutral-300">
-              Not found on JioSaavn ({importResult.unmatched.length})
-            </p>
-            <ul className="max-h-48 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2 text-xs">
-              {importResult.unmatched.map((t, i) => (
-                <li key={i} className="truncate py-1 text-neutral-400">
-                  <span className="text-white">{t.title}</span> · {t.artist}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <DialogActions onCancel={onClose} cancelLabel="Close">
-            <button type="button" onClick={() => openPlaylist(importResult.playlist.id)} className={primaryButtonClass}>
+          {summary.notSent > 0 && (
+            <Alert variant="warning">
+              {summary.notSent} songs weren&rsquo;t added because the connection dropped.
+              {summary.mayHaveMore && ' Paste the songs again to retry; ones already added are skipped.'}
+            </Alert>
+          )}
+
+          {summary.mayHaveMore && (
+            <form onSubmit={handleAddRest} className="space-y-2 rounded-xl border border-neutral-800 bg-neutral-950/50 p-3.5">
+              <label htmlFor="pasted-songs" className="text-xs font-semibold text-white">
+                Add the rest of the songs
+              </label>
+              <p className="text-[11px] leading-relaxed text-neutral-400">
+                A Spotify link only gives the first 100 songs. For the rest, open the playlist in Spotify on a computer,
+                click any song, press <kbd className="text-neutral-200">Ctrl+A</kbd> then <kbd className="text-neutral-200">Ctrl+C</kbd>{' '}
+                (<kbd className="text-neutral-200">⌘A</kbd>, <kbd className="text-neutral-200">⌘C</kbd> on a Mac), and paste here.
+              </p>
+              <textarea
+                id="pasted-songs"
+                rows={3}
+                placeholder="https://open.spotify.com/track/…"
+                value={pastedSongs}
+                onChange={(e) => setPastedSongs(e.target.value)}
+                disabled={isBusy}
+                className={cn(inputClass, 'resize-none font-mono text-xs')}
+              />
+              <div className="flex justify-end">
+                <button type="submit" disabled={isBusy || !pastedSongs.trim()} className={primaryButtonClass}>
+                  {progress && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{progress ? 'Adding…' : 'Add the rest'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {progress && <ProgressBar progress={progress} />}
+
+          {summary.unmatched.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-neutral-300">Not found on JioSaavn ({summary.unmatched.length})</p>
+              <ul className="max-h-48 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2 text-xs">
+                {summary.unmatched.map((t, i) => (
+                  <li key={i} className="truncate py-1 text-neutral-400">
+                    <span className="text-white">{t.title}</span>
+                    {t.artist && ` · ${t.artist}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <DialogActions onCancel={onClose} cancelLabel="Close" cancelDisabled={isBusy}>
+            <button type="button" disabled={isBusy} onClick={() => openPlaylist(summary.playlist.id)} className={primaryButtonClass}>
               Open playlist
             </button>
           </DialogActions>
         </div>
+      ) : mode === 'screenshots' ? (
+        <form key="screenshots" onSubmit={handleScreenshots} className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="screenshot-files" className="text-xs font-semibold text-neutral-300">
+              Screenshots <span className="text-brand-400">*</span>
+            </label>
+            <input
+              id="screenshot-files"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              disabled={isBusy}
+              onChange={(e) => setScreenshots(Array.from(e.target.files ?? []))}
+              className={cn(
+                inputClass,
+                'file:mr-3 file:rounded-full file:border-0 file:bg-neutral-800 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white'
+              )}
+            />
+            <p className="text-[11px] leading-relaxed text-neutral-500">
+              Open the playlist in any music app and screenshot it, scrolling a bit less than a full screen each time, or
+              take one scrolling screenshot. Song names are read automatically and matched on JioSaavn.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="screenshot-title" className="text-xs font-semibold text-neutral-300">
+              Playlist name <span className="text-xs font-normal text-neutral-500">(optional)</span>
+            </label>
+            <input
+              id="screenshot-title"
+              type="text"
+              placeholder="Imported playlist"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={100}
+              disabled={isBusy}
+              className={inputClass}
+            />
+          </div>
+          {progress && <ProgressBar progress={progress} />}
+          <div className="pt-2">
+            <DialogActions onCancel={onClose} cancelDisabled={isBusy}>
+              <button type="submit" disabled={isBusy || screenshots.length === 0} className={primaryButtonClass}>
+                {isBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                <span>
+                  {isBusy
+                    ? 'Importing…'
+                    : screenshots.length > 1
+                      ? `Import ${screenshots.length} screenshots`
+                      : 'Import'}
+                </span>
+              </button>
+            </DialogActions>
+          </div>
+        </form>
       ) : mode === 'import' ? (
         <form key="import" onSubmit={handleImport} className="space-y-4">
           <div className="space-y-1.5">
@@ -221,7 +451,8 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               className={inputClass}
             />
             <p className="text-[11px] text-neutral-500">
-              The playlist must be public. Up to the first 100 songs are matched on JioSaavn; this can take a few seconds.
+              The playlist must be public. Songs are matched on JioSaavn, which takes a few seconds. Over 100 songs?
+              You&rsquo;ll be shown how to add the rest.
             </p>
           </div>
           <div className="pt-2">
@@ -347,5 +578,22 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
       </form>
       )}
     </Dialog>
+  );
+}
+
+function ProgressBar({ progress }: { progress: Progress }) {
+  const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  return (
+    <div className="space-y-1.5" role="status" aria-live="polite">
+      <div className="flex justify-between text-[11px] text-neutral-400">
+        <span>{progress.label}…</span>
+        <span>
+          {progress.done} / {progress.total}
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-neutral-800">
+        <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }

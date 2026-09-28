@@ -66,6 +66,10 @@ const envSchema = z.object({
   // (callers log a warning and skip) so the rest of the API keeps working
   // without a Redis instance in local dev.
   REDIS_URL: z.string().optional(),
+
+  // Gemini (optional — only the playlist-from-screenshots import needs it;
+  // that endpoint returns 503 while it's unset). Key: https://aistudio.google.com/apikey
+  GEMINI_API_KEY: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

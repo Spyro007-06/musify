@@ -1,17 +1,23 @@
 import { prisma } from '@config/database';
+import { env } from '@config/env';
 import { SaavnService } from './saavn.service';
 import { ApiError } from '@utils/ApiError';
 import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
+import { HTTP_STATUS } from '@constants/httpCodes';
+import { ERROR_MESSAGES } from '@constants/messages';
 
-interface SpotifyTrack {
+/** A song to find on JioSaavn. Screenshots carry no duration. */
+export interface SourceTrack {
   title: string;
   artist: string;
-  durationSec: number;
+  durationSec?: number;
 }
 
 const SEARCH_DELAY_MS = 150;
 const CONCURRENCY = 4;
+/** What Spotify's playlist embed lists at most; a full page means there may be more. */
+const EMBED_TRACK_LIMIT = 100;
 
 /** Drops tags JioSaavn titles don't carry: "(feat. X)", "- Remastered 2011", "[Bonus Track]", "(Deluxe Edition)". */
 export function cleanTitle(title: string): string {
@@ -21,31 +27,68 @@ export function cleanTitle(title: string): string {
     .trim();
 }
 
+/** Every Spotify track id in pasted text (Spotify's "Copy" puts one link per song). */
+export function parseSpotifyTrackIds(text: string): string[] {
+  return [...new Set([...text.matchAll(/track[/:]([A-Za-z0-9]{22})/g)].map((m) => m[1]))];
+}
+
 /**
- * Reads a public playlist from Spotify's embed page, which ships its data as
- * server-rendered JSON — no API keys or login. Only the playlist id is taken
- * from the user's input, so this can't be pointed at any other host.
- * ponytail: the embed lists at most 100 tracks; beyond that needs the Web API.
+ * Runs fn over items with a few workers, each pausing between calls, so a
+ * big import doesn't hammer Spotify or JioSaavn. Results keep input order;
+ * a failed call leaves null.
+ */
+async function pooled<T, R>(items: T[], fn: (item: T) => Promise<R | null>): Promise<(R | null)[]> {
+  const results: (R | null)[] = new Array(items.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      try {
+        results[i] = await fn(items[i]);
+      } catch (err) {
+        logger.warn('Playlist import: lookup failed', err);
+      }
+      await new Promise((r) => setTimeout(r, SEARCH_DELAY_MS));
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  return results;
+}
+
+/**
+ * Reads the data Spotify's public embed page ships as server-rendered JSON —
+ * no API keys or login. Callers pass only a validated id, so this can't be
+ * pointed at any other host. Null when Spotify has no such item.
+ */
+async function readSpotifyEmbed(path: string): Promise<any | null> {
+  const res = await fetch(`https://open.spotify.com/embed/${path}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw ApiError.internal(`Spotify returned ${res.status}.`);
+  const json = (await res.text()).match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s)?.[1];
+  return (json && JSON.parse(json).props?.pageProps?.state?.data?.entity) || null;
+}
+
+/**
+ * ponytail: the playlist embed lists at most 100 tracks. The rest come in
+ * through importSongs (pasted track links, or screenshots) — Spotify's Web
+ * API only returns tracks of playlists the signed-in user owns since 2026.
  */
 async function fetchSpotifyPlaylist(url: string) {
   const id = url.match(/playlist[/:]([A-Za-z0-9]{22})/)?.[1];
   if (!id) throw ApiError.badRequest('That is not a Spotify playlist link.');
 
-  const res = await fetch(`https://open.spotify.com/embed/playlist/${id}`, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (res.status === 404) throw ApiError.notFound('Spotify playlist not found. Is it public?');
-  if (!res.ok) throw ApiError.internal(`Spotify returned ${res.status}.`);
-
-  const json = (await res.text()).match(/<script id="__NEXT_DATA__" type="application\/json">(.*?)<\/script>/s)?.[1];
-  const entity = json ? JSON.parse(json).props?.pageProps?.state?.data?.entity : null;
-  if (!entity?.trackList) throw ApiError.internal('Could not read that Spotify playlist.');
+  const entity = await readSpotifyEmbed(`playlist/${id}`);
+  if (!entity) throw ApiError.notFound('Spotify playlist not found. Is it public?');
+  if (!entity.trackList) throw ApiError.internal('Could not read that Spotify playlist.');
 
   return {
     title: String(entity.name || entity.title || 'Imported playlist').slice(0, 100),
     coverUrl: entity.coverArt?.sources?.[0]?.url || null,
-    tracks: entity.trackList.map((t: any): SpotifyTrack => ({
+    tracks: entity.trackList.map((t: any): SourceTrack & { spotifyId: string } => ({
+      spotifyId: String(t.uri || '').split(':').pop() || '',
       title: t.title,
       artist: String(t.subtitle || '').split(',')[0].trim(),
       durationSec: Math.round((t.duration || 0) / 1000),
@@ -53,36 +96,43 @@ async function fetchSpotifyPlaylist(url: string) {
   };
 }
 
+async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
+  const e = await readSpotifyEmbed(`track/${id}`);
+  if (!e?.title) return null;
+  return {
+    title: e.title,
+    artist: e.artists?.[0]?.name || '',
+    durationSec: Math.round((e.duration || 0) / 1000),
+  };
+}
+
+const SCREENSHOT_PROMPT =
+  'This is a screenshot of a music playlist or song list, from any app. List every song visible, ' +
+  'top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
+  'row: headers, buttons, ads, the now-playing bar, and rows cut off at the top or bottom edge. ' +
+  'If a row shows no artist, use an empty string.';
+
 export class SpotifyImportService {
   private static saavn = SaavnService.getInstance();
 
-  public static async importPlaylist(userId: string, url: string) {
-    const source = await fetchSpotifyPlaylist(url);
+  /** Finds each song on JioSaavn; null where there's no confident match. */
+  private static matchOnSaavn(tracks: SourceTrack[]) {
+    return pooled(tracks, (t) => this.saavn.findSongByDuration(`${cleanTitle(t.title)} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist));
+  }
 
-    // A few workers, each pausing between searches, so a 100-track import
-    // doesn't hammer JioSaavn. Results keep the Spotify order.
-    const results: (any | null)[] = new Array(source.tracks.length).fill(null);
-    let next = 0;
-    const worker = async () => {
-      while (next < source.tracks.length) {
-        const i = next++;
-        const t = source.tracks[i];
-        try {
-          results[i] = await this.saavn.findSongByDuration(`${cleanTitle(t.title)} ${t.artist}`, t.durationSec, t.artist);
-        } catch (err) {
-          logger.warn(`Spotify import: search failed for "${t.title}"`, err);
-        }
-        await new Promise((r) => setTimeout(r, SEARCH_DELAY_MS));
-      }
-    };
-    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-
+  private static splitMatches(tracks: SourceTrack[], results: (any | null)[]) {
     const matched: { title: string; artist: string; trackId: string }[] = [];
     const unmatched: { title: string; artist: string }[] = [];
-    source.tracks.forEach((t: SpotifyTrack, i: number) => {
+    tracks.forEach((t, i) => {
       if (results[i]) matched.push({ title: t.title, artist: t.artist, trackId: results[i].id });
       else unmatched.push({ title: t.title, artist: t.artist });
     });
+    return { matched, unmatched };
+  }
+
+  public static async importPlaylist(userId: string, url: string) {
+    const source = await fetchSpotifyPlaylist(url);
+    const { matched, unmatched } = this.splitMatches(source.tracks, await this.matchOnSaavn(source.tracks));
 
     // Two Spotify tracks can resolve to the same JioSaavn song; the table allows it once.
     const trackIds = [...new Set(matched.map((m) => m.trackId))];
@@ -105,6 +155,85 @@ export class SpotifyImportService {
       total: source.tracks.length,
       matched,
       unmatched,
+      // Lets the client skip these when the user pastes the full track list.
+      spotifyIds: source.tracks.map((t: { spotifyId: string }) => t.spotifyId).filter(Boolean),
+      mayHaveMore: source.tracks.length >= EMBED_TRACK_LIMIT,
     };
   }
+
+  /**
+   * Appends one batch of songs to the user's playlist: Spotify track ids
+   * (looked up on their public pages) and/or plain title + artist pairs
+   * (from screenshots). Kept to small batches so each request stays short;
+   * the client sends the next batch when this one returns.
+   */
+  public static async importSongs(userId: string, playlistId: string, spotifyIds: string[], songs: SourceTrack[]) {
+    const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+    if (!playlist) throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
+    if (playlist.ownerId !== userId) throw ApiError.forbidden(ERROR_MESSAGES.PLAYLIST_ACCESS_DENIED);
+
+    const fromSpotify = await pooled(spotifyIds, fetchSpotifyTrack);
+    const lost = spotifyIds.filter((_, i) => !fromSpotify[i]).map((id) => ({ title: `Spotify track ${id}`, artist: '' }));
+    const tracks = [...fromSpotify.filter((t): t is SourceTrack => t !== null), ...songs];
+    const { matched, unmatched } = this.splitMatches(tracks, await this.matchOnSaavn(tracks));
+
+    const base = Date.now();
+    const { count } = await prisma.playlistTrack.createMany({
+      data: [...new Set(matched.map((m) => m.trackId))].map((id, i) => ({
+        playlistId,
+        spotifyTrackId: id,
+        addedAt: new Date(base + i),
+      })),
+      skipDuplicates: true, // already in the playlist (e.g. from the first 100)
+    });
+
+    return { added: count, matched, unmatched: [...lost, ...unmatched] };
+  }
+
+  /** Reads the song list off one screenshot with Gemini. */
+  public static async readScreenshot(mimeType: string, base64: string): Promise<SourceTrack[]> {
+    if (!env.GEMINI_API_KEY) {
+      throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Screenshot import is not set up yet (GEMINI_API_KEY is missing).');
+    }
+
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
+              required: ['title', 'artist'],
+            },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!res.ok) {
+      logger.warn(`Screenshot import: Gemini returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
+    }
+    const body: any = await res.json();
+    return parseScreenshotSongs(body?.candidates?.[0]?.content?.parts?.[0]?.text);
+  }
+}
+
+/** Gemini's JSON reply → clean song rows (drops blanks, trims, caps lengths). */
+export function parseScreenshotSongs(text: unknown): SourceTrack[] {
+  let rows: unknown;
+  try {
+    rows = JSON.parse(String(text ?? '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, ''));
+  } catch {
+    throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot. Try a clearer one.');
+  }
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((r: any) => ({ title: String(r?.title ?? '').trim().slice(0, 200), artist: String(r?.artist ?? '').trim().slice(0, 200) }))
+    .filter((r) => r.title);
 }

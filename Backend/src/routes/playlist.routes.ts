@@ -71,6 +71,76 @@ router.post('/import/spotify', authenticate, PlaylistController.importFromSpotif
 
 /**
  * @swagger
+ * /playlists/import/screenshot:
+ *   post:
+ *     summary: Read the song list off one playlist screenshot (Gemini)
+ *     tags: [Playlists]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [mimeType, data]
+ *             properties:
+ *               mimeType:
+ *                 type: string
+ *                 enum: [image/jpeg, image/png, image/webp]
+ *               data:
+ *                 type: string
+ *                 description: Base64 image
+ *     responses:
+ *       200:
+ *         description: Songs found, as { title, artist }
+ *       503:
+ *         description: GEMINI_API_KEY is not configured
+ */
+router.post('/import/screenshot', authenticate, PlaylistController.readScreenshot);
+
+/**
+ * @swagger
+ * /playlists/{id}/import/songs:
+ *   post:
+ *     summary: Match up to 25 songs on JioSaavn and append them to your playlist
+ *     tags: [Playlists]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               spotifyIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               songs:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     title:
+ *                       type: string
+ *                     artist:
+ *                       type: string
+ *     responses:
+ *       200:
+ *         description: Added count, matched and unmatched songs
+ */
+router.post('/:id/import/songs', authenticate, PlaylistController.importSongs);
+
+/**
+ * @swagger
  * /playlists/{id}:
  *   get:
  *     summary: Get playlist details

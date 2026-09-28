@@ -786,8 +786,9 @@ export class SaavnService {
     const tracks = (res?.results || []).map((t: any) => this.mapTrack(t));
     const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
     const wanted = artist ? norm(artist) : '';
+    // durationSec 0 = unknown (songs read off a screenshot): artist match only.
     return tracks.find((t: any) =>
-      t && Math.abs(t.duration - durationSec) <= toleranceSec &&
+      t && (!durationSec || Math.abs(t.duration - durationSec) <= toleranceSec) &&
       (!wanted || t.artists.some((a: any) => { const n = norm(a.name); return n.includes(wanted) || wanted.includes(n); }))
     ) ?? null;
   }
