@@ -46,6 +46,31 @@ router.post('/', authenticate, PlaylistController.createPlaylist);
 
 /**
  * @swagger
+ * /playlists/import/spotify:
+ *   post:
+ *     summary: Import a public Spotify playlist, matching its songs on JioSaavn
+ *     tags: [Playlists]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Created, with matched and unmatched songs
+ */
+router.post('/import/spotify', authenticate, PlaylistController.importFromSpotify);
+
+/**
+ * @swagger
  * /playlists/{id}:
  *   get:
  *     summary: Get playlist details

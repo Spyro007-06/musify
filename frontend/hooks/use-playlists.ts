@@ -61,6 +61,20 @@ export function useCreatePlaylist() {
   });
 }
 
+export function useImportSpotifyPlaylist() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (url: string) => {
+      const res = await playlistsApi.importFromSpotify(url);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
+    },
+  });
+}
+
 export function useDeletePlaylist() {
   const queryClient = useQueryClient();
 

@@ -35,6 +35,7 @@ jest.mock('@services/saavn.service', () => {
     search: jest.fn(),
     getRecommendations: jest.fn(),
     getSuggestions: jest.fn(),
+    findSongByDuration: jest.fn(),
   };
   return {
     __esModule: true,
@@ -65,6 +66,7 @@ export const saavnMock = SaavnService.getInstance() as {
   search: jest.Mock;
   getRecommendations: jest.Mock;
   getSuggestions: jest.Mock;
+  findSongByDuration: jest.Mock;
 };
 
 beforeEach(() => {

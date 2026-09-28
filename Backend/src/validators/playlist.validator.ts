@@ -22,3 +22,7 @@ export const addTrackSchema = z.object({
   trackId: z.string().min(1, 'Track ID is required'),
 });
 
+
+export const importSpotifySchema = z.object({
+  url: z.string().trim().min(1, 'Spotify playlist link is required').max(500),
+});
