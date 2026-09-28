@@ -14,10 +14,14 @@ name: Production Auth Smoke Test
 
 on:
   schedule:
-    # Every 10 min, which also keeps Render's free instance awake: it sleeps
-    # after 15 idle minutes, and requests through Vercel 502 until it wakes.
+    # Asks for every 10 min, but GitHub runs schedules late (often hours
+    # apart), so this does NOT keep Render's free instance awake.
     - cron: '*/10 * * * *'
   workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
 
 jobs:
   smoke-test:
@@ -44,3 +48,26 @@ jobs:
           SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
           SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+      # Alerting without Sentry: a new issue notifies the repo owner (email /
+      # GitHub app). One open issue per outage, closed when the test recovers.
+      - name: Open an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$ISSUE_TITLE\"" --json number --jq length)
+          [ "$open" -gt 0 ] || gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" \
+            --body "Production login is failing. Run: $RUN_URL — see Backend/RUNBOOK.md \"Auth smoke test\"."
+
+      - name: Close the failure issue on recovery
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$ISSUE_TITLE\"" --json number --jq '.[].number' |
+            xargs -r -I{} gh issue close {} --repo "$GITHUB_REPOSITORY" --comment "Passing again: $RUN_URL"
+
+    env:
+      ISSUE_TITLE: Production auth smoke test failing
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
