@@ -106,6 +106,14 @@ async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
   };
 }
 
+/**
+ * Google's moving aliases (they track the current Flash / Flash-Lite, so they
+ * don't go stale), tried in order. 404 is included in case an alias is retired.
+ */
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
+const GEMINI_RETRYABLE = new Set([404, 429, 500, 503]);
+const GEMINI_ROUND_PAUSE_MS = 1500;
+
 const SCREENSHOT_PROMPT =
   'This is a screenshot of a music playlist or song list, from any app. List every song visible, ' +
   'top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
@@ -196,31 +204,45 @@ export class SpotifyImportService {
       throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Screenshot import is not set up yet (GEMINI_API_KEY is missing).');
     }
 
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
-              required: ['title', 'artist'],
-            },
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
+            required: ['title', 'artist'],
           },
         },
-      }),
-      signal: AbortSignal.timeout(45_000),
+      },
     });
-    if (!res.ok) {
-      logger.warn(`Screenshot import: Gemini returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+
+    // Two rounds over the models with a short pause between: a model that's
+    // overloaded (Gemini 503s "high demand" for minutes at a time) or
+    // rate-limited falls through to the next.
+    let res: Response | null = null;
+    const attempts = [...GEMINI_MODELS, ...GEMINI_MODELS];
+    for (let i = 0; i < attempts.length; i++) {
+      if (i === GEMINI_MODELS.length) await new Promise((r) => setTimeout(r, GEMINI_ROUND_PAUSE_MS));
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${attempts[i]}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body,
+        signal: AbortSignal.timeout(20_000),
+      }).catch(() => null); // timeout or network error: try the next one
+      if (res && (res.ok || !GEMINI_RETRYABLE.has(res.status))) break;
+      logger.warn(`Screenshot import: Gemini ${attempts[i]} returned ${res?.status ?? 'no response'}: ${(await res?.text())?.slice(0, 300) ?? ''}`);
+    }
+    if (!res?.ok) {
+      if (res && !GEMINI_RETRYABLE.has(res.status)) {
+        logger.warn(`Screenshot import: Gemini returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      }
       throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
     }
-    const body: any = await res.json();
-    return parseScreenshotSongs(body?.candidates?.[0]?.content?.parts?.[0]?.text);
+    const reply: any = await res.json();
+    return parseScreenshotSongs(reply?.candidates?.[0]?.content?.parts?.[0]?.text);
   }
 }
 

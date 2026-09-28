@@ -317,3 +317,50 @@ describe('POST /api/playlists/import/screenshot', () => {
     expect(res.status).toBe(422);
   });
 });
+
+describe('POST /api/playlists/import/screenshot — Gemini overloads', () => {
+  const { env } = jest.requireActual('@config/env');
+  const geminiOk = (songs: object[]) =>
+    new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(songs) }] } }] }));
+  const overloaded = () => new Response('{"error":{"code":503,"message":"high demand"}}', { status: 503 });
+  let fetchSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    env.GEMINI_API_KEY = 'test-key';
+    prismaMock.user.findUnique.mockResolvedValue(owner as any);
+  });
+  afterEach(() => {
+    delete env.GEMINI_API_KEY;
+    fetchSpy.mockRestore();
+  });
+
+  it('falls back to the next model when one is overloaded', async () => {
+    fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(async (url: any) =>
+        String(url).includes('/gemini-flash-latest:') ? overloaded() : geminiOk([{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }])
+      );
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.songs).toEqual([{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }]);
+    expect(fetchSpy.mock.calls.map(([u]) => String(u).match(/models\/([^:]+)/)?.[1])).toEqual([
+      'gemini-flash-latest',
+      'gemini-flash-lite-latest',
+    ]);
+  });
+
+  it('gives up with a clean 502 after two rounds of overloads', async () => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => overloaded());
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
+    expect(res.status).toBe(502);
+    expect(res.body.message).toMatch(/Could not read that screenshot/);
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not retry a request Gemini rejects outright (e.g. a bad key)', async () => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => new Response('{"error":{"code":403}}', { status: 403 }));
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
+    expect(res.status).toBe(502);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
