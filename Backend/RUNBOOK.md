@@ -76,12 +76,13 @@ It was moved off Railway on 2026-09-28; there is no background worker.
   the auth/CSRF cookies first-party. Leave `NEXT_PUBLIC_API_URL` unset on
   Vercel — pointing the browser straight at Render breaks those cookies
   and CORS.
-- **Triggers on**: every push to `main`, once its CI checks pass (Render's
-  GitHub app is installed on `Spyro007-06/musify`; Auto-Deploy is "After
-  CI Checks Pass"; Dockerfile `./Backend/Dockerfile`, context `./Backend`).
-  `main` has branch protection requiring `build-lint-test` and
-  `Docker build & container health check` to pass. If a push doesn't
-  deploy, check the GitHub app still has access to the repo, then deploy
+- **Triggers on**: every push to `main` that changes `Backend/**`, once
+  Backend CI passes. `.github/workflows/deploy-render.yml` then calls the
+  service's Deploy Hook (repo secret `RENDER_DEPLOY_HOOK_URL`) for that
+  exact commit. Render's own GitHub auto-deploy never fired for this repo,
+  so the service's Auto-Deploy is set to Off. Dockerfile
+  `./Backend/Dockerfile`, context `./Backend`. If a push doesn't deploy,
+  check the "Deploy backend to Render" run in the Actions tab, then deploy
   manually from the dashboard (Manual Deploy → Deploy latest commit).
 - **Free plan sleeps** after 15 idle minutes, and requests through the
   Vercel proxy 502 until it wakes (~20-50s). The auth smoke test runs every
