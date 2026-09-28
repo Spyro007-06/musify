@@ -5,7 +5,7 @@
  * reference trap of `jest.resetModules()` + dynamic `require()` mixed with
  * statically-imported mocks.
  */
-jest.mock('@config/queue', () => ({ queueEnabled: false, queueConnection: null }));
+jest.mock('@config/queue', () => ({ queueEnabled: false, queueConnection: null, createWorkerConnection: () => ({}) }));
 jest.mock('bullmq', () => ({
   Worker: jest.fn(),
   UnrecoverableError: jest.requireActual('bullmq').UnrecoverableError,

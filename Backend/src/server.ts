@@ -48,7 +48,9 @@ const startServer = async () => {
       // Registers (idempotently) the hourly cache-cleanup schedule — this
       // process only enqueues/schedules jobs, it never runs them; that's
       // the separate worker process (src/jobs/workerMain.ts).
-      await scheduleMaintenanceJobs();
+      // Non-fatal: Redis being down must not keep the API from booting. The
+      // schedule persists in Redis and is re-upserted on the next boot.
+      await scheduleMaintenanceJobs().catch((err) => logger.error('Could not schedule maintenance jobs (queue Redis unreachable?):', err));
     }
   } catch (error) {
     logger.error('Failed to start server:', error);

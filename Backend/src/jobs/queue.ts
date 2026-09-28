@@ -1,6 +1,24 @@
 import { Queue } from 'bullmq';
 import { queueConnection, queueEnabled } from '@config/queue';
 import { logger } from '@utils/logger';
+import { ApiError } from '@utils/ApiError';
+import { HTTP_STATUS } from '@constants/httpCodes';
+
+// BullMQ waits for the Redis connection to be ready before sending anything,
+// so the connection's own commandTimeout never starts while Redis is down —
+// an enqueue would otherwise hang the request forever. Every call below goes
+// through this bound instead, failing as a 503.
+const QUEUE_CALL_TIMEOUT_MS = 5000;
+function withinQueueTimeout<T>(call: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, `Background job queue is unreachable (${what}).`)),
+      QUEUE_CALL_TIMEOUT_MS
+    );
+  });
+  return Promise.race([call, timedOut]).finally(() => clearTimeout(timer));
+}
 
 /**
  * One BullMQ queue per job domain (mirrors src/services' *.service.ts split
@@ -74,7 +92,7 @@ export async function enqueueProcessMusicMetadata(trackIds: string[]): Promise<E
     logger.warn('enqueueProcessMusicMetadata called but the job queue is disabled (REDIS_URL not set).');
     return null;
   }
-  const job = await musicQueue.add(JOB_NAMES.PROCESS_MUSIC_METADATA, { trackIds });
+  const job = await withinQueueTimeout(musicQueue.add(JOB_NAMES.PROCESS_MUSIC_METADATA, { trackIds }), 'enqueue');
   return { taskId: encodeTaskId('music', job.id!), status: 'queued' };
 }
 
@@ -84,7 +102,7 @@ export async function enqueueGenerateUserRecommendations(userId: string): Promis
     logger.warn('enqueueGenerateUserRecommendations called but the job queue is disabled (REDIS_URL not set).');
     return null;
   }
-  const job = await recommendationQueue.add(JOB_NAMES.GENERATE_USER_RECOMMENDATIONS, { userId });
+  const job = await withinQueueTimeout(recommendationQueue.add(JOB_NAMES.GENERATE_USER_RECOMMENDATIONS, { userId }), 'enqueue');
   return { taskId: encodeTaskId('recommendations', job.id!), status: 'queued' };
 }
 
@@ -107,11 +125,11 @@ export async function scheduleMaintenanceJobs(): Promise<void> {
   }
   // Upserting is idempotent — safe to call on every boot / every instance in
   // a multi-instance deploy without creating duplicate hourly schedules.
-  await maintenanceQueue.upsertJobScheduler(
+  await withinQueueTimeout(maintenanceQueue.upsertJobScheduler(
     CLEANUP_REPEATABLE_JOB_ID,
     { pattern: '0 * * * *' },
     { name: JOB_NAMES.CLEANUP_EXPIRED_DATA, data: {} }
-  );
+  ), 'schedule');
   logger.info('🔁 Maintenance cleanup job scheduled: "0 * * * *" (hourly)');
 }
 
@@ -135,11 +153,11 @@ export async function findJobById(taskId: string) {
     const queueName = taskId.slice(0, separatorIndex);
     const rawId = taskId.slice(separatorIndex + 1);
     const queue = QUEUES_BY_NAME[queueName];
-    if (queue) return queue.getJob(rawId);
+    if (queue) return withinQueueTimeout(queue.getJob(rawId), 'lookup');
   }
 
   for (const queue of ALL_QUEUES) {
-    const job = await queue.getJob(taskId);
+    const job = await withinQueueTimeout(queue.getJob(taskId), 'lookup');
     if (job) return job;
   }
   return null;

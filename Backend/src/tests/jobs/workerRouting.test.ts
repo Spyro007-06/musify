@@ -7,7 +7,7 @@
  */
 const capturedProcessors: Record<string, (job: any) => Promise<unknown>> = {};
 
-jest.mock('@config/queue', () => ({ queueEnabled: true, queueConnection: {} }));
+jest.mock('@config/queue', () => ({ queueEnabled: true, queueConnection: {}, createWorkerConnection: () => ({}) }));
 jest.mock('bullmq', () => ({
   // worker.ts's sibling import of @jobs/queue constructs a Queue per queue
   // name at module load — needs a harmless mock too even though this file

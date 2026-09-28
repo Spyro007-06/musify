@@ -74,3 +74,17 @@ describe('jobs/queue — enabled', () => {
     expect(getJobMock).toHaveBeenCalledTimes(3);
   });
 });
+
+describe('jobs/queue — Redis unreachable', () => {
+  it('fails an enqueue with a 503 after 5 s instead of hanging (BullMQ waits forever for the connection)', async () => {
+    jest.useFakeTimers();
+    addMock.mockReturnValueOnce(new Promise(() => {})); // never settles, like a down Redis
+
+    const pending = enqueueGenerateUserRecommendations('user-1');
+    const assertion = expect(pending).rejects.toMatchObject({ statusCode: 503 });
+    await jest.advanceTimersByTimeAsync(5000);
+    await assertion;
+
+    jest.useRealTimers();
+  });
+});
