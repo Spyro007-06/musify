@@ -7,6 +7,21 @@ export interface SpotifyImportResult {
   total: number;
   matched: { title: string; artist: string; trackId: string }[];
   unmatched: { title: string; artist: string }[];
+  /** Spotify ids of the songs covered here, so a later paste can skip them. */
+  spotifyIds: string[];
+  /** Spotify's page lists at most 100 songs; true when that page was full. */
+  mayHaveMore: boolean;
+}
+
+export interface ImportSongsResult {
+  added: number;
+  matched: { title: string; artist: string; trackId: string }[];
+  unmatched: { title: string; artist: string }[];
+}
+
+export interface ImportSong {
+  title: string;
+  artist: string;
 }
 
 export const playlistsApi = {
@@ -26,6 +41,16 @@ export const playlistsApi = {
 
   importFromSpotify: (url: string): Promise<ApiResponse<SpotifyImportResult>> =>
     apiClient.post<SpotifyImportResult>('/playlists/import/spotify', { url }),
+
+  /** At most 25 songs per call (the server rejects more). */
+  importSongs: (
+    playlistId: string,
+    batch: { spotifyIds?: string[]; songs?: ImportSong[] }
+  ): Promise<ApiResponse<ImportSongsResult>> =>
+    apiClient.post<ImportSongsResult>(`/playlists/${encodeURIComponent(playlistId)}/import/songs`, batch),
+
+  readScreenshot: (mimeType: string, data: string): Promise<ApiResponse<{ songs: ImportSong[] }>> =>
+    apiClient.post<{ songs: ImportSong[] }>('/playlists/import/screenshot', { mimeType, data }),
 
   deletePlaylist: (id: string): Promise<ApiResponse<void>> =>
     apiClient.delete<void>(`/playlists/${encodeURIComponent(id)}`),

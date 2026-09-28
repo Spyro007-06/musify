@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { PlaylistService } from '@services/playlist.service';
 import { SpotifyImportService } from '@services/spotifyImport.service';
-import { createPlaylistSchema, addTrackSchema, importSpotifySchema } from '@validators/playlist.validator';
+import {
+  createPlaylistSchema,
+  addTrackSchema,
+  importSpotifySchema,
+  importSongsSchema,
+  importScreenshotSchema,
+} from '@validators/playlist.validator';
 import { sendSuccess } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
@@ -66,6 +72,39 @@ export class PlaylistController {
         statusCode: HTTP_STATUS.CREATED,
         message: `Imported ${result.matched.length} of ${result.total} songs.`,
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async importSongs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { spotifyIds, songs } = importSongsSchema.parse(req.body);
+      const result = await SpotifyImportService.importSongs(authReq.user.id, req.params.id, spotifyIds, songs);
+
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: `Added ${result.added} songs.`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async readScreenshot(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { mimeType, data } = importScreenshotSchema.parse(req.body);
+      const songs = await SpotifyImportService.readScreenshot(mimeType, data);
+
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: `Found ${songs.length} songs.`,
+        data: { songs },
       });
     } catch (error) {
       next(error);

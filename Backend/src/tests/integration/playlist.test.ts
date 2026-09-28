@@ -239,3 +239,81 @@ describe('POST /api/playlists/import/spotify', () => {
     expect(res.body.data.unmatched.map((t: any) => t.title)).toEqual(['Region Locked', 'Stay (with Justin Bieber)']);
   });
 });
+
+describe('POST /api/playlists/:id/import/songs', () => {
+  const TRACK_A = '4uLU6hMCjMI75M1A2tKUQC';
+  const TRACK_GONE = '0000000000000000000000';
+  const trackPage = (entity: object) =>
+    `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { state: { data: { entity } } } },
+    })}</script></html>`;
+  let fetchSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    // A fresh Response per call: a body can only be read once.
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (url: any) =>
+      String(url).endsWith(TRACK_A)
+        ? new Response(trackPage({ title: 'Never Gonna Give You Up', artists: [{ name: 'Rick Astley' }], duration: 213000 }))
+        : new Response('', { status: 404 })
+    );
+    prismaMock.user.findUnique.mockResolvedValue(owner as any);
+  });
+  afterEach(() => fetchSpy.mockRestore());
+
+  it("refuses to add to someone else's playlist, without looking anything up", async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'pl-1', ownerId: owner.id } as any);
+    prismaMock.user.findUnique.mockResolvedValue(intruder as any);
+    const res = await authedPost('/api/playlists/pl-1/import/songs', intruder, { spotifyIds: [TRACK_A] });
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(prismaMock.playlistTrack.createMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects batches over 25 songs (validation error)', async () => {
+    const songs = Array.from({ length: 26 }, (_, i) => ({ title: `Song ${i}`, artist: '' }));
+    const res = await authedPost('/api/playlists/pl-1/import/songs', owner, { songs });
+    expect(res.status).toBe(422);
+  });
+
+  it('resolves Spotify links and screenshot rows, then appends the matches', async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'pl-1', ownerId: owner.id } as any);
+    saavnMock.findSongByDuration.mockImplementation(async (query: string) =>
+      query.startsWith('Never Gonna') ? { id: 'saavn-rick' } : query.startsWith('Tum Hi Ho') ? { id: 'saavn-tum' } : null
+    );
+    prismaMock.playlistTrack.createMany.mockResolvedValue({ count: 2 });
+
+    const res = await authedPost('/api/playlists/pl-1/import/songs', owner, {
+      spotifyIds: [TRACK_A, TRACK_GONE],
+      songs: [{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }, { title: 'Unknown Song', artist: '' }],
+    });
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(`https://open.spotify.com/embed/track/${TRACK_A}`, expect.anything());
+    // Spotify songs keep their duration; screenshot rows have none (0 = artist match only).
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Never Gonna Give You Up Rick Astley', 213, 'Rick Astley');
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Tum Hi Ho Arijit Singh', 0, 'Arijit Singh');
+
+    const { data, skipDuplicates } = prismaMock.playlistTrack.createMany.mock.calls[0][0] as any;
+    expect(skipDuplicates).toBe(true);
+    expect(data.map((t: any) => t.spotifyTrackId)).toEqual(['saavn-rick', 'saavn-tum']);
+    expect(data[0].addedAt.getTime()).toBeLessThan(data[1].addedAt.getTime());
+
+    expect(res.body.data.added).toBe(2);
+    expect(res.body.data.unmatched.map((t: any) => t.title)).toEqual([`Spotify track ${TRACK_GONE}`, 'Unknown Song']);
+  });
+});
+
+describe('POST /api/playlists/import/screenshot', () => {
+  it('503s with a clear message while GEMINI_API_KEY is not set', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(owner as any);
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/png', data: 'aGVsbG8=' });
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/GEMINI_API_KEY/);
+  });
+
+  it('rejects anything that is not base64 image data (validation error)', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(owner as any);
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'text/html', data: '<svg>' });
+    expect(res.status).toBe(422);
+  });
+});
