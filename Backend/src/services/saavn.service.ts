@@ -5,6 +5,14 @@ import { SaavnUpstreamError } from '@utils/SaavnUpstreamError';
 import { withCache } from '@utils/cache';
 import { redis, redisEnabled } from '@config/redis';
 import { dedupeById } from '@utils/dedupe';
+import { env } from '@config/env';
+import { viaSaavnProxy } from '@utils/saavnProxy';
+
+// Route jiosaavn-sdk's requests through the Mumbai relay when configured
+// (see utils/saavnProxy.ts for why). Installed once, before any SDK call.
+if (env.SAAVN_PROXY_URL) {
+  globalThis.fetch = viaSaavnProxy(globalThis.fetch, env.SAAVN_PROXY_URL, env.SAAVN_PROXY_KEY);
+}
 
 /**
  * Per-operation circuit breakers, so a burst of failures in one feature

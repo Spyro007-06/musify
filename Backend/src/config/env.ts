@@ -70,6 +70,13 @@ const envSchema = z.object({
   // Gemini (optional — only the playlist-from-screenshots import needs it;
   // that endpoint returns 503 while it's unset). Key: https://aistudio.google.com/apikey
   GEMINI_API_KEY: z.string().optional(),
+
+  // JioSaavn relay in Mumbai (optional). JioSaavn serves a smaller catalog
+  // outside India; set this to the frontend's /saavn route (e.g.
+  // https://<frontend>/saavn) when the backend runs elsewhere. The key is
+  // optional hardening: set the same SAAVN_PROXY_KEY on the frontend too.
+  SAAVN_PROXY_URL: z.string().url().optional(),
+  SAAVN_PROXY_KEY: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);
