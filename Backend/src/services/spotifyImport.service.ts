@@ -213,7 +213,11 @@ export class SpotifyImportService {
   }
 }
 
-/** Gemini's JSON reply → clean song rows (drops blanks, trims, caps lengths). */
+/**
+ * Gemini's JSON reply → clean song rows (drops blanks, trims, caps lengths).
+ * Keeps only the first artist: apps cut long artist lists off mid-name
+ * ("A, B, Har…"), and JioSaavn finds nothing for a half name.
+ */
 export function parseScreenshotSongs(text: unknown): SourceTrack[] {
   let rows: unknown;
   try {
@@ -223,6 +227,9 @@ export function parseScreenshotSongs(text: unknown): SourceTrack[] {
   }
   if (!Array.isArray(rows)) return [];
   return rows
-    .map((r: any) => ({ title: String(r?.title ?? '').trim().slice(0, 200), artist: String(r?.artist ?? '').trim().slice(0, 200) }))
+    .map((r: any) => ({
+      title: String(r?.title ?? '').trim().slice(0, 200),
+      artist: String(r?.artist ?? '').split(',')[0].replace(/(\.{3}|…)$/, '').trim().slice(0, 200),
+    }))
     .filter((r) => r.title);
 }

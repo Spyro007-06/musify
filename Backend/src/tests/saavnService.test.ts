@@ -188,6 +188,16 @@ describe('SaavnService', () => {
         expect.objectContaining({ id: 'right' })
       );
       expect(await saavn.findSongByDuration('Kes Arijit Singh', 0, 'Arijit Singh', 'Kes')).toBeNull();
+
+      // A mashup or lofi take only when asked for.
+      const rahman = { artists: { primary: [{ id: 'a2', name: 'A.R. Rahman' }] } };
+      mockSearchSongs.mockResolvedValue({
+        results: [rawSong({ id: 'mashup', name: 'New York X Munbe Vaa', ...rahman }), rawSong({ id: 'lofi', name: 'Munbe Vaa (Lo-Fi)', ...rahman })],
+      });
+      expect(await saavn.findSongByDuration('Munbe Vaa A.R. Rahman', 0, 'A.R. Rahman', 'Munbe Vaa')).toBeNull();
+      expect(await saavn.findSongByDuration('Munbe Vaa Lofi A.R. Rahman', 0, 'A.R. Rahman', 'Munbe Vaa Lo-Fi')).toEqual(
+        expect.objectContaining({ id: 'lofi' })
+      );
       expect(await saavn.findSongByDuration('Missing Arijit Singh', 0, 'Arijit Singh', 'Missing Song')).toBeNull();
     });
   });

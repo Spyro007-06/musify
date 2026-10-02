@@ -38,6 +38,13 @@ describe('parseScreenshotSongs', () => {
     ]);
   });
 
+  it('keeps only the first artist of a cut-off list', () => {
+    expect(parseScreenshotSongs('[{"title":"Anbe Anbe","artist":"Harris Jayaraj, Harish Raghav…"},{"title":"X","artist":"Harish Raghav..."}]')).toEqual([
+      { title: 'Anbe Anbe', artist: 'Harris Jayaraj' },
+      { title: 'X', artist: 'Harish Raghav' },
+    ]);
+  });
+
   it('turns an unreadable reply into a 502, not a crash', () => {
     expect(() => parseScreenshotSongs('not json')).toThrow(/screenshot/);
   });
