@@ -201,8 +201,8 @@ describe('POST /api/playlists/import/spotify', () => {
     expect(fetchSpy).toHaveBeenCalledWith(`https://open.spotify.com/embed/playlist/${PLAYLIST_ID}`, expect.anything());
 
     // Titles are cleaned and the first artist is searched, with duration and artist for matching.
-    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Hey Jude The Beatles', 431, 'The Beatles');
-    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Stay The Kid LAROI', 141, 'The Kid LAROI');
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Hey Jude The Beatles', 431, 'The Beatles', 'Hey Jude');
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Stay The Kid LAROI', 141, 'The Kid LAROI', 'Stay');
 
     expect(res.body.data).toMatchObject({
       playlist: { id: 'pl-1', title: 'Road Trip', tracksCount: 2 },
@@ -289,9 +289,9 @@ describe('POST /api/playlists/:id/import/songs', () => {
 
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledWith(`https://open.spotify.com/embed/track/${TRACK_A}`, expect.anything());
-    // Spotify songs keep their duration; screenshot rows have none (0 = artist match only).
-    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Never Gonna Give You Up Rick Astley', 213, 'Rick Astley');
-    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Tum Hi Ho Arijit Singh', 0, 'Arijit Singh');
+    // Spotify songs keep their duration; screenshot rows have none (0 = title + artist match).
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Never Gonna Give You Up Rick Astley', 213, 'Rick Astley', 'Never Gonna Give You Up');
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Tum Hi Ho Arijit Singh', 0, 'Arijit Singh', 'Tum Hi Ho');
 
     const { data, skipDuplicates } = prismaMock.playlistTrack.createMany.mock.calls[0][0] as any;
     expect(skipDuplicates).toBe(true);

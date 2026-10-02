@@ -800,16 +800,22 @@ export class SaavnService {
    * expected one — picks the right version (radio edit vs extended) when
    * matching a track from another service — and, when `artist` is given,
    * credited to that artist, so a same-length cover doesn't slip through.
+   * With no duration (screenshots, Gemini picks) the title has to match
+   * instead, so another song by the same artist doesn't either.
    * Null when nothing fits.
    */
-  public async findSongByDuration(query: string, durationSec: number, artist?: string, toleranceSec = 5): Promise<any | null> {
+  public async findSongByDuration(query: string, durationSec: number, artist?: string, title?: string, toleranceSec = 5): Promise<any | null> {
     const res = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
     const tracks = (res?.results || []).map((t: any) => this.mapTrack(t));
     const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    // Whole words, so "Kesariya" fits "Kesariya (From "Brahmastra")" but "Kes" doesn't.
+    // Doubled letters collapse: romanized Hindi spells "Aaya" and "Aya" both ways.
+    const words = (s: string) => ` ${norm(s).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/(\p{L})\1+/gu, '$1').trim()} `;
     const wanted = artist ? norm(artist) : '';
-    // durationSec 0 = unknown (songs read off a screenshot): artist match only.
+    const wantedTitle = !durationSec && title && words(title).trim() ? words(title) : '';
     return tracks.find((t: any) =>
       t && (!durationSec || Math.abs(t.duration - durationSec) <= toleranceSec) &&
+      (!wantedTitle || words(t.title).includes(wantedTitle) || wantedTitle.includes(words(t.title))) &&
       (!wanted || t.artists.some((a: any) => { const n = norm(a.name); return n.includes(wanted) || wanted.includes(n); }))
     ) ?? null;
   }

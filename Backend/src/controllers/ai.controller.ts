@@ -27,11 +27,15 @@ export class AIController {
     try {
       const authReq = req as AuthenticatedRequest;
       const { prompt, playlistName } = req.body;
-      if (!prompt) {
+      if (typeof prompt !== 'string' || !prompt.trim()) {
         throw ApiError.badRequest('prompt is required');
       }
+      if (prompt.length > 300) throw ApiError.badRequest('prompt must be 300 characters or fewer');
+      if (playlistName !== undefined && (typeof playlistName !== 'string' || playlistName.length > 100)) {
+        throw ApiError.badRequest('playlistName must be 100 characters or fewer');
+      }
 
-      const playlistData = await AIService.generatePlaylistFromPrompt(authReq.user.id, prompt, playlistName);
+      const playlistData = await AIService.generatePlaylistFromPrompt(authReq.user.id, prompt.trim(), playlistName?.trim());
 
       if (playlistData.playlistId === null) {
         sendSuccess({

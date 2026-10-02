@@ -128,6 +128,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
           <textarea
             id="ai-prompt-input"
             rows={3}
+            maxLength={300}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="e.g. 90s upbeat pop dance tracks for a road trip with friends..."
@@ -146,6 +147,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
             type="text"
             value={playlistName}
             onChange={(e) => setPlaylistName(e.target.value)}
+            maxLength={100}
             placeholder="Leave blank to auto-generate a title"
             className="w-full rounded-xl bg-neutral-800/80 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 border border-white/10 focus:outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors"
           />

@@ -20,3 +20,5 @@ process.env.SWAGGER_ENABLED = 'false';
 // tests must never hit a real Upstash instance.
 process.env.UPSTASH_REDIS_REST_URL = '';
 process.env.UPSTASH_REDIS_REST_TOKEN = '';
+// Same for Gemini: tests that need it mock fetch and set env.GEMINI_API_KEY themselves.
+process.env.GEMINI_API_KEY = '';
