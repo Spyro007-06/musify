@@ -7,6 +7,7 @@ import { MusicSection } from '@/components/music/music-section';
 import { PlaylistCard } from '@/components/music/playlist-card';
 import { ShelfRow, ShelfItem } from '@/components/music/shelf-row';
 import { Playlist } from '@/types/playlist';
+import { sessionShuffle } from '@/lib/utils/session-shuffle';
 
 export interface PlaylistShelfProps {
   title: string;
@@ -14,11 +15,12 @@ export interface PlaylistShelfProps {
   onPlay?: (playlist: Playlist) => void;
 }
 
-/** One horizontal row of playlists from any playlist query. */
+/** One horizontal row of playlists from any playlist query — a different 10 of them each app open. */
 export function PlaylistShelf({ title, result, onPlay }: PlaylistShelfProps) {
   const { data, isLoading, isError, error, refetch } = result;
+  const shown = React.useMemo(() => sessionShuffle(data || []).slice(0, 10), [data]);
   // Spotify just drops a row with nothing in it rather than showing an empty state.
-  if (!isLoading && !isError && (!data || data.length === 0)) return null;
+  if (!isLoading && !isError && shown.length === 0) return null;
 
   return (
     <MusicSection
@@ -31,7 +33,7 @@ export function PlaylistShelf({ title, result, onPlay }: PlaylistShelfProps) {
       skeletonCount={6}
     >
       <ShelfRow>
-        {data?.map((playlist) => (
+        {shown.map((playlist) => (
           <ShelfItem key={playlist.id}>
             <PlaylistCard playlist={playlist} onPlay={onPlay} />
           </ShelfItem>

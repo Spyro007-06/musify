@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Maximize2, ListMusic, Heart, Disc3, Play, Pause, Loader2, Download } from 'lucide-react';
+import { Maximize2, ListMusic, ListPlus, Heart, Disc3, Play, Pause, Loader2, Download } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
+import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
+import { Track } from '@/types/track';
 import { PlayerControls } from './player-controls';
 import { PlayerProgress } from './player-progress';
 import { PlayerVolume } from './player-volume';
@@ -28,6 +30,9 @@ export function MiniPlayer() {
   const setError = usePlayerStore((s) => s.setError);
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
+  // The song the playlist picker was opened for — kept even if playback moves
+  // on while it's open, so it adds what you tapped on.
+  const [playlistTrack, setPlaylistTrack] = React.useState<Track | null>(null);
   const likeMutation = useLikeTrack();
   const downloadTrack = useDownloadTrack();
 
@@ -103,8 +108,17 @@ export function MiniPlayer() {
           </div>
         </div>
 
-        {/* Mobile Actions: Like + Play/Pause */}
+        {/* Mobile Actions: Add to playlist + Like + Play/Pause */}
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setPlaylistTrack(currentTrack)}
+            aria-label="Add to playlist"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white"
+          >
+            <ListPlus className="h-5 w-5" />
+          </button>
+
           {currentTrack && (
             <button
               type="button"
@@ -188,6 +202,16 @@ export function MiniPlayer() {
               >
                 <Heart className={cn('h-4 w-4', isLiked && 'fill-current')} />
               </button>
+
+              <button
+                type="button"
+                onClick={() => setPlaylistTrack(currentTrack)}
+                aria-label="Add to playlist"
+                title="Add to playlist"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <ListPlus className="h-4 w-4" />
+              </button>
             </>
           ) : (
             <div className="flex items-center gap-3 text-neutral-500">
@@ -257,6 +281,12 @@ export function MiniPlayer() {
           </button>
         </div>
       </div>
+
+      <AddToPlaylistModal
+        isOpen={playlistTrack !== null}
+        onClose={() => setPlaylistTrack(null)}
+        track={playlistTrack}
+      />
     </>
   );
 }

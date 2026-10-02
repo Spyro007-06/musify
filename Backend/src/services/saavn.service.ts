@@ -69,6 +69,12 @@ async function allOrThrow<T>(promises: Promise<T>[], errorMessage: string): Prom
   return fulfilled;
 }
 
+// Editorial playlists the app surfaces itself (home rows, top hits) must be
+// a real listen, not a 5-song stub. Search results carry the count, so this
+// costs no extra calls; a result without one is dropped.
+const MIN_PLAYLIST_SONGS = 30;
+const hasEnoughSongs = (p: any) => Number(p?.songCount) >= MIN_PLAYLIST_SONGS;
+
 function unescapeHtml(str: string): string {
   // JioSaavn returns non-string values (arrays/objects) for some fields —
   // e.g. artist.bio — on a truthy-but-not-a-string input this used to throw
@@ -632,7 +638,7 @@ export class SaavnService {
   // Cached for 6 h so the home page's playlist rows stay the same across
   // visits within a day (Spotify-style), instead of re-querying on every load.
   public async getMoodPlaylists(moodId: string): Promise<any[]> {
-    return withCache(`saavn:mood:${moodId.toLowerCase()}`, 21600, () => this.getMoodPlaylistsUncached(moodId));
+    return withCache(`saavn:mood:v3:${moodId.toLowerCase()}`, 21600, () => this.getMoodPlaylistsUncached(moodId));
   }
 
   /**
@@ -681,11 +687,16 @@ export class SaavnService {
 
   private async getMoodPlaylistsUncached(moodId: string): Promise<any[]> {
     try {
-      // Find charts or playlists related to this mood
+      // Find charts or playlists related to this mood. A deeper pool than one
+      // row shows, so the home screen can rotate which ones appear — and
+      // deeper still, since the too-short ones are dropped.
       const searchPlaylists = await resilientCall(SAAVN_BREAKER.SEARCH, () =>
-        this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 10 })
+        this.searchService.searchPlaylists({ query: moodId, page: 0, limit: 50 })
       );
-      return (searchPlaylists.results || []).map((p: any) => this.mapPlaylistSummary(p, `${moodId} playlist`));
+      return (searchPlaylists.results || [])
+        .filter(hasEnoughSongs)
+        .slice(0, 30)
+        .map((p: any) => this.mapPlaylistSummary(p, `${moodId} playlist`));
     } catch (error) {
       logger.error(`❌ JioSaavn getMoodPlaylists failed for ${moodId}:`, error);
       throw new SaavnUpstreamError('JioSaavn search is currently unavailable.', error);
@@ -713,19 +724,21 @@ export class SaavnService {
   public async getTopHitsPlaylists(language: string): Promise<any[]> {
     const lang = language.toLowerCase();
     const year = new Date().getFullYear();
-    return withCache(`saavn:top-hits:v2:${lang}:${year}`, 21600, async () => {
-      // [query, how many of its top results to keep]
+    return withCache(`saavn:top-hits:v7:${lang}:${year}`, 21600, async () => {
+      // [query, how many of its top results to keep] — more than one row
+      // shows, so the home screen can rotate which ones appear.
       const plan: [string, number][] = [
         [`${lang} top 50`, 1],
-        [`trending ${lang}`, 2],
-        [`${lang} hits ${year}`, 4],
-        [`latest ${lang}`, 1],
-        [`${lang} viral`, 1],
+        [`trending ${lang}`, 6],
+        [`${lang} hits ${year}`, 10],
+        [`latest ${lang}`, 4],
+        [`${lang} viral`, 3],
+        [`${lang} chartbusters`, 4],
       ];
       const batches = await allOrThrow(
         plan.map(([query, keep]) =>
-          resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchPlaylists({ query, page: 0, limit: keep })).then(
-            (r: any) => (r.results || []).slice(0, keep)
+          resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchPlaylists({ query, page: 0, limit: 30 })).then(
+            (r: any) => (r.results || []).filter(hasEnoughSongs).slice(0, keep)
           )
         ),
         'JioSaavn search is currently unavailable.'
