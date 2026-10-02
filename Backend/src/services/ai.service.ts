@@ -140,8 +140,14 @@ const isReasonableTrackLength = (t: any) =>
 /** Fewer of Gemini's picks than this found on JioSaavn: top up from the keyword parser. */
 const MIN_CURATED_TRACKS = 10;
 
-/** Gemini picks more than a playlist holds: on a real Tamil prompt only about half were on JioSaavn. */
+/** Most songs asked of Gemini in one round. */
 const CURATED_PICKS = 45;
+
+/**
+ * Another round of asking Gemini only starts within this long of the first,
+ * so the request (proxied through Vercel) still answers in about a minute.
+ */
+const CURATE_BUDGET_MS = 45_000;
 
 const CURATED_PLAYLIST_SCHEMA = {
   type: 'OBJECT',
@@ -161,38 +167,60 @@ const CURATED_PLAYLIST_SCHEMA = {
 
 /**
  * Asks Gemini for real songs that fit the prompt and finds each on JioSaavn,
- * keeping Gemini's order (the caller keeps the first 30 found). Null when
- * Gemini isn't set up or didn't answer.
+ * keeping Gemini's order. Only about 40% of its picks are on JioSaavn, so
+ * while fewer than 30 are found it asks again for three times the shortfall,
+ * leaving out every song already tried — until 30, Gemini runs dry, or the
+ * time budget is spent. Null when Gemini isn't set up or didn't answer.
  */
 async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
-  const text = await askGeminiJson(
-    [
-      {
-        text:
-          `You are a music curator. Build a playlist for this request: ${JSON.stringify(prompt)}. ` +
-          `Pick ${CURATED_PICKS} real, released songs that fit it, in a good listening order, with no repeats. ` +
-          (languages.length
-            ? `The listener mostly listens to ${languages.join(', ')} music; prefer that unless the request asks for something else. `
-            : '') +
-          'Give each song its official title and main artist (for film songs, the lead singer, not the composer), ' +
-          'spelled the way JioSaavn lists them, in Latin letters. ' +
-          'Also give the playlist a short title, under 40 characters, with no quotes or emoji.',
-      },
-    ],
-    CURATED_PLAYLIST_SCHEMA
-  );
-  let reply: any;
-  try {
-    reply = JSON.parse(text ?? '');
-  } catch {
-    return null;
+  const deadline = Date.now() + CURATE_BUDGET_MS;
+  const tried: SourceTrack[] = [];
+  const triedKeys = new Set<string>();
+  const tracks: any[] = [];
+  let title = '';
+
+  while (tracks.length < MAX_PLAYLIST_TRACKS && (tried.length === 0 || Date.now() < deadline)) {
+    const count = Math.min(CURATED_PICKS, (MAX_PLAYLIST_TRACKS - tracks.length) * 3);
+    const text = await askGeminiJson(
+      [
+        {
+          text:
+            `You are a music curator. Build a playlist for this request: ${JSON.stringify(prompt)}. ` +
+            `Pick ${count} real, released songs that fit it, in a good listening order, with no repeats. ` +
+            (languages.length
+              ? `The listener mostly listens to ${languages.join(', ')} music; prefer that unless the request asks for something else. `
+              : '') +
+            'Give each song its official title and main artist (for film songs, the lead singer, not the composer), ' +
+            'spelled the way JioSaavn lists them, in Latin letters. ' +
+            (tried.length ? `Leave out these songs, already considered: ${tried.map((s) => `${s.title} by ${s.artist}`).join('; ')}. ` : '') +
+            'Also give the playlist a short title, under 40 characters, with no quotes or emoji.',
+        },
+      ],
+      CURATED_PLAYLIST_SCHEMA
+    );
+    let reply: any;
+    try {
+      reply = JSON.parse(text ?? '');
+    } catch {
+      break;
+    }
+    const songs: SourceTrack[] = [];
+    for (const s of Array.isArray(reply?.songs) ? reply.songs : []) {
+      const song = { title: String(s?.title ?? '').trim().slice(0, 200), artist: String(s?.artist ?? '').trim().slice(0, 200) };
+      const key = `${song.title}|${song.artist}`.toLowerCase();
+      if (song.title && !triedKeys.has(key) && songs.length < count) {
+        triedKeys.add(key);
+        songs.push(song);
+      }
+    }
+    if (songs.length === 0) break; // Gemini has nothing new to offer
+    tried.push(...songs);
+    title ||= String(reply?.title ?? '').trim().slice(0, 100);
+    for (const t of await SpotifyImportService.matchOnSaavn(songs)) {
+      if (t && !tracks.some((found) => found.id === t.id)) tracks.push(t);
+    }
   }
-  const songs: SourceTrack[] = (Array.isArray(reply?.songs) ? reply.songs : [])
-    .map((s: any) => ({ title: String(s?.title ?? '').trim().slice(0, 200), artist: String(s?.artist ?? '').trim().slice(0, 200) }))
-    .filter((s: SourceTrack) => s.title)
-    .slice(0, CURATED_PICKS);
-  const matches = await SpotifyImportService.matchOnSaavn(songs);
-  return { title: String(reply?.title ?? '').trim().slice(0, 100), tracks: matches.filter(Boolean) };
+  return tried.length ? { title, tracks: tracks.slice(0, MAX_PLAYLIST_TRACKS) } : null;
 }
 
 export class AIService {
