@@ -11,6 +11,10 @@ describe('cleanTitle', () => {
     ['Album Song (Deluxe Edition)', 'Album Song'],
     ['Wonderwall (Remastered 2014)', 'Wonderwall'],
     ['Tum Hi Ho', 'Tum Hi Ho'],
+    ['Vaadi Pulla Vaadi - From "Meesaya Murukku"', 'Vaadi Pulla Vaadi'],
+    ['Sirikkadhey (From "Remo")', 'Sirikkadhey'],
+    ['Naanga Naalu Peru - From…', 'Naanga Naalu Peru'],
+    ['Make Way For The King (From…', 'Make Way For The King'],
     ['Nicole Kidman', 'Nicole Kidman'],
   ])('%s -> %s', (input, expected) => {
     expect(cleanTitle(input)).toBe(expected);
