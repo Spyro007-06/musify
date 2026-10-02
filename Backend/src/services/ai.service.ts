@@ -140,6 +140,9 @@ const isReasonableTrackLength = (t: any) =>
 /** Fewer of Gemini's picks than this found on JioSaavn: top up from the keyword parser. */
 const MIN_CURATED_TRACKS = 10;
 
+/** Gemini picks more than a playlist holds: on a real Tamil prompt only about half were on JioSaavn. */
+const CURATED_PICKS = 45;
+
 const CURATED_PLAYLIST_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -158,7 +161,8 @@ const CURATED_PLAYLIST_SCHEMA = {
 
 /**
  * Asks Gemini for real songs that fit the prompt and finds each on JioSaavn,
- * keeping Gemini's order. Null when Gemini isn't set up or didn't answer.
+ * keeping Gemini's order (the caller keeps the first 30 found). Null when
+ * Gemini isn't set up or didn't answer.
  */
 async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
   const text = await askGeminiJson(
@@ -166,7 +170,7 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
       {
         text:
           `You are a music curator. Build a playlist for this request: ${JSON.stringify(prompt)}. ` +
-          `Pick ${MAX_PLAYLIST_TRACKS} real, released songs that fit it, in a good listening order, with no repeats. ` +
+          `Pick ${CURATED_PICKS} real, released songs that fit it, in a good listening order, with no repeats. ` +
           (languages.length
             ? `The listener mostly listens to ${languages.join(', ')} music; prefer that unless the request asks for something else. `
             : '') +
@@ -186,7 +190,7 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
   const songs: SourceTrack[] = (Array.isArray(reply?.songs) ? reply.songs : [])
     .map((s: any) => ({ title: String(s?.title ?? '').trim().slice(0, 200), artist: String(s?.artist ?? '').trim().slice(0, 200) }))
     .filter((s: SourceTrack) => s.title)
-    .slice(0, MAX_PLAYLIST_TRACKS);
+    .slice(0, CURATED_PICKS);
   const matches = await SpotifyImportService.matchOnSaavn(songs);
   return { title: String(reply?.title ?? '').trim().slice(0, 100), tracks: matches.filter(Boolean) };
 }
