@@ -5,6 +5,7 @@ import app from '../../app';
 import { getCsrfToken } from '../helpers/csrf';
 import { prismaMock } from '../setup/prismaMock';
 import { saavnMock } from '../setup/saavnMock';
+import { env } from '@config/env';
 
 /** Baseline so RecommendationService's real candidate-pool/scoring pipeline
  * (which AIService.getRecommendations now delegates to) doesn't throw on
@@ -128,6 +129,36 @@ describe('POST /api/ai/playlist/generate', () => {
     // label ("energetic") — a literal "energetic" search mostly surfaces
     // unrelated tracks that just happen to have that word in the title.
     expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['workout'], 30);
+  });
+
+  it("with Gemini set up: matches its picks on JioSaavn in its order, uses its title, and skips the keyword search", async () => {
+    const songs = Array.from({ length: 10 }, (_, i) => ({ title: `Song ${i}`, artist: 'Artist' }));
+    jest.spyOn(global, 'fetch').mockImplementation(async () =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Gym Fuel', songs }) }] } }] }))
+    );
+    saavnMock.findSongByDuration.mockImplementation((_q: string, _d: number, _a: string, title: string) =>
+      Promise.resolve({ id: `id-${title}`, duration: 200 })
+    );
+    prismaMock.playlist.create.mockResolvedValue({ id: 'playlist-3', title: 'Gym Fuel', tracks: songs } as any);
+    const { agent, csrfToken } = await authedAgent();
+
+    env.GEMINI_API_KEY = 'test-key';
+    let res;
+    try {
+      res = await agent
+        .post('/api/ai/playlist/generate')
+        .set('x-csrf-token', csrfToken)
+        .set('Authorization', authHeader())
+        .send({ prompt: 'workout songs' });
+    } finally {
+      env.GEMINI_API_KEY = ''; // or later tests would call the real Gemini
+    }
+
+    expect(res.status).toBe(201);
+    const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
+    expect(data.title).toBe('Gym Fuel');
+    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual(songs.map((s) => `id-${s.title}`));
+    expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
   });
 
   it('artist-similarity prompt: resolves the named artist and routes into ArtistService top-tracks/related-artists', async () => {

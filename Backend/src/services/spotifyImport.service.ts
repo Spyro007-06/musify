@@ -4,6 +4,7 @@ import { SaavnService } from './saavn.service';
 import { ApiError } from '@utils/ApiError';
 import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
+import { askGeminiJson } from '@utils/gemini';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { ERROR_MESSAGES } from '@constants/messages';
 
@@ -106,26 +107,21 @@ async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
   };
 }
 
-/**
- * Google's moving aliases (they track the current Flash / Flash-Lite, so they
- * don't go stale), tried in order. 404 is included in case an alias is retired.
- */
-const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
-const GEMINI_RETRYABLE = new Set([404, 429, 500, 503]);
-const GEMINI_ROUND_PAUSE_MS = 1500;
-
 const SCREENSHOT_PROMPT =
   'This is a screenshot of a music playlist or song list, from any app. List every song visible, ' +
   'top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
   'row: headers, buttons, ads, the now-playing bar, and rows cut off at the top or bottom edge. ' +
-  'If a row shows no artist, use an empty string.';
+  'If a row shows no artist, use an empty string. Write titles and artists in Latin letters, transliterating ' +
+  'any other script, the way JioSaavn spells them.';
 
 export class SpotifyImportService {
   private static saavn = SaavnService.getInstance();
 
   /** Finds each song on JioSaavn; null where there's no confident match. */
-  private static matchOnSaavn(tracks: SourceTrack[]) {
-    return pooled(tracks, (t) => this.saavn.findSongByDuration(`${cleanTitle(t.title)} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist));
+  public static matchOnSaavn(tracks: SourceTrack[]) {
+    return pooled(tracks, (t) =>
+      this.saavn.findSongByDuration(`${cleanTitle(t.title)} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist, cleanTitle(t.title))
+    );
   }
 
   private static splitMatches(tracks: SourceTrack[], results: (any | null)[]) {
@@ -204,45 +200,16 @@ export class SpotifyImportService {
       throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Screenshot import is not set up yet (GEMINI_API_KEY is missing).');
     }
 
-    const body = JSON.stringify({
-      contents: [{ parts: [{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
-            required: ['title', 'artist'],
-          },
-        },
+    const text = await askGeminiJson([{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }], {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
+        required: ['title', 'artist'],
       },
     });
-
-    // Two rounds over the models with a short pause between: a model that's
-    // overloaded (Gemini 503s "high demand" for minutes at a time) or
-    // rate-limited falls through to the next.
-    let res: Response | null = null;
-    const attempts = [...GEMINI_MODELS, ...GEMINI_MODELS];
-    for (let i = 0; i < attempts.length; i++) {
-      if (i === GEMINI_MODELS.length) await new Promise((r) => setTimeout(r, GEMINI_ROUND_PAUSE_MS));
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${attempts[i]}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        body,
-        signal: AbortSignal.timeout(20_000),
-      }).catch(() => null); // timeout or network error: try the next one
-      if (res && (res.ok || !GEMINI_RETRYABLE.has(res.status))) break;
-      logger.warn(`Screenshot import: Gemini ${attempts[i]} returned ${res?.status ?? 'no response'}: ${(await res?.text())?.slice(0, 300) ?? ''}`);
-    }
-    if (!res?.ok) {
-      if (res && !GEMINI_RETRYABLE.has(res.status)) {
-        logger.warn(`Screenshot import: Gemini returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
-      }
-      throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
-    }
-    const reply: any = await res.json();
-    return parseScreenshotSongs(reply?.candidates?.[0]?.content?.parts?.[0]?.text);
+    if (text === null) throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
+    return parseScreenshotSongs(text);
   }
 }
 

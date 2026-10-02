@@ -3,7 +3,9 @@ import { SaavnService } from './saavn.service';
 import { ArtistService } from './artist.service';
 import { RecommendationService } from './recommendation.service';
 import { MusicService } from './music.service';
-import slugify from 'slugify';
+import { SpotifyImportService, type SourceTrack } from './spotifyImport.service';
+import { askGeminiJson } from '@utils/gemini';
+import { uniqueSlug } from '@utils/slugify';
 
 // Genre/language keywords already scattered across the catalog: the
 // language set matches SaavnService's own switch-cases (getTrendingTracks,
@@ -135,6 +137,59 @@ const MAX_TRACK_SECONDS = 20 * 60;
 const isReasonableTrackLength = (t: any) =>
   typeof t.duration !== 'number' || (t.duration >= MIN_TRACK_SECONDS && t.duration <= MAX_TRACK_SECONDS);
 
+/** Fewer of Gemini's picks than this found on JioSaavn: top up from the keyword parser. */
+const MIN_CURATED_TRACKS = 10;
+
+const CURATED_PLAYLIST_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    title: { type: 'STRING' },
+    songs: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: { title: { type: 'STRING' }, artist: { type: 'STRING' } },
+        required: ['title', 'artist'],
+      },
+    },
+  },
+  required: ['title', 'songs'],
+};
+
+/**
+ * Asks Gemini for real songs that fit the prompt and finds each on JioSaavn,
+ * keeping Gemini's order. Null when Gemini isn't set up or didn't answer.
+ */
+async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
+  const text = await askGeminiJson(
+    [
+      {
+        text:
+          `You are a music curator. Build a playlist for this request: ${JSON.stringify(prompt)}. ` +
+          `Pick ${MAX_PLAYLIST_TRACKS} real, released songs that fit it, in a good listening order, with no repeats. ` +
+          (languages.length
+            ? `The listener mostly listens to ${languages.join(', ')} music; prefer that unless the request asks for something else. `
+            : '') +
+          'Give each song its official title and main artist, spelled the way JioSaavn lists them, in Latin letters. ' +
+          'Also give the playlist a short title, under 40 characters, with no quotes or emoji.',
+      },
+    ],
+    CURATED_PLAYLIST_SCHEMA
+  );
+  let reply: any;
+  try {
+    reply = JSON.parse(text ?? '');
+  } catch {
+    return null;
+  }
+  const songs: SourceTrack[] = (Array.isArray(reply?.songs) ? reply.songs : [])
+    .map((s: any) => ({ title: String(s?.title ?? '').trim().slice(0, 200), artist: String(s?.artist ?? '').trim().slice(0, 200) }))
+    .filter((s: SourceTrack) => s.title)
+    .slice(0, MAX_PLAYLIST_TRACKS);
+  const matches = await SpotifyImportService.matchOnSaavn(songs);
+  return { title: String(reply?.title ?? '').trim().slice(0, 100), tracks: matches.filter(Boolean) };
+}
+
 export class AIService {
   /**
    * Delegates to RecommendationService's real item-based CF + content-based
@@ -169,87 +224,30 @@ export class AIService {
   }
 
   /**
-   * Parses the prompt with rule-based keyword/regex matching (no LLM — see
-   * parsePromptIntent) and routes the result into the existing catalog and
-   * artist infrastructure to assemble a playlist.
+   * Gemini picks songs for the prompt (see curateWithGemini); when it isn't
+   * set up, fails, or too few of its picks are on JioSaavn, the rule-based
+   * keyword parser (see parsePromptIntent) fills in.
    */
   static async generatePlaylistFromPrompt(userId: string, prompt: string, playlistName?: string) {
     try {
-      const saavn = SaavnService.getInstance();
       const intent = parsePromptIntent(prompt);
-
-      let tracks: any[] = [];
-      let coverUrl = DEFAULT_COVER;
-
-      if (intent.artistCandidate) {
-        // "songs like X" — resolve X against the catalog the same way
-        // ArtistService.getRecommendedArtists already resolves preferred
-        // artist names, then reuse its related-artists/top-tracks logic.
-        const searchRes = await saavn.search(intent.artistCandidate);
-        const seedArtist = searchRes.artists?.[0];
-        if (seedArtist) {
-          coverUrl = seedArtist.image || DEFAULT_COVER;
-          const [seedTopTracks, relatedArtists] = await Promise.all([
-            ArtistService.getArtistTopTracks(seedArtist.id),
-            ArtistService.getRelatedArtists(seedArtist.id),
-          ]);
-          tracks.push(...seedTopTracks);
-
-          const relatedTopTracks = await Promise.all(
-            relatedArtists.slice(0, 3).map((a: any) => ArtistService.getArtistTopTracks(a.id).catch(() => []))
-          );
-          relatedTopTracks.forEach((t) => tracks.push(...t));
-        }
-      }
-
-      // Not "else if": a prompt can name both an artist and a genre/mood
-      // ("party songs like Imagine Dragons"), and the artist lookup above
-      // can legitimately come back empty (misspelled name, an artist
-      // JioSaavn just doesn't have, a name that also happens to match one
-      // of the ARTIST_PATTERNS regexes without actually being an artist).
-      // Previously that always fell straight through to the "couldn't find
-      // anything" response even when the same prompt had a perfectly good
-      // genre/mood/era to fall back on — the intent was there, just unused.
-      if (tracks.length === 0 && (intent.genre || intent.mood || intent.era)) {
-        // Genre/mood/era — same search-query infrastructure the old
-        // heuristic used (getRecommendationsByGenres wraps searchSongs).
-        const queryParts = [intent.genre, intent.moodKeyword, intent.era?.label].filter(Boolean) as string[];
-        tracks = await saavn.getRecommendationsByGenres(queryParts, MAX_PLAYLIST_TRACKS);
-
-        if (intent.era) {
-          const { from, to } = intent.era;
-          const eraFiltered = tracks.filter((t) => {
-            const year = t.album?.releaseYear;
-            return year === undefined || (year >= from && year <= to);
-          });
-          // Only apply the filter if it didn't wipe out everything — release
-          // years are missing on plenty of real catalog entries.
-          if (eraFiltered.length > 0) tracks = eraFiltered;
-        }
-
-        if (intent.mood) coverUrl = MOOD_COVERS[intent.mood];
-      }
-      // else: parser found nothing usable — fall through with tracks: [],
-      // which resolves to the no-match response below rather than hitting
-      // the catalog with a raw-text search.
-
-      // Deduplicate, drop duration outliers, cap — and, if the user has a
-      // saved language preference, strictly hold the playlist to it too
-      // (only when that doesn't wipe out every candidate — a genre/artist
-      // match beats an empty playlist over a language mismatch on every
-      // single track JioSaavn happened to return).
-      const uniqueTracks = Array.from(new Map(tracks.map((t) => [t.id, t])).values());
       const preferredLanguages = await MusicService.getPreferredLanguages(userId);
-      let languageScopedTracks = uniqueTracks;
-      if (preferredLanguages.length > 0) {
-        const lower = preferredLanguages.map((l) => l.toLowerCase());
-        const languageMatched = uniqueTracks.filter((t) => {
-          const trackLang = (t.genre || '').toLowerCase();
-          return !trackLang || lower.some((l) => trackLang.includes(l) || l.includes(trackLang));
+      const curated = await curateWithGemini(prompt, preferredLanguages);
+
+      let tracks: any[] = curated?.tracks ?? [];
+      let coverUrl = intent.mood ? MOOD_COVERS[intent.mood] : DEFAULT_COVER;
+      if (tracks.length < MIN_CURATED_TRACKS) {
+        // A few Gemini picks still beat an error if the catalog search fails.
+        const fallback = await this.keywordTracks(intent, preferredLanguages).catch((err) => {
+          if (tracks.length === 0) throw err;
+          return { tracks: [], coverUrl };
         });
-        if (languageMatched.length > 0) languageScopedTracks = languageMatched;
+        tracks = [...tracks, ...fallback.tracks];
+        coverUrl = fallback.coverUrl;
       }
-      const finalTracks = languageScopedTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
+
+      const uniqueTracks = Array.from(new Map(tracks.map((t) => [t.id, t])).values());
+      const finalTracks = uniqueTracks.filter(isReasonableTrackLength).slice(0, MAX_PLAYLIST_TRACKS);
 
       // A deliberately chosen mood/artist cover (set above) actually
       // represents the playlist's theme — a single matched track's album
@@ -273,35 +271,112 @@ export class AIService {
         };
       }
 
-      const finalName = playlistName || `AI: ${prompt.charAt(0).toUpperCase() + prompt.slice(1)}`;
-      
+      const finalName =
+        playlistName || curated?.title || `AI: ${prompt.charAt(0).toUpperCase() + prompt.slice(1)}`.slice(0, 100);
+      // Staggered addedAt keeps the curated order (playlists are read ordered by it).
+      const base = Date.now();
       const newPlaylist = await prisma.playlist.create({
         data: {
           title: finalName,
-          slug: slugify(finalName, { lower: true, strict: true }) + '-' + Date.now(),
+          slug: uniqueSlug(finalName),
           description: `An intelligently generated playlist based on: "${prompt}"`,
           coverUrl,
           ownerId: userId,
           isPublic: false,
           tracks: {
-            create: finalTracks.map((t) => ({
-              spotifyTrackId: t.id, // Using the standard track ID format
-            }))
-          }
+            create: finalTracks.map((t, i) => ({ spotifyTrackId: t.id, addedAt: new Date(base + i) })),
+          },
         },
         include: {
-          tracks: true
-        }
+          tracks: true,
+        },
       });
 
       return {
         playlistId: newPlaylist.id,
         title: newPlaylist.title,
-        trackCount: newPlaylist.tracks.length
+        trackCount: newPlaylist.tracks.length,
       };
     } catch (error) {
       console.error('Error generating AI playlist:', error);
       throw new Error('Failed to generate AI playlist');
     }
+  }
+
+  /**
+   * The rule-based path: routes the parsed intent into the existing catalog
+   * and artist infrastructure.
+   */
+  private static async keywordTracks(intent: ParsedPromptIntent, preferredLanguages: string[]) {
+    const saavn = SaavnService.getInstance();
+    let tracks: any[] = [];
+    let coverUrl = DEFAULT_COVER;
+
+    if (intent.artistCandidate) {
+      // "songs like X" — resolve X against the catalog the same way
+      // ArtistService.getRecommendedArtists already resolves preferred
+      // artist names, then reuse its related-artists/top-tracks logic.
+      const searchRes = await saavn.search(intent.artistCandidate);
+      const seedArtist = searchRes.artists?.[0];
+      if (seedArtist) {
+        coverUrl = seedArtist.image || DEFAULT_COVER;
+        const [seedTopTracks, relatedArtists] = await Promise.all([
+          ArtistService.getArtistTopTracks(seedArtist.id),
+          ArtistService.getRelatedArtists(seedArtist.id),
+        ]);
+        tracks.push(...seedTopTracks);
+
+        const relatedTopTracks = await Promise.all(
+          relatedArtists.slice(0, 3).map((a: any) => ArtistService.getArtistTopTracks(a.id).catch(() => []))
+        );
+        relatedTopTracks.forEach((t) => tracks.push(...t));
+      }
+    }
+
+    // Not "else if": a prompt can name both an artist and a genre/mood
+    // ("party songs like Imagine Dragons"), and the artist lookup above
+    // can legitimately come back empty (misspelled name, an artist
+    // JioSaavn just doesn't have, a name that also happens to match one
+    // of the ARTIST_PATTERNS regexes without actually being an artist).
+    // Previously that always fell straight through to the "couldn't find
+    // anything" response even when the same prompt had a perfectly good
+    // genre/mood/era to fall back on — the intent was there, just unused.
+    if (tracks.length === 0 && (intent.genre || intent.mood || intent.era)) {
+      // Genre/mood/era — same search-query infrastructure the old
+      // heuristic used (getRecommendationsByGenres wraps searchSongs).
+      const queryParts = [intent.genre, intent.moodKeyword, intent.era?.label].filter(Boolean) as string[];
+      tracks = await saavn.getRecommendationsByGenres(queryParts, MAX_PLAYLIST_TRACKS);
+
+      if (intent.era) {
+        const { from, to } = intent.era;
+        const eraFiltered = tracks.filter((t) => {
+          const year = t.album?.releaseYear;
+          return year === undefined || (year >= from && year <= to);
+        });
+        // Only apply the filter if it didn't wipe out everything — release
+        // years are missing on plenty of real catalog entries.
+        if (eraFiltered.length > 0) tracks = eraFiltered;
+      }
+
+      if (intent.mood) coverUrl = MOOD_COVERS[intent.mood];
+    }
+    // else: parser found nothing usable — fall through with tracks: [],
+    // which resolves to the no-match response rather than hitting the
+    // catalog with a raw-text search.
+
+    // If the user has a saved language preference, strictly hold the
+    // result to it too (only when that doesn't wipe out every candidate —
+    // a genre/artist match beats an empty playlist over a language
+    // mismatch on every single track JioSaavn happened to return). Gemini
+    // is told the languages instead, so it can honor a request for others.
+    if (preferredLanguages.length > 0) {
+      const lower = preferredLanguages.map((l) => l.toLowerCase());
+      const languageMatched = tracks.filter((t) => {
+        const trackLang = (t.genre || '').toLowerCase();
+        return !trackLang || lower.some((l) => trackLang.includes(l) || l.includes(trackLang));
+      });
+      if (languageMatched.length > 0) tracks = languageMatched;
+    }
+    return { tracks, coverUrl };
   }
 }

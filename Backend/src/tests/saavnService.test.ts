@@ -168,6 +168,30 @@ describe('SaavnService', () => {
     });
   });
 
+  describe('findSongByDuration — with no duration, the title has to match', () => {
+    it('skips another song by the same artist and matches whole words only', async () => {
+      const arijit = { artists: { primary: [{ id: 'a1', name: 'Arijit Singh' }] } };
+      mockSearchSongs.mockResolvedValue({
+        results: [
+          rawSong({ id: 'other', name: 'Tum Hi Ho', ...arijit }),
+          rawSong({ id: 'right', name: 'Kesariya (From &quot;Brahmastra&quot;)', ...arijit }),
+          rawSong({ id: 'aya', name: 'Phir Le Aya Dil (Reprise)', ...arijit }),
+        ],
+      });
+
+      // Romanized spellings differ in doubled letters.
+      expect(await saavn.findSongByDuration('Phir Le Aaya Dil Arijit Singh', 0, 'Arijit Singh', 'Phir Le Aaya Dil')).toEqual(
+        expect.objectContaining({ id: 'aya' })
+      );
+
+      expect(await saavn.findSongByDuration('Kesariya Arijit Singh', 0, 'Arijit Singh', 'Kesariya')).toEqual(
+        expect.objectContaining({ id: 'right' })
+      );
+      expect(await saavn.findSongByDuration('Kes Arijit Singh', 0, 'Arijit Singh', 'Kes')).toBeNull();
+      expect(await saavn.findSongByDuration('Missing Arijit Singh', 0, 'Arijit Singh', 'Missing Song')).toBeNull();
+    });
+  });
+
   describe('getTracks — normal path (order preservation) and error classification', () => {
     it('returns [] without calling the catalog for an empty id list', async () => {
       const result = await saavn.getTracks([]);
