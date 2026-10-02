@@ -124,6 +124,11 @@ export class AudioEngine {
     return this.audio?.duration || 0;
   }
 
+  /** The loaded source itself failed (bad URL, unsupported) — unlike a blocked autoplay. */
+  public hasError(): boolean {
+    return Boolean(this.audio?.error);
+  }
+
   public isPaused(): boolean {
     return this.audio?.paused ?? true;
   }
