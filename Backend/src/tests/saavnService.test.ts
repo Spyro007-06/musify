@@ -198,6 +198,15 @@ describe('SaavnService', () => {
       expect(await saavn.findSongByDuration('Munbe Vaa Lofi A.R. Rahman', 0, 'A.R. Rahman', 'Munbe Vaa Lo-Fi')).toEqual(
         expect.objectContaining({ id: 'lofi' })
       );
+
+      // Artists compare letters only; a cut-off title ("…") may go on.
+      mockSearchSongs.mockResolvedValue({
+        results: [rawSong({ id: 'gvp', name: 'Mudhal Nee Mudivum Nee Title Track', artists: { primary: [{ id: 'a3', name: 'G.V. Prakash Kumar' }] } })],
+      });
+      expect(await saavn.findSongByDuration('Mudhal Nee Mudivum Nee', 0, 'G. V. Prakash', 'Mudhal Nee Mudivum Nee…')).toEqual(
+        expect.objectContaining({ id: 'gvp' })
+      );
+      expect(await saavn.findSongByDuration('Mudhal Nee Mudivum Nee', 0, 'G. V. Prakash', 'Mudhal Nee Mudivum Nee')).toBeNull();
       expect(await saavn.findSongByDuration('Missing Arijit Singh', 0, 'Arijit Singh', 'Missing Song')).toBeNull();
     });
   });

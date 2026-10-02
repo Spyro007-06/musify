@@ -110,7 +110,8 @@ async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
 const SCREENSHOT_PROMPT =
   'This is a screenshot of a music playlist or song list, from any app. List every song visible, ' +
   'top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
-  'row: headers, buttons, ads, the now-playing bar, and rows cut off at the top or bottom edge. ' +
+  'row of the list itself: headers, buttons, ads, the now-playing bar, rows cut off at the top or bottom ' +
+  'edge, and suggestions shown below the list (such as "Recommended Songs" or "You might also like"). ' +
   'If a row shows no artist, use an empty string. Write titles and artists in Latin letters, transliterating ' +
   'any other script, the way JioSaavn spells them.';
 
@@ -119,9 +120,10 @@ export class SpotifyImportService {
 
   /** Finds each song on JioSaavn; null where there's no confident match. */
   public static matchOnSaavn(tracks: SourceTrack[]) {
-    return pooled(tracks, (t) =>
-      this.saavn.findSongByDuration(`${cleanTitle(t.title)} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist, cleanTitle(t.title))
-    );
+    return pooled(tracks, (t) => {
+      const title = cleanTitle(t.title);
+      return this.saavn.findSongByDuration(`${title.replace(/…$/, '')} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist, title);
+    });
   }
 
   private static splitMatches(tracks: SourceTrack[], results: (any | null)[]) {
@@ -215,8 +217,11 @@ export class SpotifyImportService {
 
 /**
  * Gemini's JSON reply → clean song rows (drops blanks, trims, caps lengths).
- * Keeps only the first artist: apps cut long artist lists off mid-name
- * ("A, B, Har…"), and JioSaavn finds nothing for a half name.
+ * JioSaavn's search finds nothing for a half word, and apps cut long text
+ * off mid-word, so: keeps only the first artist ("A, B, Har…"), and drops
+ * the cut-off word of a title, keeping "…" to say it goes on ("Verappa
+ * (Urumum Venga) - Fe…" → "Verappa (Urumum Venga)…", see findSongByDuration).
+ * Also drops Spotify's "Video •" before a music video's artist.
  */
 export function parseScreenshotSongs(text: unknown): SourceTrack[] {
   let rows: unknown;
@@ -227,9 +232,18 @@ export function parseScreenshotSongs(text: unknown): SourceTrack[] {
   }
   if (!Array.isArray(rows)) return [];
   return rows
-    .map((r: any) => ({
-      title: String(r?.title ?? '').trim().slice(0, 200),
-      artist: String(r?.artist ?? '').split(',')[0].replace(/(\.{3}|…)$/, '').trim().slice(0, 200),
-    }))
+    .map((r: any) => {
+      const title = String(r?.title ?? '').trim();
+      const uncut = title.replace(/[\s([\-–:,]*\S*(\.{3}|…)$/, '…');
+      return {
+        title: (uncut === '…' ? title : uncut).slice(0, 200),
+        artist: String(r?.artist ?? '')
+          .replace(/^\s*video\s*[•·\-–]\s*/i, '')
+          .split(',')[0]
+          .replace(/(\.{3}|…)$/, '')
+          .trim()
+          .slice(0, 200),
+      };
+    })
     .filter((r) => r.title);
 }
