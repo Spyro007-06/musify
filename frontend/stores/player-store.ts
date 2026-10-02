@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { Track } from '@/types/track';
 import {
   AUTO_QUEUE_REFILL_THRESHOLD,
+  AUTO_QUEUE_RETRY_MS,
   DEFAULT_VOLUME,
+  MAX_SKIPPED_FAILURES,
   PREVIOUS_TRACK_THRESHOLD,
   SKIP_LOG_THRESHOLD,
 } from '@/lib/player/player-constants';
@@ -88,11 +90,18 @@ function getSavedRepeat(): RepeatMode {
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
 
+// Tracks that wouldn't play in a row, reset by the next one that does. A
+// song that won't play is skipped like radio would, but past a few in a row
+// nothing is going to play (offline?) and skipping on would just spin.
+let consecutiveFailures = 0;
+
 // The queue is meant to feel endless, like radio: once only a few tracks
 // remain after the current one, quietly fetch more of the same personalized
 // feed and append them, instead of waiting for the queue to actually run
 // dry. This flag just prevents two overlapping top-up fetches.
 let isToppingUpQueue = false;
+// After a top-up that came back empty (offline, upstream down), when to try again.
+let topUpRetryAt = 0;
 
 // Every track played this session, so the auto-refill (below) never re-adds
 // something the user already listened to — a radio station shouldn't repeat
@@ -376,6 +385,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (requestGen !== activePlaybackGeneration) {
         return;
       }
+      if (!played && engine.hasError()) {
+        throw new Error("This track can't be played right now.");
+      }
+      if (played) consecutiveFailures = 0;
 
       set({
         streamUrl,
@@ -383,10 +396,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isPlaying: played,
         error: null,
       });
-
-      // 5. Keep the queue from running dry (the next track's stream URL is
-      // warmed by the subscription at the bottom of this file).
-      get().maybeTopUpQueue();
+      // Queue top-up and warming the next stream URL are both handled by the
+      // subscription at the bottom of this file.
     } catch (err: unknown) {
       if (requestGen !== activePlaybackGeneration) return;
 
@@ -398,6 +409,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isPlaying: false,
         error: errorMessage,
       });
+
+      // Repeat-one would just retry this same broken track.
+      if (get().repeat !== 'one' && ++consecutiveFailures <= MAX_SKIPPED_FAILURES) {
+        get().nextTrack();
+      }
     }
   },
 
@@ -481,30 +497,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       await playTrack(queued, undefined, transitionReason, { fromUserQueue: true });
     } else if (nextIndex < queue.length) {
       await playTrack(queue[nextIndex], undefined, transitionReason, { atIndex: nextIndex });
-    } else if (repeat === 'all' && queue.length > 0) {
-      await playTrack(queue[0], undefined, transitionReason, { atIndex: 0 });
     } else {
-      // End of queue reached and repeat is off — log the outgoing track,
-      // then keep the music going with a personalized batch instead of
-      // just stopping. In practice maybeTopUpQueue (called after every
-      // track starts) should have already refilled the queue well before
-      // it got this far — this is the fallback for a fetch that failed or
-      // hadn't landed yet.
-      if (currentTrack) {
-        logOutgoingTrack(currentTrack, currentTime, duration, reason === 'ended');
+      if (repeat !== 'all') {
+        // End of the queue. maybeTopUpQueue (run whenever the queue runs low)
+        // has normally refilled it by now; this catches a refill that failed
+        // or hadn't landed yet.
+        const gen = activePlaybackGeneration;
+        const more = await fetchAutoQueueTracks([...queue, ...userQueue]);
+        if (gen !== activePlaybackGeneration) return; // the user picked something meanwhile
+        if (more.length > 0) {
+          appendRecommended(more);
+          await get().nextTrack(reason);
+          return;
+        }
+        // Nothing new to be had (offline, or the catalog came back empty):
+        // start the queue over rather than go silent.
       }
-      const more = await fetchAutoQueueTracks([...queue, ...userQueue]);
-      if (more.length > 0) {
-        set((s) => ({
-          queue: [...s.queue, ...more],
-          originalQueue: [...s.originalQueue, ...more],
-          recommendedIds: [...s.recommendedIds, ...more.map((t) => t.id)],
-        }));
-        await get().nextTrack(reason);
-        return;
-      }
-      getAudioEngine().pause();
-      set({ isPlaying: false, currentTime: 0 });
+      await playTrack(queue[0], undefined, transitionReason, { atIndex: 0 });
     }
   },
 
@@ -619,7 +628,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   maybeTopUpQueue: () => {
-    if (isToppingUpQueue) return;
+    if (isToppingUpQueue || Date.now() < topUpRetryAt) return;
     const { queue, currentIndex, repeat, userQueue } = get();
     if (repeat === 'one') return; // stuck replaying one track — nothing to top up
     const remaining = queue.length - currentIndex - 1;
@@ -628,13 +637,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     isToppingUpQueue = true;
     fetchAutoQueueTracks([...queue, ...userQueue])
       .then((more) => {
-        if (more.length > 0) {
-          set((s) => ({
-            queue: [...s.queue, ...more],
-            originalQueue: [...s.originalQueue, ...more],
-            recommendedIds: [...s.recommendedIds, ...more.map((t) => t.id)],
-          }));
-        }
+        appendRecommended(more);
+        topUpRetryAt = more.length > 0 ? 0 : Date.now() + AUTO_QUEUE_RETRY_MS;
       })
       .finally(() => {
         isToppingUpQueue = false;
@@ -727,6 +731,20 @@ function withoutContextIndices(s: PlayerState, positions: Set<number>): Pick<Pla
   return { queue, originalQueue };
 }
 
+// Adds autoplay picks after the context, minus any already there: the
+// background top-up and the end-of-queue fetch can land at the same time.
+function appendRecommended(more: Track[]) {
+  usePlayerStore.setState((s) => {
+    const have = new Set(s.queue.map((t) => t.id));
+    const fresh = more.filter((t) => !have.has(t.id));
+    return {
+      queue: [...s.queue, ...fresh],
+      originalQueue: [...s.originalQueue, ...fresh],
+      recommendedIds: [...s.recommendedIds, ...fresh.map((t) => t.id)],
+    };
+  });
+}
+
 function expireSleepTimer() {
   if (sleepTimeout) clearTimeout(sleepTimeout);
   sleepTimeout = null;
@@ -747,4 +765,8 @@ function upcomingTrack({ queue, currentIndex, repeat, userQueue }: PlayerState):
 usePlayerStore.subscribe((state, prev) => {
   const next = upcomingTrack(state);
   if (next && next.id !== upcomingTrack(prev)?.id) prefetchTrackStream(next);
+  // Top up whenever the upcoming list runs low — a track starting, songs
+  // removed or jumped past, or (via playback time updates) a retry after an
+  // empty refill. maybeTopUpQueue returns early when there's enough queued.
+  if (state.currentTrack) state.maybeTopUpQueue();
 });
