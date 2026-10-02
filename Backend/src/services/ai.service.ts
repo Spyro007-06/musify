@@ -170,7 +170,8 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
           (languages.length
             ? `The listener mostly listens to ${languages.join(', ')} music; prefer that unless the request asks for something else. `
             : '') +
-          'Give each song its official title and main artist, spelled the way JioSaavn lists them, in Latin letters. ' +
+          'Give each song its official title and main artist (for film songs, the lead singer, not the composer), ' +
+          'spelled the way JioSaavn lists them, in Latin letters. ' +
           'Also give the playlist a short title, under 40 characters, with no quotes or emoji.',
       },
     ],

@@ -808,14 +808,21 @@ export class SaavnService {
     const res = await resilientCall(SAAVN_BREAKER.SEARCH, () => this.searchService.searchSongs({ query, page: 0, limit: 5 }));
     const tracks = (res?.results || []).map((t: any) => this.mapTrack(t));
     const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-    // Whole words, so "Kesariya" fits "Kesariya (From "Brahmastra")" but "Kes" doesn't.
+    // Whole words, so "Kes" doesn't fit "Kesariya".
     // Doubled letters collapse: romanized Hindi spells "Aaya" and "Aya" both ways.
     const words = (s: string) => ` ${norm(s).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/(\p{L})\1+/gu, '$1').trim()} `;
     const wanted = artist ? norm(artist) : '';
     const wantedTitle = !durationSec && title && words(title).trim() ? words(title) : '';
+    // Extra words only in brackets ("Kesariya (From "Brahmastra")"), so "New York X Munbe Vaa" isn't "Munbe Vaa".
+    const core = (s: string) => words(s.replace(/[([][^)\]]*[)\]]/g, ' '));
+    // And a bracketed remix or lofi take only when the title asks for one.
+    const unwantedVersion = (s: string) =>
+      (words(s).match(/\b(mashup|remix|lo ?fi|slowed|reverb|instrumental|karaoke|cover)\b/g) ?? []).some((v) => !wantedTitle.includes(` ${v} `));
+    const titleFits = (s: string) =>
+      (core(s) === core(title ?? '') || wantedTitle.includes(core(s))) && !unwantedVersion(s);
     return tracks.find((t: any) =>
       t && (!durationSec || Math.abs(t.duration - durationSec) <= toleranceSec) &&
-      (!wantedTitle || words(t.title).includes(wantedTitle) || wantedTitle.includes(words(t.title))) &&
+      (!wantedTitle || titleFits(t.title)) &&
       (!wanted || t.artists.some((a: any) => { const n = norm(a.name); return n.includes(wanted) || wanted.includes(n); }))
     ) ?? null;
   }
