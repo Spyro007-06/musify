@@ -45,6 +45,19 @@ describe('parseScreenshotSongs', () => {
     ]);
   });
 
+  it("drops a cut-off title's last word (marking it with …) and Spotify's \"Video •\"", () => {
+    const rows = [
+      { title: 'Verappa (Urumum Venga) - Fe...', artist: 'Video • Sai Abhyankkar' },
+      { title: 'Yennai Maatrum Kadhale (From…', artist: 'Video - Anirudh Ravichander' },
+      { title: 'Wait...', artist: 'X' },
+    ];
+    expect(parseScreenshotSongs(JSON.stringify(rows))).toEqual([
+      { title: 'Verappa (Urumum Venga)…', artist: 'Sai Abhyankkar' },
+      { title: 'Yennai Maatrum Kadhale…', artist: 'Anirudh Ravichander' },
+      { title: 'Wait...', artist: 'X' },
+    ]);
+  });
+
   it('turns an unreadable reply into a 502, not a crash', () => {
     expect(() => parseScreenshotSongs('not json')).toThrow(/screenshot/);
   });

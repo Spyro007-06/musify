@@ -811,19 +811,24 @@ export class SaavnService {
     // Whole words, so "Kes" doesn't fit "Kesariya".
     // Doubled letters collapse: romanized Hindi spells "Aaya" and "Aya" both ways.
     const words = (s: string) => ` ${norm(s).replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/(\p{L})\1+/gu, '$1').trim()} `;
-    const wanted = artist ? norm(artist) : '';
+    // Artists compare letters only: Spotify's "G. V. Prakash" is JioSaavn's "G.V. Prakash Kumar".
+    const squash = (s: string) => words(s).replace(/ /g, '');
+    const wanted = artist ? squash(artist) : '';
     const wantedTitle = !durationSec && title && words(title).trim() ? words(title) : '';
     // Extra words only in brackets ("Kesariya (From "Brahmastra")"), so "New York X Munbe Vaa" isn't "Munbe Vaa".
     const core = (s: string) => words(s.replace(/[([][^)\]]*[)\]]/g, ' '));
     // And a bracketed remix or lofi take only when the title asks for one.
     const unwantedVersion = (s: string) =>
       (words(s).match(/\b(mashup|remix|lo ?fi|slowed|reverb|instrumental|karaoke|cover)\b/g) ?? []).some((v) => !wantedTitle.includes(` ${v} `));
+    // A title an app cut off ("Mudhal Nee Mudivum Nee…") goes on: "… Title Track".
+    const cutOff = !!title?.endsWith('…');
     const titleFits = (s: string) =>
-      (core(s) === core(title ?? '') || wantedTitle.includes(core(s))) && !unwantedVersion(s);
+      (core(s) === core(title ?? '') || wantedTitle.includes(core(s)) || (cutOff && words(s).startsWith(wantedTitle))) &&
+      !unwantedVersion(s);
     return tracks.find((t: any) =>
       t && (!durationSec || Math.abs(t.duration - durationSec) <= toleranceSec) &&
       (!wantedTitle || titleFits(t.title)) &&
-      (!wanted || t.artists.some((a: any) => { const n = norm(a.name); return n.includes(wanted) || wanted.includes(n); }))
+      (!wanted || t.artists.some((a: any) => { const n = squash(a.name); return !!n && (n.includes(wanted) || wanted.includes(n)); }))
     ) ?? null;
   }
 
