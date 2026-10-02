@@ -20,11 +20,16 @@ const CONCURRENCY = 4;
 /** What Spotify's playlist embed lists at most; a full page means there may be more. */
 const EMBED_TRACK_LIMIT = 100;
 
-/** Drops tags JioSaavn titles don't carry: "(feat. X)", "- Remastered 2011", "[Bonus Track]", "(Deluxe Edition)". */
+/**
+ * Drops tags JioSaavn titles don't carry: "(feat. X)", "- Remastered 2011", "[Bonus Track]",
+ * "(Deluxe Edition)", and a film song's ' - From "Movie"' (which JioSaavn, if at all, keeps in brackets).
+ */
 export function cleanTitle(title: string): string {
   return title
     .replace(/\s*[([][^)\]]*\b(feat\.?|ft\.?|with|remaster(ed)?|bonus track|deluxe)\b[^)\]]*[)\]]/gi, '')
     .replace(/\s+-\s+[^-]*\bremaster(ed)?\b.*$/i, '')
+    // Even cut off: 'Naanga Naalu Peru - From "Kar…'.
+    .replace(/(\s+-\s+|\s*\()from\b.*$/i, '')
     .trim();
 }
 
