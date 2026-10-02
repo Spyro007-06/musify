@@ -60,6 +60,15 @@ body {
   }
 }
 
+/* iOS zooms the page into any text field under 16px when it's focused, and
+   most fields here are text-sm/text-xs. 16px on touchscreens stops that
+   without disabling pinch-zoom; !important beats the per-field text-* classes. */
+@media (pointer: coarse) {
+  input:not([type='range']), textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
