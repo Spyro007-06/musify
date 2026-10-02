@@ -131,15 +131,20 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['workout'], 30);
   });
 
-  it("with Gemini set up: matches its picks on JioSaavn in its order, uses its title, and skips the keyword search", async () => {
-    const songs = Array.from({ length: 10 }, (_, i) => ({ title: `Song ${i}`, artist: 'Artist' }));
-    jest.spyOn(global, 'fetch').mockImplementation(async () =>
-      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Gym Fuel', songs }) }] } }] }))
-    );
+  it('with Gemini set up: asks again until exactly 30 are found, in order, with its title, skipping the keyword search', async () => {
+    const round1 = Array.from({ length: 30 }, (_, i) => ({ title: `Song ${i}`, artist: 'Artist' }));
+    const round2 = Array.from({ length: 20 }, (_, i) => ({ title: `More ${i}`, artist: 'Artist' }));
+    const prompts: string[] = [];
+    jest.spyOn(global, 'fetch').mockImplementation(async (_url, init: any) => {
+      prompts.push(JSON.parse(init.body).contents[0].parts[0].text);
+      const songs = prompts.length === 1 ? round1 : round2;
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Gym Fuel', songs }) }] } }] }));
+    });
+    // Only the even-numbered first-round picks are on JioSaavn: 15 of 30.
     saavnMock.findSongByDuration.mockImplementation((_q: string, _d: number, _a: string, title: string) =>
-      Promise.resolve({ id: `id-${title}`, duration: 200 })
+      Promise.resolve(/^Song \d*[13579]$/.test(title) ? null : { id: `id-${title}`, duration: 200 })
     );
-    prismaMock.playlist.create.mockResolvedValue({ id: 'playlist-3', title: 'Gym Fuel', tracks: songs } as any);
+    prismaMock.playlist.create.mockResolvedValue({ id: 'playlist-3', title: 'Gym Fuel', tracks: [] } as any);
     const { agent, csrfToken } = await authedAgent();
 
     env.GEMINI_API_KEY = 'test-key';
@@ -157,7 +162,13 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(res.status).toBe(201);
     const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
     expect(data.title).toBe('Gym Fuel');
-    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual(songs.map((s) => `id-${s.title}`));
+    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual(
+      [...round1.filter((_, i) => i % 2 === 0), ...round2.slice(0, 15)].map((s) => `id-${s.title}`)
+    );
+    // The second round asks for 3x the 15 missing and leaves out everything tried, found or not.
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain('Pick 45 ');
+    expect(prompts[1]).toContain('Song 1 by Artist; Song 2 by Artist');
     expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
   });
 
