@@ -26,9 +26,11 @@ import { Track } from '@/types/track';
 import { Album } from '@/types/album';
 import { Playlist } from '@/types/playlist';
 import { usePlayerStore } from '@/stores/player-store';
+import { sessionShuffle } from '@/lib/utils/session-shuffle';
 
-// Editorial playlist rows, in Spotify's order. Each is a JioSaavn playlist
-// search biased toward the user's language/genre on the backend.
+// Editorial playlist rows. Each is a JioSaavn playlist search biased toward
+// the user's language/genre on the backend; every app open shows a
+// different MOOD_ROWS_SHOWN of them, in a different order.
 const MOOD_ROWS = [
   { title: 'Party', query: 'party' },
   { title: 'Chill', query: 'chill' },
@@ -38,7 +40,16 @@ const MOOD_ROWS = [
   { title: 'Dance', query: 'dance' },
   { title: 'Throwback', query: '90s' },
   { title: 'Rain & Chill', query: 'rain' },
+  { title: 'Workout', query: 'workout' },
+  { title: 'Retro', query: 'retro' },
+  { title: 'Road trip', query: 'road trip' },
+  { title: 'Devotional', query: 'devotional' },
+  { title: 'Unplugged', query: 'unplugged' },
+  { title: 'Indie', query: 'indie' },
+  { title: 'Feel good', query: 'feel good' },
+  { title: 'Lo-fi', query: 'lofi' },
 ];
+const MOOD_ROWS_SHOWN = 8;
 
 /** Unique albums in the order their tracks appear. */
 function albumsFromTracks(tracks: Track[]): Album[] {
@@ -86,6 +97,17 @@ export default function HomePage() {
   const { data: recentTracks } = useRecentlyPlayed();
   const { data: stationArtists } = useRecommendedArtists();
 
+  // Picked after mount: the server render can't know this session's pick.
+  const [moodRows, setMoodRows] = React.useState<typeof MOOD_ROWS>([]);
+  React.useEffect(() => setMoodRows(sessionShuffle(MOOD_ROWS).slice(0, MOOD_ROWS_SHOWN)), []);
+
+  // A different slice of each pool every app open. Cards play the shuffled
+  // list, so what comes next is what's shown next.
+  const trendingTracks = React.useMemo(() => sessionShuffle(trending.data || []), [trending.data]);
+  const recommendedTracks = React.useMemo(() => sessionShuffle(recommended.data || []), [recommended.data]);
+  const newReleaseAlbums = React.useMemo(() => sessionShuffle(newReleases.data || []), [newReleases.data]);
+  const stations = React.useMemo(() => sessionShuffle(stationArtists || []), [stationArtists]);
+
   const recent = React.useMemo(() => recentTracks || [], [recentTracks]);
   const recentAlbums = React.useMemo(() => albumsFromTracks(recent), [recent]);
   const likedAlbums = React.useMemo(() => albumsFromTracks(likedTracks || []), [likedTracks]);
@@ -102,9 +124,9 @@ export default function HomePage() {
   // "More of what you like" drops anything already in the trending row so
   // the same song doesn't repeat on one page.
   const recommendedShelfTracks = React.useMemo(() => {
-    const shown = new Set(trending.data?.slice(0, 12).map((t) => t.id));
-    return (recommended.data || []).filter((t) => !shown.has(t.id)).slice(0, 12);
-  }, [recommended.data, trending.data]);
+    const shown = new Set(trendingTracks.slice(0, 12).map((t) => t.id));
+    return recommendedTracks.filter((t) => !shown.has(t.id)).slice(0, 12);
+  }, [recommendedTracks, trendingTracks]);
 
   // Stations and mixes play the artist's top songs straight away.
   // ponytail: an artist's top tracks stand in for a real radio (similar
@@ -156,16 +178,16 @@ export default function HomePage() {
         playlists={userPlaylists}
         recentAlbums={recentAlbums}
         recentTracks={recent}
-        fallbackTracks={trending.data || []}
+        fallbackTracks={trendingTracks}
         onPlayTrack={(t, q) => playFrom(hasLibrary && recent.length > 0 ? 'Recently Played' : 'Trending Now', t, q)}
       />
 
       <PlaylistShelf title="Today's biggest hits" result={topHits} onPlay={playPlaylist} />
 
-      {stationArtists && stationArtists.length > 0 && (
+      {stations.length > 0 && (
         <MusicSection title="Recommended Stations">
           <ShelfRow>
-            {stationArtists.slice(0, 10).map((artist) => (
+            {stations.slice(0, 10).map((artist) => (
               <ShelfItem key={`station-${artist.id}`}>
                 <MixCard
                   badge="RADIO"
@@ -214,7 +236,7 @@ export default function HomePage() {
         <ShelfRow>
           {recommendedShelfTracks.map((track) => (
             <ShelfItem key={`rec-${track.id}`}>
-              <TrackCard track={track} onPlay={(t) => playFrom('More of what you like', t, recommended.data || [t])} />
+              <TrackCard track={track} onPlay={(t) => playFrom('More of what you like', t, recommendedTracks)} />
             </ShelfItem>
           ))}
         </ShelfRow>
@@ -245,14 +267,14 @@ export default function HomePage() {
         isError={trending.isError}
         error={trending.error}
         onRetry={trending.refetch}
-        isEmpty={!trending.data || trending.data.length === 0}
+        isEmpty={trendingTracks.length === 0}
         skeletonType="card"
         skeletonCount={6}
       >
         <ShelfRow>
-          {trending.data?.slice(0, 12).map((track) => (
+          {trendingTracks.slice(0, 12).map((track) => (
             <ShelfItem key={track.id}>
-              <TrackCard track={track} onPlay={(t) => playFrom('Trending Now', t, trending.data || [t])} />
+              <TrackCard track={track} onPlay={(t) => playFrom('Trending Now', t, trendingTracks)} />
             </ShelfItem>
           ))}
         </ShelfRow>
@@ -265,12 +287,12 @@ export default function HomePage() {
         isError={newReleases.isError}
         error={newReleases.error}
         onRetry={newReleases.refetch}
-        isEmpty={!newReleases.data || newReleases.data.length === 0}
+        isEmpty={newReleaseAlbums.length === 0}
         skeletonType="album"
         skeletonCount={6}
       >
         <ShelfRow>
-          {newReleases.data?.slice(0, 12).map((album) => (
+          {newReleaseAlbums.slice(0, 12).map((album) => (
             <ShelfItem key={album.id}>
               <AlbumCard album={album} onPlay={playAlbum} />
             </ShelfItem>
@@ -278,7 +300,7 @@ export default function HomePage() {
         </ShelfRow>
       </MusicSection>
 
-      {MOOD_ROWS.map((row) => (
+      {moodRows.map((row) => (
         <PlaylistRow key={row.query} title={row.title} query={row.query} onPlay={playPlaylist} />
       ))}
 

@@ -407,10 +407,20 @@ describe('SaavnService', () => {
       await expect(saavn.getRelatedArtists('a1')).rejects.toBeInstanceOf(SaavnUpstreamError);
     });
 
-    it('getMoodPlaylists maps playlist search results', async () => {
-      mockSearchPlaylists.mockResolvedValue({ results: [{ id: 'p1', name: 'Chill &amp; Vibes', songCount: '12' }] });
+    it('getMoodPlaylists maps playlist search results, dropping ones under 30 songs', async () => {
+      mockSearchPlaylists.mockResolvedValue({
+        results: [
+          { id: 'p1', name: 'Chill &amp; Vibes', songCount: '40' },
+          { id: 'short', name: 'Tiny', songCount: '12' },
+          { id: 'edge', name: 'Exactly 30', songCount: '30' },
+          { id: 'unknown', name: 'No count' },
+        ],
+      });
       const result = await saavn.getMoodPlaylists('chill');
-      expect(result).toEqual([expect.objectContaining({ id: 'p1', title: 'Chill & Vibes' })]);
+      expect(result).toEqual([
+        expect.objectContaining({ id: 'p1', title: 'Chill & Vibes', tracksCount: 40 }),
+        expect.objectContaining({ id: 'edge', tracksCount: 30 }),
+      ]);
     });
 
     it('getMoodPlaylists classifies an upstream failure as SaavnUpstreamError', async () => {
@@ -421,9 +431,15 @@ describe('SaavnService', () => {
     it('getTopHitsPlaylists keeps the top result(s) per chart search, dedupes, and subtitles with the top artists', async () => {
       mockSearchPlaylists.mockImplementation(async ({ query }: { query: string }) =>
         query === 'tamil top 50'
-          ? { results: [{ id: 'top50', name: 'Tamil: India Superhits Top 50' }, { id: 'ignored', name: 'Second result' }] }
+          ? {
+              results: [
+                { id: 'stub', name: 'Too short', songCount: '8' }, // skipped, so the next one is "the top result"
+                { id: 'top50', name: 'Tamil: India Superhits Top 50', songCount: '50' },
+                { id: 'ignored', name: 'Second result', songCount: '50' },
+              ],
+            }
           : query === 'latest tamil'
-          ? { results: [{ id: 'top50', name: 'Tamil: India Superhits Top 50' }] } // same playlist again
+          ? { results: [{ id: 'top50', name: 'Tamil: India Superhits Top 50', songCount: '50' }] } // same playlist again
           : { results: [] }
       );
       mockGetPlaylistById.mockResolvedValue({
