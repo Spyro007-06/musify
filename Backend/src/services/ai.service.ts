@@ -170,7 +170,8 @@ const CURATED_PLAYLIST_SCHEMA = {
  * keeping Gemini's order. Only about 40% of its picks are on JioSaavn, so
  * while fewer than 30 are found it asks again for three times the shortfall,
  * leaving out every song already tried — until 30 are found or the time
- * budget is spent. Null when Gemini isn't set up or didn't answer at first.
+ * budget is spent; JioSaavn's suggestions fill whatever is still missing.
+ * Null when Gemini isn't set up or didn't answer at first.
  */
 async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
   const deadline = Date.now() + CURATE_BUDGET_MS;
@@ -178,6 +179,13 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
   const triedKeys = new Set<string>();
   const tracks: any[] = [];
   const trackKeys = new Set<string>();
+  // The same recording sits on several JioSaavn albums under different ids.
+  const add = (t: any) => {
+    const keys = [t?.id, `${t?.title}|${t?.duration}`.toLowerCase()];
+    if (!t || keys.some((k) => trackKeys.has(k))) return;
+    keys.forEach((k) => trackKeys.add(k));
+    tracks.push(t);
+  };
   let title = '';
 
   for (let round = 1; tracks.length < MAX_PLAYLIST_TRACKS && (round === 1 || Date.now() < deadline); round++) {
@@ -219,13 +227,20 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
     // A round of nothing but repeats just goes again, until the deadline.
     tried.push(...songs);
     title ||= String(reply?.title ?? '').trim().slice(0, 100);
-    for (const t of await SpotifyImportService.matchOnSaavn(songs)) {
-      // The same recording sits on several JioSaavn albums under different ids.
-      const keys = [t?.id, `${t?.title}|${t?.duration}`.toLowerCase()];
-      if (t && !keys.some((k) => trackKeys.has(k))) {
-        keys.forEach((k) => trackKeys.add(k));
-        tracks.push(t);
-      }
+    (await SpotifyImportService.matchOnSaavn(songs)).forEach(add);
+  }
+
+  // Out of time with a few still missing: fill up from JioSaavn's suggestions
+  // for the songs found, kept to the playlist's main language (a Tamil
+  // playlist can hold one Hindi version, whose suggestions are all Hindi).
+  if (tracks.length > 0 && tracks.length < MAX_PLAYLIST_TRACKS) {
+    const counts = new Map<string, number>();
+    tracks.forEach((t) => counts.set(t.genre, (counts.get(t.genre) ?? 0) + 1));
+    const language = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+    for (const seed of tracks.slice(0, 5)) {
+      if (tracks.length >= MAX_PLAYLIST_TRACKS) break;
+      const suggestions = await SaavnService.getInstance().getSongSuggestions(seed.id, 10).catch(() => []);
+      suggestions.filter((t: any) => t?.genre === language).forEach(add);
     }
   }
   return tried.length ? { title, tracks: tracks.slice(0, MAX_PLAYLIST_TRACKS) } : null;

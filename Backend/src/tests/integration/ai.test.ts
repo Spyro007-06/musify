@@ -177,6 +177,53 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(saavnMock.getRecommendationsByGenres).not.toHaveBeenCalled();
   });
 
+  it("with Gemini out of time short of 30: fills up from JioSaavn's suggestions in the playlist's language", async () => {
+    const songs = Array.from({ length: 12 }, (_, i) => ({ title: `Song ${i}`, artist: 'Artist' }));
+    const realNow = Date.now;
+    let skew = 0;
+    jest.spyOn(Date, 'now').mockImplementation(() => realNow() + skew);
+    jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      skew = 60_000; // the first round uses up the whole time budget
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Ghats', songs }) }] } }] }));
+    });
+    saavnMock.findSongByDuration.mockImplementation((_q: string, _d: number, _a: string, title: string) =>
+      Promise.resolve({ id: `id-${title}`, title, duration: 200, genre: 'tamil' })
+    );
+    // Each seed's first suggestion is Hindi (skipped); the second repeats "Song 0" on another album (skipped).
+    saavnMock.getSongSuggestions.mockImplementation((id: string) =>
+      Promise.resolve([
+        { id: `${id}-hindi`, title: `${id} hindi`, duration: 200, genre: 'hindi' },
+        { id: `${id}-dup`, title: 'Song 0', duration: 200, genre: 'tamil' },
+        ...Array.from({ length: 8 }, (_, i) => ({ id: `${id}-s${i}`, title: `${id} s${i}`, duration: 200, genre: 'tamil' })),
+      ])
+    );
+    prismaMock.playlist.create.mockResolvedValue({ id: 'playlist-4', title: 'Ghats', tracks: [] } as any);
+    const { agent, csrfToken } = await authedAgent();
+
+    env.GEMINI_API_KEY = 'test-key';
+    let res;
+    try {
+      res = await agent
+        .post('/api/ai/playlist/generate')
+        .set('x-csrf-token', csrfToken)
+        .set('Authorization', authHeader())
+        .send({ prompt: 'music for a train journey' });
+    } finally {
+      env.GEMINI_API_KEY = '';
+    }
+
+    expect(res.status).toBe(201);
+    const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
+    const fill = (seed: string, n: number) => Array.from({ length: n }, (_, i) => `id-${seed}-s${i}`);
+    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual([
+      ...songs.map((s) => `id-${s.title}`),
+      ...fill('Song 0', 8),
+      ...fill('Song 1', 8),
+      ...fill('Song 2', 2),
+    ]);
+    expect(saavnMock.getSongSuggestions).toHaveBeenCalledTimes(3);
+  });
+
   it('artist-similarity prompt: resolves the named artist and routes into ArtistService top-tracks/related-artists', async () => {
     saavnMock.search.mockResolvedValue({
       artists: [{ id: 'artist-1', name: 'Test Artist', image: 'https://example.com/art.jpg' }],
