@@ -169,18 +169,20 @@ const CURATED_PLAYLIST_SCHEMA = {
  * Asks Gemini for real songs that fit the prompt and finds each on JioSaavn,
  * keeping Gemini's order. Only about 40% of its picks are on JioSaavn, so
  * while fewer than 30 are found it asks again for three times the shortfall,
- * leaving out every song already tried — until 30, Gemini runs dry, or the
- * time budget is spent. Null when Gemini isn't set up or didn't answer.
+ * leaving out every song already tried — until 30 are found or the time
+ * budget is spent. Null when Gemini isn't set up or didn't answer at first.
  */
 async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
   const deadline = Date.now() + CURATE_BUDGET_MS;
   const tried: SourceTrack[] = [];
   const triedKeys = new Set<string>();
   const tracks: any[] = [];
+  const trackKeys = new Set<string>();
   let title = '';
 
-  while (tracks.length < MAX_PLAYLIST_TRACKS && (tried.length === 0 || Date.now() < deadline)) {
-    const count = Math.min(CURATED_PICKS, (MAX_PLAYLIST_TRACKS - tracks.length) * 3);
+  for (let round = 1; tracks.length < MAX_PLAYLIST_TRACKS && (round === 1 || Date.now() < deadline); round++) {
+    // At least 15, so a round that mostly repeats earlier songs still brings new ones.
+    const count = Math.min(CURATED_PICKS, Math.max(15, (MAX_PLAYLIST_TRACKS - tracks.length) * 3));
     const text = await askGeminiJson(
       [
         {
@@ -202,7 +204,8 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
     try {
       reply = JSON.parse(text ?? '');
     } catch {
-      break;
+      if (round === 1) return null; // Gemini isn't answering: the keyword parser takes over
+      continue; // a later round failed: try again until the deadline
     }
     const songs: SourceTrack[] = [];
     for (const s of Array.isArray(reply?.songs) ? reply.songs : []) {
@@ -213,11 +216,16 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
         songs.push(song);
       }
     }
-    if (songs.length === 0) break; // Gemini has nothing new to offer
+    // A round of nothing but repeats just goes again, until the deadline.
     tried.push(...songs);
     title ||= String(reply?.title ?? '').trim().slice(0, 100);
     for (const t of await SpotifyImportService.matchOnSaavn(songs)) {
-      if (t && !tracks.some((found) => found.id === t.id)) tracks.push(t);
+      // The same recording sits on several JioSaavn albums under different ids.
+      const keys = [t?.id, `${t?.title}|${t?.duration}`.toLowerCase()];
+      if (t && !keys.some((k) => trackKeys.has(k))) {
+        keys.forEach((k) => trackKeys.add(k));
+        tracks.push(t);
+      }
     }
   }
   return tried.length ? { title, tracks: tracks.slice(0, MAX_PLAYLIST_TRACKS) } : null;
