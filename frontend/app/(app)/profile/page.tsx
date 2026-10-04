@@ -150,7 +150,7 @@ export default function ProfilePage() {
               className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-brand-500/30 hover:bg-neutral-850 transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 group-hover:scale-105 transition-transform">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400 group-hover:scale-105 transition-transform">
                   <ListMusic className="h-5 w-5" />
                 </div>
                 <span className="text-[11px] font-medium text-neutral-500 group-hover:text-brand-400 transition-colors">
@@ -158,7 +158,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
+                <h3 className="text-sm font-bold text-white group-hover:text-brand-300 transition-colors">
                   Your Playlists
                 </h3>
                 <p className="text-xs text-neutral-400">

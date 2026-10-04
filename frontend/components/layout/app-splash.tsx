@@ -29,7 +29,7 @@ export function AppSplash() {
     <div
       role="status"
       aria-label="Loading MUSIFY"
-      className="fixed inset-0 z-[100] flex h-dvh w-full flex-col items-center justify-center gap-6 auth-backdrop px-8 text-center"
+      className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] z-[100] flex w-full flex-col items-center justify-center gap-6 auth-backdrop px-8 text-center"
     >
       <Brand size="lg" />
       {isSlow && (

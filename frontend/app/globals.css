@@ -8,6 +8,14 @@
   --foreground: #f5f5ef;
 }
 
+/* --ios-gap: how far short of the screen bottom an iOS home-screen app's
+   viewport stops (WebKit drops the status bar height from it while still
+   drawing from the very top). Measured in app/layout.tsx; 0 everywhere else.
+   Full-height layers and anything pinned to the bottom add it back. */
+:root {
+  --ios-gap: 0px;
+}
+
 /* No pull-to-refresh: a downward swipe (e.g. closing the player) reloaded
    the app, which stopped playback. */
 html,
@@ -63,6 +71,17 @@ body {
     scrollbar-width: none;
   }
   .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Touchscreens scroll by swiping; the bar along the side is just clutter
+   there (mouse users on desktop keep it). */
+@media (pointer: coarse) {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
     display: none;
   }
 }

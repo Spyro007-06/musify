@@ -46,9 +46,9 @@ export function Dialog({ isOpen, onClose, labelledBy, isBusy, trapFocus, maxWidt
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] bg-black/80 backdrop-blur-sm transition-opacity"
         onClick={() => !isBusy && onClose()}
       />
       <div

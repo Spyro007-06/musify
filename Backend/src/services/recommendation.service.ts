@@ -36,16 +36,22 @@ export class RecommendationService {
     const queries: any[] = [
       prisma.userPreferences.upsert({
         where: { userId },
+        // Genres/artists are kept as picked (what Settings shows) and also
+        // boost the learned affinities below, which recommendations read.
         update: {
           favouriteLanguages: favouriteLanguages || [],
           favouriteAlbums: favouriteAlbums || [],
           favouriteMoods: favouriteMoods || [],
+          favouriteGenres: favouriteGenres || [],
+          favouriteArtists: favouriteArtists || [],
         },
         create: {
           userId,
           favouriteLanguages: favouriteLanguages || [],
           favouriteAlbums: favouriteAlbums || [],
           favouriteMoods: favouriteMoods || [],
+          favouriteGenres: favouriteGenres || [],
+          favouriteArtists: favouriteArtists || [],
         },
       })
     ];
@@ -79,7 +85,26 @@ export class RecommendationService {
   }
 
   /**
-   * Get user preferences
+   * What the user picked in Settings, as saved. Unlike getUserPreferences,
+   * genres and artists aren't the learned affinities: listening fills those
+   * (a track's "genre" is its language), so showing them as picks made
+   * "tamil" a selected genre that no genre chip matched, and un-ticking
+   * one never stuck.
+   */
+  public static async getSavedPreferences(userId: string) {
+    const prefs = await prisma.userPreferences.findUnique({ where: { userId } });
+    return {
+      favouriteLanguages: prefs?.favouriteLanguages || [],
+      favouriteAlbums: prefs?.favouriteAlbums || [],
+      favouriteGenres: prefs?.favouriteGenres || [],
+      favouriteArtists: prefs?.favouriteArtists || [],
+      favouriteMoods: prefs?.favouriteMoods || [],
+    };
+  }
+
+  /**
+   * Preferences as recommendations use them: picks plus what listening taught
+   * (genre and artist affinities).
    */
   public static async getUserPreferences(userId: string): Promise<any> {
     const prefs = await prisma.userPreferences.findUnique({

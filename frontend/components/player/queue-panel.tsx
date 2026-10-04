@@ -155,8 +155,8 @@ export function QueuePanel() {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setQueueOpen(false)} aria-hidden="true" />
+    <div className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] z-50 flex justify-end">
+      <div className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] bg-black/60 backdrop-blur-sm" onClick={() => setQueueOpen(false)} aria-hidden="true" />
 
       <div
         role="dialog"
