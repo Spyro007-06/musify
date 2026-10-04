@@ -31,34 +31,23 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    // Solid, not 'black-translucent': with the see-through status bar, WebKit
+    // draws the home-screen app from the top of the screen but sizes its
+    // viewport as if the status bar weren't there, so the bottom nav ended
+    // ~47pt above the screen edge. With 'black' the app starts below the
+    // status bar and fills the rest exactly. iOS reads this when the app is
+    // added to the Home Screen, so an installed copy must be re-added.
+    statusBarStyle: 'black',
     title: 'MUSIFY',
   },
 };
 
 export const viewport: Viewport = {
   themeColor: '#0b1210',
-  // Lets the installed iPhone app draw under the notch/home bar (statusBarStyle is
-  // black-translucent); the header, player and nav pad themselves with safe-area insets.
+  // Lets the app draw behind the iPhone home bar (and, in a browser, the notch in
+  // landscape); the header, player and nav pad themselves with safe-area insets.
   viewportFit: 'cover',
 };
-
-// iOS home-screen apps (navigator.standalone) with the black-translucent
-// status bar draw from the top of the screen, but WebKit sizes the viewport
-// as if the status bar weren't there, so 100dvh and bottom:0 stop that much
-// short. A standalone app always fills the screen, so any shortfall is that
-// bug; store it in --ios-gap (see globals.css). Measured, not assumed, so it
-// stays 0 if Apple fixes it. Bigger changes (keyboard) are ignored.
-const IOS_GAP_SCRIPT = `(function(){
-  if (!navigator.standalone) return;
-  function measure() {
-    var s = screen, landscape = matchMedia('(orientation: landscape)').matches;
-    var gap = (landscape ? Math.min(s.width, s.height) : Math.max(s.width, s.height)) - innerHeight;
-    if (gap >= 0 && gap < 120) document.documentElement.style.setProperty('--ios-gap', gap + 'px');
-  }
-  measure();
-  addEventListener('resize', measure);
-})();`;
 
 export default function RootLayout({
   children,
@@ -67,9 +56,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`dark ${bodyFont.variable} ${displayFont.variable}`}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: IOS_GAP_SCRIPT }} />
-      </head>
       <body className="bg-canvas font-sans text-neutral-50 antialiased">
         <AppProviders>{children}</AppProviders>
         <Analytics />
