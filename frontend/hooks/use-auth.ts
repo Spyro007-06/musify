@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { resetPlayerSession } from '@/stores/player-store';
 import { authApi } from '@/lib/api/auth';
 import { LoginCredentials, SignupCredentials } from '@/types/auth';
 import { clearSessionMarker, markSessionActive } from '@/lib/auth/session-marker';
@@ -113,6 +114,7 @@ export function useAuth() {
     } finally {
       storeLogout();
       clearSessionMarker();
+      resetPlayerSession();
       queryClient.clear();
       router.push('/');
     }

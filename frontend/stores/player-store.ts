@@ -101,6 +101,42 @@ function getSavedCrossfade(): number {
   }
 }
 
+// What was playing, so a reload (or Android closing the app in the
+// background) comes back to the same song, queue and position, paused.
+const SESSION_KEY = 'musify_session';
+const SESSION_FIELDS = [
+  'currentTrack', 'queue', 'originalQueue', 'currentIndex', 'userQueue',
+  'queueSource', 'recommendedIds', 'currentTime', 'duration',
+] as const;
+// Where the restored song was; applied once its stream loads on Play.
+let resumeAt = 0;
+let sessionSavedAt = -1;
+
+function getSavedSession(): Partial<PlayerState> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if (!saved?.currentTrack?.id || !Array.isArray(saved.queue)) return {};
+    resumeAt = Number(saved.currentTime) || 0;
+    return { ...saved, originalQueue: saved.originalQueue ?? saved.queue, isPlaying: false, streamUrl: null };
+  } catch {
+    return {};
+  }
+}
+
+// Saved when the song or queue changes, and every 5s of playback.
+function saveSession(state: PlayerState, prev: PlayerState) {
+  const changed = SESSION_FIELDS.some((k) => k !== 'currentTime' && k !== 'duration' && state[k] !== prev[k]);
+  if (!changed && Math.abs(state.currentTime - sessionSavedAt) < 5) return;
+  sessionSavedAt = state.currentTime;
+  try {
+    if (!state.currentTrack) localStorage.removeItem(SESSION_KEY);
+    else localStorage.setItem(SESSION_KEY, JSON.stringify(Object.fromEntries(SESSION_FIELDS.map((k) => [k, state[k]]))));
+  } catch {
+    // Full or blocked storage: the session just won't survive a reload.
+  }
+}
+
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
 
@@ -470,7 +506,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         if (!played) set({ isPlaying: false });
       });
     } else if (currentTrack) {
-      get().playTrack(currentTrack);
+      // A restored session: load the song and jump back to where it was.
+      const at = resumeAt;
+      resumeAt = 0;
+      get()
+        .playTrack(currentTrack, undefined, 'skip', { atIndex: get().currentIndex })
+        .then(() => {
+          if (at > 0 && get().currentTrack?.id === currentTrack.id) get().seek(at);
+        });
     }
   },
 
@@ -559,6 +602,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   seek: (seconds: number) => {
+    if (!get().streamUrl) resumeAt = seconds; // restored, not loaded yet: start there on Play
     getAudioEngine().seek(seconds);
     set({ currentTime: seconds });
   },
@@ -740,6 +784,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       shuffle: getSavedShuffle(),
       repeat: getSavedRepeat(),
       crossfadeSeconds: getSavedCrossfade(),
+      ...(get().currentTrack ? {} : getSavedSession()),
     });
   },
 }));
@@ -834,4 +879,16 @@ usePlayerStore.subscribe((state, prev) => {
   // removed or jumped past, or (via playback time updates) a retry after an
   // empty refill. maybeTopUpQueue returns early when there's enough queued.
   if (state.currentTrack) state.maybeTopUpQueue();
+  saveSession(state, prev);
 });
+
+/** On logout: stop and forget what was playing, so the next person doesn't see it. */
+export function resetPlayerSession() {
+  getAudioEngine().pause();
+  resumeAt = 0;
+  usePlayerStore.setState({
+    currentTrack: null, streamUrl: null, queue: [], originalQueue: [], currentIndex: -1, userQueue: [],
+    queueSource: null, recommendedIds: [], isPlaying: false, currentTime: 0, duration: 0,
+    isExpanded: false, isQueueOpen: false,
+  });
+}
