@@ -16,7 +16,7 @@ import { Artist } from '@/types/artist';
  * personalized sections for authenticated users.
  */
 export function useDashboardRecommendations() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
 
   return useQuery<DashboardRecommendationSection[]>({
     queryKey: ['recommendations', 'dashboard', isAuthenticated],
@@ -24,6 +24,7 @@ export function useDashboardRecommendations() {
       const res = await recommendationsApi.getDashboardRecommendations();
       return res.data || [];
     },
+    enabled: !isInitializing,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });

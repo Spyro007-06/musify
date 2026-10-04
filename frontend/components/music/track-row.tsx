@@ -124,6 +124,9 @@ export function TrackRow({
         className={cn(
           'group flex items-center justify-between rounded-xl px-3 py-2 text-sm',
           'border cursor-pointer transition-all duration-200 select-none',
+          // Off-screen rows skip layout/paint (a 192-song playlist is ~10k nodes).
+          // Not while the "..." menu is open: the containment would clip it.
+          !isMenuOpen && '[content-visibility:auto] [contain-intrinsic-size:auto_58px]',
           isCurrentTrack
             ? 'bg-white/[0.08] border-brand-500/20'
             : 'hover:bg-white/[0.06] border-transparent hover:border-white/5',
