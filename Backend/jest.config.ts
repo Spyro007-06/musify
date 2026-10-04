@@ -50,6 +50,7 @@ const config: Config = {
   setupFilesAfterEnv: [
     '<rootDir>/src/tests/setup/prismaMock.ts',
     '<rootDir>/src/tests/setup/supabaseMock.ts',
+    '<rootDir>/src/tests/setup/cacheReset.ts',
   ],
 };
 

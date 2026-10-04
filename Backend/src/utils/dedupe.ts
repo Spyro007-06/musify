@@ -5,18 +5,24 @@
 // "Arijit Singh, Mithoon" collides with the same song credited "Mithoon,
 // Arijit Singh" — duration is still required to match, so a genuinely
 // different version (a remix, a different film's title track) stays distinct.
-function normalizeTrackTitle(title: string): string {
-  return title
+// A language tag ("… (From "The Paradise") (Telugu)") is dropped too, but
+// only when the item's language is known: it then goes in the signature
+// instead, so a Telugu and a Hindi dub never collide (an album without a
+// language keeps its tag, so "X (Telugu)" and "X (Hindi)" stay apart).
+const LANGUAGE_TAG =
+  /\s*[[(](telugu|tamil|hindi|malayalam|kannada|bengali|marathi|punjabi|gujarati|english)( version)?[)\]]\s*/gi;
+
+function normalizeTrackTitle(title: string, language?: string): string {
+  const base = title
     .toLowerCase()
-    .replace(/\s*[[(](from\s+"[^"]*"|original\s+motion\s+picture\s+soundtrack)[)\]]\s*/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/\s*[[(](from\s+"[^"]*"|original\s+motion\s+picture\s+soundtrack)[)\]]\s*/gi, ' ');
+  return (language ? base.replace(LANGUAGE_TAG, ' ') : base).replace(/\s+/g, ' ').trim();
 }
 
 /** Dedupes a list of tracks/albums/artists/playlists by id, then by a
  * fuzzy title+artist-set+duration signature to catch the same content
  * re-indexed under a different catalog id. */
-export function dedupeById<T extends { id?: string; title?: string; duration?: number; artists?: { name: string }[] } | null>(
+export function dedupeById<T extends { id?: string; title?: string; duration?: number; genre?: string; artists?: { name: string }[] } | null>(
   items: T[]
 ): NonNullable<T>[] {
   const seenIds = new Set<string>();
@@ -32,7 +38,8 @@ export function dedupeById<T extends { id?: string; title?: string; duration?: n
       .filter(Boolean)
       .sort()
       .join(',');
-    const signature = `${normalizeTrackTitle(item.title || '')}|${artistSet}|${item.duration || ''}`;
+    const language = item.genre?.toLowerCase();
+    const signature = `${normalizeTrackTitle(item.title || '', language)}|${artistSet}|${item.duration || ''}|${language || ''}`;
     if (seenSignatures.has(signature)) return false;
     seenSignatures.add(signature);
     return true;
