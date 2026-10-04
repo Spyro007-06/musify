@@ -10,9 +10,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CreatePlaylistModal } from '@/components/playlist/create-playlist-modal';
 import { pluralize } from '@/lib/utils/pluralize';
 
+// Enough to fill a few rows on a phone without a long scroll.
+const ALBUMS_SHOWN = 12;
+
 export default function PlaylistsPage() {
   const { data: playlists, isLoading, isError, error, refetch } = usePlaylists();
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+  const [showAllAlbums, setShowAllAlbums] = React.useState(false);
 
   const hasPlaylists = Boolean(playlists && playlists.length > 0);
 
@@ -37,7 +41,7 @@ export default function PlaylistsPage() {
             Your Playlists
           </h1>
           <p className="text-xs sm:text-sm text-neutral-400">
-            Playlists created by you and curated soundtrack collections.
+            Playlists you made, and albums from your listening.
           </p>
         </div>
 
@@ -129,20 +133,29 @@ export default function PlaylistsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                <span>Soundtracks & Curations</span>
+                <span>From your listening</span>
                 <Sparkles className="h-3.5 w-3.5 text-brand-400" />
               </h2>
               <p className="text-xs text-neutral-400">
-                Movie sound collections automatically compiled from your listening history
+                Albums you&rsquo;ve recently played, liked or added to playlists
               </p>
             </div>
             <span className="text-xs text-neutral-500">{pluralize(soundtrackPlaylists.length, 'album')}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {soundtrackPlaylists.map((playlist) => (
+            {(showAllAlbums ? soundtrackPlaylists : soundtrackPlaylists.slice(0, ALBUMS_SHOWN)).map((playlist) => (
               <PlaylistCard key={`soundtrack-${playlist.id}`} playlist={playlist} />
             ))}
           </div>
+          {soundtrackPlaylists.length > ALBUMS_SHOWN && (
+            <button
+              type="button"
+              onClick={() => setShowAllAlbums((v) => !v)}
+              className="mx-auto block min-h-[44px] rounded-full border border-white/10 bg-white/5 px-5 text-xs font-semibold text-white hover:bg-white/10"
+            >
+              {showAllAlbums ? 'Show fewer' : `Show all ${soundtrackPlaylists.length}`}
+            </button>
+          )}
         </section>
       )}
 

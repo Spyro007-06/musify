@@ -191,7 +191,15 @@ export function EditProfileForm({
           ) : (
             <span className="text-xl font-bold text-neutral-300">{initials}</span>
           )}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div
+            className={cn(
+              'absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity',
+              // Always shown while processing; on touch screens (no hover) as a lighter hint.
+              isProcessingImage
+                ? 'opacity-100'
+                : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:bg-black/30 [@media(hover:none)]:opacity-100'
+            )}
+          >
             {isProcessingImage ? (
               <Loader2 className="h-5 w-5 text-white animate-spin" />
             ) : (

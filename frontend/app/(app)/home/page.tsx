@@ -330,7 +330,7 @@ export default function HomePage() {
       )}
 
       {soundtrackPlaylists.length > 0 && (
-        <MusicSection title="Soundtracks & Curations" seeAllHref="/library/playlists">
+        <MusicSection title="From your listening" seeAllHref="/library/playlists">
           <ShelfRow>
             {soundtrackPlaylists.slice(0, 12).map((playlist) => (
               <ShelfItem key={`soundtrack-${playlist.id}`}>

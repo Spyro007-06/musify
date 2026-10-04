@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ListMusic, Heart, Disc3, Download, MicVocal } from 'lucide-react';
+import { ChevronDown, ListMusic, ListPlus, Heart, Disc3, Download, MicVocal } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerProgress } from './player-progress';
@@ -12,6 +12,9 @@ import { useUiStore } from '@/stores/ui-store';
 import { useLikeTrack } from '@/hooks/use-music';
 import { useDownloadTrack } from '@/hooks/use-download-track';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
+import { useBackToClose } from '@/hooks/use-back-to-close';
+import { useSwipeDown } from '@/hooks/use-swipe-down';
+import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
 import { cn } from '@/lib/utils/cn';
 
 export function ExpandedPlayer() {
@@ -24,6 +27,7 @@ export function ExpandedPlayer() {
   const toggleLyrics = useUiStore((s) => s.toggleLyrics);
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
+  const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = React.useState(false);
   const likeMutation = useLikeTrack();
   const downloadTrack = useDownloadTrack();
 
@@ -34,7 +38,7 @@ export function ExpandedPlayer() {
   // Handle Escape key to dismiss and body scroll lock
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isExpanded) {
+      if (e.key === 'Escape' && isExpanded && !isAddToPlaylistOpen) {
         closeExpanded();
       }
     };
@@ -46,9 +50,12 @@ export function ExpandedPlayer() {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [isExpanded, closeExpanded]);
+  }, [isExpanded, closeExpanded, isAddToPlaylistOpen]);
 
   const dialogRef = useFocusTrap<HTMLDivElement>(isExpanded && !!currentTrack);
+  // Phones: Back and a downward swipe both close the player, like a native app.
+  useBackToClose(isExpanded && !!currentTrack, closeExpanded);
+  const swipe = useSwipeDown(closeExpanded);
 
   if (!isExpanded || !currentTrack) return null;
 
@@ -68,7 +75,8 @@ export function ExpandedPlayer() {
       role="dialog"
       aria-label="Expanded Music Player"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-black p-4 sm:p-8 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200"
+      style={swipe.style}
+      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-black px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:p-8 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 transition-transform ease-out"
     >
       {/* Background ambient artwork glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-30 blur-3xl">
@@ -82,13 +90,13 @@ export function ExpandedPlayer() {
         />
       </div>
 
-      {/* Top Header */}
-      <div className="relative z-10 flex items-center justify-between">
+      {/* Top Header (also a drag handle: swipe down to close) */}
+      <div {...swipe.handlers} className="relative z-10 flex touch-none items-center justify-between">
         <button
           type="button"
           onClick={closeExpanded}
           aria-label="Minimize player"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
         >
           <ChevronDown className="h-6 w-6" />
         </button>
@@ -109,7 +117,7 @@ export function ExpandedPlayer() {
             aria-label={lyricsOpen ? 'Show artwork' : 'Show lyrics'}
             aria-pressed={lyricsOpen}
             className={cn(
-              'flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
+              'flex h-11 w-11 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
               lyricsOpen ? 'text-brand-400 bg-brand-500/10' : 'text-neutral-300 hover:text-white hover:bg-white/10'
             )}
           >
@@ -119,7 +127,7 @@ export function ExpandedPlayer() {
             type="button"
             onClick={toggleQueue}
             aria-label="Toggle Queue"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
           >
             <ListMusic className="h-5 w-5" />
           </button>
@@ -132,7 +140,10 @@ export function ExpandedPlayer() {
         {lyricsOpen ? (
           <LyricsPanel className="h-[320px] w-full max-w-[380px] px-1 sm:h-[380px] [mask-image:linear-gradient(transparent,black_12%,black_88%,transparent)] py-10" />
         ) : (
-          <div className="relative aspect-square w-full max-w-[320px] sm:max-w-[380px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10">
+          <div
+            {...swipe.handlers}
+            className="relative aspect-square w-full max-w-[320px] touch-none sm:max-w-[380px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10"
+          >
             <ImageWithFallback
               src={artwork}
               alt={currentTrack.title}
@@ -146,7 +157,7 @@ export function ExpandedPlayer() {
         )}
 
         {/* Track Title, Artist, and Like button */}
-        <div className="mt-8 flex items-center justify-between w-full px-2">
+        <div className="mt-6 sm:mt-8 flex items-center justify-between w-full px-2">
           <div className="min-w-0 pr-4">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
               {currentTrack.title}
@@ -159,9 +170,18 @@ export function ExpandedPlayer() {
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
+              onClick={() => setIsAddToPlaylistOpen(true)}
+              aria-label="Add to playlist"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+            >
+              <ListPlus className="h-5 w-5" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => downloadTrack(currentTrack)}
               aria-label="Download"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
             >
               <Download className="h-5 w-5" />
             </button>
@@ -171,7 +191,7 @@ export function ExpandedPlayer() {
               onClick={handleLikeToggle}
               aria-label={isLiked ? 'Unlike' : 'Like'}
               className={cn(
-                'flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
+                'flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
                 isLiked && 'text-brand-400 hover:text-brand-300'
               )}
             >
@@ -181,12 +201,12 @@ export function ExpandedPlayer() {
         </div>
 
         {/* Progress Slider */}
-        <div className="mt-6 w-full px-2">
+        <div className="mt-2 sm:mt-6 w-full px-2">
           <PlayerProgress />
         </div>
 
         {/* Big Controls */}
-        <div className="mt-6 flex items-center justify-center w-full">
+        <div className="mt-2 sm:mt-6 flex items-center justify-center w-full">
           <PlayerControls size="lg" />
         </div>
 
@@ -195,6 +215,12 @@ export function ExpandedPlayer() {
           <PlayerVolume sliderWidth="w-48" />
         </div>
       </div>
+
+      <AddToPlaylistModal
+        isOpen={isAddToPlaylistOpen}
+        onClose={() => setIsAddToPlaylistOpen(false)}
+        track={currentTrack}
+      />
     </div>
   );
 }

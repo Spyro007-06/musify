@@ -117,7 +117,7 @@ export default function LibraryPage() {
                 type="button"
                 onClick={handlePlayAllLiked}
                 aria-label="Play all liked songs"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-500 text-white shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-500 text-white shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
               >
                 <Play className="h-4 w-4 fill-current ml-0.5" />
               </button>
@@ -157,7 +157,7 @@ export default function LibraryPage() {
                 type="button"
                 onClick={handlePlayAllRecent}
                 aria-label="Play all recently played tracks"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-x-0 hover:scale-105 active:scale-95 transition-all duration-300"
               >
                 <Play className="h-4 w-4 fill-current ml-0.5" />
               </button>

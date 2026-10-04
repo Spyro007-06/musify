@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
+import { AppSplash } from './app-splash';
 
 /**
  * Routes and prefixes that strictly require authentication.
@@ -56,18 +57,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   return (
     <>
       {children}
-      {isProtected && isInitializing && (
-        <div
-          role="status"
-          aria-label="Checking authentication"
-          className="fixed inset-0 z-[100] flex h-screen w-full items-center justify-center bg-black"
-        >
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
-            <span className="text-xs text-neutral-500 font-medium tracking-wide">Loading MUSIFY...</span>
-          </div>
-        </div>
-      )}
+      {isProtected && isInitializing && <AppSplash />}
     </>
   );
 }

@@ -252,9 +252,9 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
   }
 
   const coverSrc = playlist.cover;
-  const ownerName = playlist.owner || 'MUSIFY';
-
   const isSoundtrack = playlist.id.startsWith('movie-') || playlist.owner === 'Movie Soundtrack';
+  // Auto-built album collections aren't all film soundtracks; don't label them as one.
+  const ownerName = isSoundtrack ? 'From your listening' : playlist.owner || 'MUSIFY';
 
   return (
     <div className="space-y-8 pb-16">
@@ -298,7 +298,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
                 <Sparkles className="h-3 w-3 text-brand-400" />
-                <span>{isSoundtrack ? 'Soundtrack' : 'Playlist'}</span>
+                <span>{isSoundtrack ? 'Album' : 'Playlist'}</span>
               </span>
 
               {!isSoundtrack && (

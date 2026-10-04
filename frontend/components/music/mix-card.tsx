@@ -33,7 +33,7 @@ export function MixCard({ title, subtitle, cover, badge, onPlay }: MixCardProps)
         <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold tracking-widest text-white">
           {badge}
         </span>
-        <span className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-500 text-black shadow-lg opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
           <Play className="h-4 w-4 fill-current ml-0.5" />
         </span>
       </div>

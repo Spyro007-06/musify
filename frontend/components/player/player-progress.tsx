@@ -68,8 +68,8 @@ export function PlayerProgress({ className, showTimes = true }: PlayerProgressPr
         </span>
       )}
 
-      {/* Seekable Track Bar */}
-      <div className="relative flex-1 flex items-center group py-1">
+      {/* Seekable Track Bar (taller touch area on phones; the bar itself stays thin) */}
+      <div className="relative flex-1 flex items-center group py-4 md:py-1">
         {/* Background track */}
         <div className="h-1 w-full rounded-full bg-neutral-800 group-hover:h-1.5 transition-all overflow-hidden relative">
           <div
@@ -104,7 +104,7 @@ export function PlayerProgress({ className, showTimes = true }: PlayerProgressPr
         <div
           className={cn(
             'absolute h-3 w-3 rounded-full bg-white shadow-md pointer-events-none transition-transform -translate-x-1/2',
-            isDragging ? 'scale-100' : 'scale-0 group-hover:scale-100'
+            isDragging ? 'scale-100' : 'scale-0 group-hover:scale-100 [@media(hover:none)]:scale-100'
           )}
           style={{ left: `${progressPercent}%` }}
         />
