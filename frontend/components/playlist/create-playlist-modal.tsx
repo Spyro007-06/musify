@@ -392,7 +392,13 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               accept="image/png,image/jpeg,image/webp"
               multiple
               disabled={isBusy}
-              onChange={(e) => setScreenshots(Array.from(e.target.files ?? []))}
+              // Adds to the list: phone photo pickers often take one image at a time.
+              onChange={(e) => {
+                const picked = Array.from(e.target.files ?? []);
+                const key = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+                setScreenshots((prev) => [...prev, ...picked.filter((f) => !prev.some((p) => key(p) === key(f)))]);
+                e.target.value = ''; // so the same file can be picked again after Clear
+              }}
               className={cn(
                 inputClass,
                 'file:mr-3 file:rounded-full file:border-0 file:bg-neutral-800 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white'
@@ -402,6 +408,14 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               Open the playlist in any music app and screenshot it, scrolling a bit less than a full screen each time, or
               take one scrolling screenshot. Song names are read automatically and matched to our catalog.
             </p>
+            {screenshots.length > 0 && (
+              <p className="text-[11px] text-neutral-400">
+                {screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''} selected — pick more to add them.{' '}
+                <button type="button" onClick={() => setScreenshots([])} disabled={isBusy} className="font-semibold text-brand-400 hover:underline">
+                  Clear
+                </button>
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="screenshot-title" className="text-xs font-semibold text-neutral-300">

@@ -26,6 +26,15 @@ export function ImageWithFallback({
     setError(false);
   }, [src]);
 
+  // A load that failed while the tab was in the background (mobile browsers
+  // suspend network there) gets another try when the user comes back.
+  React.useEffect(() => {
+    if (!error) return;
+    const retry = () => document.visibilityState === 'visible' && setError(false);
+    document.addEventListener('visibilitychange', retry);
+    return () => document.removeEventListener('visibilitychange', retry);
+  }, [error]);
+
   // next/image throws (crashing the whole page) on anything that isn't an
   // absolute URL or root-relative path — and JioSaavn occasionally returns
   // junk like an HTML error page as an image URL.

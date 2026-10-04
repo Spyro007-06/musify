@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { usePlayerStore } from '@/stores/player-store';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
+import imageLoader from '@/lib/image-loader';
 
 /**
  * useAudio wires the singleton AudioEngine to the Zustand player store.
@@ -39,7 +40,11 @@ export function useAudio() {
       artist: currentTrack.artists?.map((a) => a.name).join(', ') || 'Unknown Artist',
       album: currentTrack.album?.title || '',
       artwork: currentTrack.artwork
-        ? [{ src: currentTrack.artwork, sizes: '512x512', type: 'image/jpeg' }]
+        ? [150, 500].map((size) => ({
+            src: imageLoader({ src: currentTrack.artwork!, width: size }),
+            sizes: `${size}x${size}`,
+            type: 'image/jpeg',
+          }))
         : [],
     });
   }, [currentTrack]);
