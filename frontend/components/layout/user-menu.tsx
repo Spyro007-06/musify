@@ -60,7 +60,7 @@ export function UserMenu({ user, className }: UserMenuProps) {
         aria-haspopup="menu"
         aria-label="User account menu"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/90 py-1 pl-1 pr-1.5 sm:pr-3 text-sm text-neutral-200 transition-colors hover:border-neutral-700 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+        className="relative flex items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900/90 py-1 pl-1 pr-1.5 sm:pr-3 text-sm before:absolute before:-inset-1 before:content-[''] text-neutral-200 transition-colors hover:border-neutral-700 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-400"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-700 text-xs font-semibold text-white">
           {user.avatarUrl ? (

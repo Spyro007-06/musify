@@ -41,7 +41,7 @@ export function Topbar({ className }: { className?: string }) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-neutral-800 bg-surface/90 px-4 md:px-6 backdrop-blur-md',
+        'sticky top-0 z-20 flex h-[calc(4rem+env(safe-area-inset-top,0px))] w-full items-center justify-between border-b border-neutral-800 bg-surface/90 px-4 pt-[env(safe-area-inset-top,0px)] md:px-6 backdrop-blur-md',
         className
       )}
     >

@@ -5,6 +5,11 @@ import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';
 import { uniqueSlug } from '@utils/slugify';
 
+// Auto-built album cards ("movie-<albumId>") come from this much recent activity.
+const RECENT_PLAYS_FOR_ALBUMS = 200;
+const RECENT_LIKES_FOR_ALBUMS = 100;
+const MAX_AUTO_ALBUMS = 24;
+
 export class PlaylistService {
   private static saavn = SaavnService.getInstance();
 
@@ -35,33 +40,44 @@ export class PlaylistService {
       isPublic: p.isPublic,
     }));
 
-    // Fetch user's liked tracks, recently played tracks, and custom playlist tracks in parallel
-    const [likedTracks, recentlyPlayed, playlistTracks] = await Promise.all([
-      prisma.likedTrack.findMany({
-        where: { userId },
-        select: { trackId: true }
-      }),
+    // Albums from the user's *recent* plays, likes and playlist additions,
+    // newest first. Reading all of it made this list (fetched by most pages)
+    // look up every song ever played, and grow to hundreds of cards.
+    const [recentlyPlayed, likedTracks, playlistTracks] = await Promise.all([
       prisma.listeningHistory.findMany({
         where: { userId },
-        select: { trackId: true }
+        select: { trackId: true },
+        orderBy: { timestamp: 'desc' },
+        take: RECENT_PLAYS_FOR_ALBUMS,
+      }),
+      prisma.likedTrack.findMany({
+        where: { userId },
+        select: { trackId: true },
+        orderBy: { createdAt: 'desc' },
+        take: RECENT_LIKES_FOR_ALBUMS,
       }),
       prisma.playlistTrack.findMany({
         where: { playlist: { ownerId: userId } },
-        select: { trackId: true }
+        select: { trackId: true },
+        orderBy: { addedAt: 'desc' },
+        take: RECENT_LIKES_FOR_ALBUMS,
       })
     ]);
 
     const trackIds = Array.from(new Set([
-      ...likedTracks.map((t: any) => t.trackId),
       ...recentlyPlayed.map((t: any) => t.trackId),
+      ...likedTracks.map((t: any) => t.trackId),
       ...playlistTracks.map((t: any) => t.trackId)
     ]));
+    const recency = new Map(trackIds.map((id, i) => [id, i]));
 
     const moviePlaylistsMap = new Map<string, any>();
 
     if (trackIds.length > 0) {
       try {
-        const tracks = await this.saavn.getTracks(trackIds);
+        const tracks = (await this.saavn.getTracks(trackIds)).sort(
+          (a: any, b: any) => (recency.get(a?.id) ?? Infinity) - (recency.get(b?.id) ?? Infinity)
+        );
         for (const track of tracks) {
           if (track && track.album && track.album.id) {
             const albumId = track.album.id;
@@ -69,7 +85,7 @@ export class PlaylistService {
               moviePlaylistsMap.set(albumId, {
                 id: `movie-${albumId}`,
                 title: track.album.title,
-                description: `Soundtrack from the movie ${track.album.title}.`,
+                description: null,
                 cover: track.album.artwork || 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&q=80',
                 tracksCount: 0,
                 owner: 'Movie Soundtrack',
@@ -85,13 +101,18 @@ export class PlaylistService {
       }
     }
 
-    const moviePlaylists = Array.from(moviePlaylistsMap.values()).map(p => {
-      const { trackIdsSet, ...rest } = p;
-      return {
-        ...rest,
-        tracksCount: trackIdsSet.size
-      };
-    });
+    const moviePlaylists = Array.from(moviePlaylistsMap.values())
+      .slice(0, MAX_AUTO_ALBUMS)
+      .map(p => {
+        const { trackIdsSet, ...rest } = p;
+        const n = trackIdsSet.size;
+        return {
+          ...rest,
+          // Not every album is a film soundtrack (e.g. Eminem's), so describe what it is to the user.
+          description: `${n} ${n === 1 ? 'song' : 'songs'} from your listening`,
+          tracksCount: n
+        };
+      });
 
     return [...customPlaylists, ...moviePlaylists];
   }
@@ -106,7 +127,7 @@ export class PlaylistService {
       return {
         id: playlistId,
         title: album.title,
-        description: `Soundtrack from the movie ${album.title}.`,
+        description: `The album ${album.title}.`,
         cover: album.artwork || 'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&q=80',
         tracksCount: album.tracks?.length || 0,
         owner: 'Movie Soundtrack',
@@ -165,7 +186,7 @@ export class PlaylistService {
         throw ApiError.notFound(ERROR_MESSAGES.ALBUM_NOT_FOUND);
       }
       title = album.title;
-      description = `Soundtrack from the movie ${album.title}.`;
+      description = `From the album ${album.title}.`;
       coverUrl = album.artwork || '';
       trackIds = album.tracks?.map((t: any) => t.id) || [];
     }

@@ -98,8 +98,12 @@ It was moved off Railway on 2026-09-28; there is no background worker.
   check the "Deploy backend to Render" run in the Actions tab, then deploy
   manually from the dashboard (Manual Deploy → Deploy latest commit).
 - **Free plan sleeps** after 15 idle minutes, and requests through the
-  Vercel proxy 502 until it wakes (~20-50s). The auth smoke test runs every
-  10 minutes partly to keep it awake. The daily recommendation cron runs
+  Vercel proxy 502 until it wakes (~20-50s). What actually keeps it awake is
+  a Supabase `pg_cron` job, `keep-render-awake`, that GETs
+  `/api/health/ready` every 10 minutes via `pg_net` (check it with
+  `select * from cron.job_run_details order by start_time desc limit 5;`).
+  The auth smoke test is scheduled every 10 minutes too, but GitHub runs it
+  hours apart, so don't rely on it. The daily recommendation cron runs
   in-process, so it only fires while the instance is awake.
 - **No background worker**: `REDIS_URL` is set to an empty value, which
   turns the BullMQ queue off (`src/config/queue.ts`); `/api/health/ready`

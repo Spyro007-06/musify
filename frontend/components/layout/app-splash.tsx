@@ -1,4 +1,10 @@
+'use client';
+
+import * as React from 'react';
 import { Brand } from './brand';
+
+// After this long, say it's still working instead of looking frozen.
+const SLOW_AFTER_MS = 4000;
 
 /**
  * Full-screen boot splash shown while the session is being resolved.
@@ -12,13 +18,28 @@ import { Brand } from './brand';
  * that transition; only the overlay's presence toggles.
  */
 export function AppSplash() {
+  const [isSlow, setIsSlow] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsSlow(true), SLOW_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div
       role="status"
       aria-label="Loading MUSIFY"
-      className="fixed inset-0 z-[100] flex h-dvh w-full items-center justify-center auth-backdrop"
+      className="fixed inset-0 z-[100] flex h-dvh w-full flex-col items-center justify-center gap-6 auth-backdrop px-8 text-center"
     >
       <Brand size="lg" />
+      {isSlow && (
+        <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-brand-400" />
+          <p className="max-w-xs text-sm text-neutral-300">
+            Taking longer than usual to connect. Hang tight, it&rsquo;ll pick up where you left off.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

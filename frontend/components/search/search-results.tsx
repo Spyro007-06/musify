@@ -252,7 +252,7 @@ function TopResultCard({ top, onPlay, onPick }: { top: TopResult; onPlay: (t: Tr
           <span className="truncate">{top.subtitle}</span>
         )}
       </div>
-      <span className="absolute bottom-4 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
+      <span className="absolute bottom-4 right-4 flex h-12 w-12 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 [@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-y-0 transition-all">
         <Play className="h-5 w-5 fill-current ml-0.5" />
       </span>
     </>

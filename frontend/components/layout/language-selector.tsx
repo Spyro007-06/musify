@@ -85,7 +85,8 @@ export function LanguageSelector({ className }: LanguageSelectorProps) {
         aria-label="Filter by language"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'flex items-center gap-1.5 rounded-full border px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400',
+          // before: widens the tap area to 44px without changing the pill's look.
+          'relative flex items-center gap-1.5 rounded-full border px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-400 before:absolute before:-inset-2 before:content-[""]',
           selected.length > 0
             ? 'border-brand-500/40 bg-brand-500/10 text-brand-300 hover:bg-brand-500/20'
             : 'border-neutral-800 bg-neutral-900/90 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800'

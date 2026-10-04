@@ -7,6 +7,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Track } from '@/types/track';
 import { cn } from '@/lib/utils/cn';
 import { useDragReorder } from '@/hooks/use-drag-reorder';
+import { useBackToClose } from '@/hooks/use-back-to-close';
 
 type Section = QueueRef['section'];
 const refKey = (section: Section, index: number) => `${section}:${index}`;
@@ -43,6 +44,8 @@ export function QueuePanel() {
     (section) => (section === 'queued' ? userQueue.length : queue.length - currentIndex - 1),
     moveInQueue
   );
+  // Phones: Back closes the queue instead of leaving the page.
+  useBackToClose(isQueueOpen, () => setQueueOpen(false));
 
   // Close on Escape key and body scroll lock
   React.useEffect(() => {
@@ -162,7 +165,7 @@ export function QueuePanel() {
         className="relative z-10 flex h-full w-full max-w-md flex-col bg-neutral-950 border-l border-white/10 shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] sm:p-5">
           <div className="min-w-0">
             <h3 className="text-xl font-bold text-white">{editing ? 'Edit queue' : 'Queue'}</h3>
             {!editing && queueSource && (

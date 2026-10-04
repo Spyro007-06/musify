@@ -38,6 +38,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#0b1210',
+  // Lets the installed iPhone app draw under the notch/home bar (statusBarStyle is
+  // black-translucent); the header, player and nav pad themselves with safe-area insets.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
