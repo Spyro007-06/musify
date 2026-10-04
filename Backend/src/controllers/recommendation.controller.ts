@@ -262,7 +262,7 @@ export class RecommendationController {
   public static async getUserPreferences(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const prefs = await RecommendationService.getUserPreferences(authReq.user.id);
+      const prefs = await RecommendationService.getSavedPreferences(authReq.user.id);
       sendSuccess({
         res,
         statusCode: HTTP_STATUS.OK,

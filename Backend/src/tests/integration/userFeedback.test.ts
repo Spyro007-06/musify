@@ -73,6 +73,22 @@ describe('POST /api/user/preferences — validation', () => {
   });
 });
 
+describe('GET /api/user/preferences', () => {
+  it('returns the saved picks, not genres/artists learned from listening', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+    prismaMock.userPreferences.findUnique.mockResolvedValue({
+      favouriteGenres: ['Pop'], favouriteArtists: [], favouriteLanguages: ['tamil'], favouriteAlbums: [], favouriteMoods: [],
+    } as any);
+    prismaMock.genreAffinity.findMany.mockResolvedValue([{ genre: 'tamil' }] as any);
+    const token = jwt.sign({ sub: user.supabaseId }, process.env.SUPABASE_JWT_SECRET!);
+
+    const res = await request(app).get('/api/user/preferences').set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.favouriteGenres).toEqual(['Pop']);
+  });
+});
+
 describe('POST /api/recommendations/smart-queue — validation', () => {
   it('rejects a body missing artistName', async () => {
     const res = await authedPost('/api/recommendations/smart-queue', { trackId: 'track-1' });
