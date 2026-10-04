@@ -309,10 +309,10 @@ describe('POST /api/playlists/:id/import/songs', () => {
 });
 
 describe('POST /api/playlists/import/screenshot', () => {
-  it('503s with a clear message while GEMINI_API_KEY is not set', async () => {
+  it('501s with a clear message while GEMINI_API_KEY is not set (503 would mean "retry")', async () => {
     prismaMock.user.findUnique.mockResolvedValue(owner as any);
     const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/png', data: 'aGVsbG8=' });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(501);
     expect(res.body.message).toMatch(/GEMINI_API_KEY/);
   });
 
@@ -354,12 +354,29 @@ describe('POST /api/playlists/import/screenshot — Gemini overloads', () => {
     ]);
   });
 
-  it('gives up with a clean 502 after two rounds of overloads', async () => {
+  it('answers 503 "busy" (so the client waits and retries) after two rounds of overloads', async () => {
     fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () => overloaded());
     const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
-    expect(res.status).toBe(502);
-    expect(res.body.message).toMatch(/Could not read that screenshot/);
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/busy/);
     expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it('reads up to 4 images in one Gemini call, in order', async () => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(geminiOk([{ title: 'A', artist: 'X' }, { title: 'B', artist: 'Y' }]));
+    const images = ['aGVsbG8=', 'd29ybGQ=', 'Zm9v'].map((data) => ({ mimeType: 'image/jpeg', data }));
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { images });
+    expect(res.status).toBe(200);
+    expect(res.body.data.songs).toHaveLength(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const parts = JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body)).contents[0].parts;
+    expect(parts.slice(1).map((p: any) => p.inline_data.data)).toEqual(['aGVsbG8=', 'd29ybGQ=', 'Zm9v']);
+  });
+
+  it('rejects more than 4 images per call', async () => {
+    const images = Array.from({ length: 5 }, () => ({ mimeType: 'image/jpeg', data: 'aGVsbG8=' }));
+    const res = await authedPost('/api/playlists/import/screenshot', owner, { images });
+    expect(res.status).toBe(422);
   });
 
   it('does not retry a request Gemini rejects outright (e.g. a bad key)', async () => {

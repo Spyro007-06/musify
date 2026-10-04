@@ -152,6 +152,8 @@ export function userHourlyLimiter(prefix: string, max: number, message: string) 
         // trust proxy is deliberately `true` (see app.ts); skip the lib's warning about it.
         validate: { trustProxy: false },
         keyGenerator: getIdentifier,
+        // A failed call (e.g. the screenshot reader busy, retried by the client) isn't usage.
+        skipFailedRequests: true,
       });
 }
 

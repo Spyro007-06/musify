@@ -74,7 +74,8 @@ router.post('/import/spotify', authenticate, importLimiter, PlaylistController.i
  * @swagger
  * /playlists/import/screenshot:
  *   post:
- *     summary: Read the song list off one playlist screenshot (Gemini)
+ *     summary: Read the song list off 1-4 playlist screenshots, in order, with one Gemini call
+ *     description: Also accepts a single image as { mimeType, data }.
  *     tags: [Playlists]
  *     security:
  *       - BearerAuth: []
@@ -84,19 +85,29 @@ router.post('/import/spotify', authenticate, importLimiter, PlaylistController.i
  *         application/json:
  *           schema:
  *             type: object
- *             required: [mimeType, data]
+ *             required: [images]
  *             properties:
- *               mimeType:
- *                 type: string
- *                 enum: [image/jpeg, image/png, image/webp]
- *               data:
- *                 type: string
- *                 description: Base64 image
+ *               images:
+ *                 type: array
+ *                 minItems: 1
+ *                 maxItems: 4
+ *                 items:
+ *                   type: object
+ *                   required: [mimeType, data]
+ *                   properties:
+ *                     mimeType:
+ *                       type: string
+ *                       enum: [image/jpeg, image/png, image/webp]
+ *                     data:
+ *                       type: string
+ *                       description: Base64 image
  *     responses:
  *       200:
  *         description: Songs found, as { title, artist }
- *       503:
+ *       501:
  *         description: GEMINI_API_KEY is not configured
+ *       503:
+ *         description: The reader is busy (Gemini quota); retry after a short wait
  */
 router.post('/import/screenshot', authenticate, importLimiter, PlaylistController.readScreenshot);
 

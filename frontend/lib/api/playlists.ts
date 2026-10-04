@@ -49,8 +49,11 @@ export const playlistsApi = {
   ): Promise<ApiResponse<ImportSongsResult>> =>
     apiClient.post<ImportSongsResult>(`/playlists/${encodeURIComponent(playlistId)}/import/songs`, batch),
 
-  readScreenshot: (mimeType: string, data: string): Promise<ApiResponse<{ songs: ImportSong[] }>> =>
-    apiClient.post<{ songs: ImportSong[] }>('/playlists/import/screenshot', { mimeType, data }),
+  /** Up to 4 base64 JPEGs, in order, read in one call. */
+  readScreenshots: (images: string[]): Promise<ApiResponse<{ songs: ImportSong[] }>> =>
+    apiClient.post<{ songs: ImportSong[] }>('/playlists/import/screenshot', {
+      images: images.map((data) => ({ mimeType: 'image/jpeg', data })),
+    }),
 
   updatePlaylist: (
     id: string,

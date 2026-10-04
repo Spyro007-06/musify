@@ -45,8 +45,18 @@ export const importSongsSchema = z
     return n > 0 && n <= IMPORT_BATCH_MAX;
   }, `Send between 1 and ${IMPORT_BATCH_MAX} songs at a time.`);
 
-export const importScreenshotSchema = z.object({
+const screenshotImage = z.object({
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
-  // base64; ~6M chars ≈ a 4.5MB image (the client downsizes well below that)
+  // base64; ~6M chars ≈ a 4.5MB image (the client downsizes well below that;
+  // the route's 8mb body limit caps a whole batch)
   data: z.string().min(1).max(6_000_000).regex(/^[A-Za-z0-9+/]+={0,2}$/, 'Invalid image data'),
 });
+
+/** Up to this many images per Gemini call: each call counts against its per-minute quota. */
+export const SCREENSHOT_BATCH_MAX = 4;
+
+// { images: [...] }, or one image as { mimeType, data } (what older clients send).
+export const importScreenshotSchema = z.union([
+  z.object({ images: z.array(screenshotImage).min(1).max(SCREENSHOT_BATCH_MAX) }).transform((b) => b.images),
+  screenshotImage.transform((image) => [image]),
+]);

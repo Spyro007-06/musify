@@ -14,7 +14,20 @@ const GEMINI_ROUND_PAUSE_MS = 1500;
  * reply text. Null when no key is set or no model answered.
  */
 export async function askGeminiJson(parts: unknown[], responseSchema: unknown): Promise<string | null> {
-  if (!env.GEMINI_API_KEY) return null;
+  const result = await callGeminiJson(parts, responseSchema);
+  return 'text' in result ? result.text : null;
+}
+
+/**
+ * askGeminiJson, but a failure says whether it's worth retrying soon:
+ * busy = every model was overloaded, rate-limited (free tier per-minute
+ * quota) or timed out; otherwise Gemini rejected the request (bad key...).
+ */
+export async function callGeminiJson(
+  parts: unknown[],
+  responseSchema: unknown
+): Promise<{ text: string } | { busy: boolean }> {
+  if (!env.GEMINI_API_KEY) return { busy: false };
   const body = JSON.stringify({
     contents: [{ parts }],
     generationConfig: { responseMimeType: 'application/json', responseSchema },
@@ -39,9 +52,11 @@ export async function askGeminiJson(parts: unknown[], responseSchema: unknown): 
   if (!res?.ok) {
     if (res && !GEMINI_RETRYABLE.has(res.status)) {
       logger.warn(`Gemini returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      return { busy: false };
     }
-    return null;
+    return { busy: true };
   }
   const reply: any = await res.json();
-  return reply?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  const text = reply?.candidates?.[0]?.content?.parts?.[0]?.text;
+  return typeof text === 'string' ? { text } : { busy: false };
 }
