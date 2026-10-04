@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Brand } from './brand';
 
-// After this long, say why it's taking a while instead of looking frozen.
+// After this long, say it's still working instead of looking frozen.
 const SLOW_AFTER_MS = 4000;
 
 /**
@@ -36,7 +36,7 @@ export function AppSplash() {
         <div className="flex flex-col items-center gap-3 animate-in fade-in duration-500">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-brand-400" />
           <p className="max-w-xs text-sm text-neutral-300">
-            Waking up the music server. After a while away this can take up to a minute.
+            Taking longer than usual to connect. Hang tight, it&rsquo;ll pick up where you left off.
           </p>
         </div>
       )}
