@@ -52,7 +52,7 @@ export function ProfileHeader({
     >
       {/* Background ambient glow */}
       <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-brand-600/15 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-brand-600/10 blur-3xl" />
 
       <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-6">
         {/* Avatar */}
