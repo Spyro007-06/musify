@@ -386,36 +386,42 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
             <label htmlFor="screenshot-files" className="text-xs font-semibold text-neutral-300">
               Screenshots <span className="text-brand-400">*</span>
             </label>
-            <input
-              id="screenshot-files"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              multiple
-              disabled={isBusy}
-              // Adds to the list: phone photo pickers often take one image at a time.
-              onChange={(e) => {
-                const picked = Array.from(e.target.files ?? []);
-                const key = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
-                setScreenshots((prev) => [...prev, ...picked.filter((f) => !prev.some((p) => key(p) === key(f)))]);
-                e.target.value = ''; // so the same file can be picked again after Clear
-              }}
-              className={cn(
-                inputClass,
-                'file:mr-3 file:rounded-full file:border-0 file:bg-neutral-800 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-white'
+            {/* The native input is hidden: it's cleared after each pick (below), so its own
+                "No file chosen" text would be wrong. The count is shown here instead. */}
+            <div className={cn(inputClass, 'flex items-center gap-3 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500')}>
+              <label className="shrink-0 cursor-pointer rounded-full bg-neutral-800 px-3 py-1 text-xs font-semibold text-white hover:bg-neutral-700">
+                {screenshots.length > 0 ? 'Add more' : 'Choose files'}
+                <input
+                  id="screenshot-files"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  disabled={isBusy}
+                  // Adds to the list: phone photo pickers often take one image at a time.
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    const key = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
+                    setScreenshots((prev) => [...prev, ...picked.filter((f) => !prev.some((p) => key(p) === key(f)))]);
+                    e.target.value = ''; // so the same file can be picked again after Clear
+                  }}
+                  className="sr-only"
+                />
+              </label>
+              <span className={cn('min-w-0 flex-1 truncate', screenshots.length === 0 && 'text-neutral-500')} aria-live="polite">
+                {screenshots.length > 0
+                  ? `${screenshots.length} screenshot${screenshots.length > 1 ? 's' : ''} selected`
+                  : 'No screenshots chosen'}
+              </span>
+              {screenshots.length > 0 && (
+                <button type="button" onClick={() => setScreenshots([])} disabled={isBusy} className="shrink-0 text-xs font-semibold text-brand-400 hover:underline">
+                  Clear
+                </button>
               )}
-            />
+            </div>
             <p className="text-[11px] leading-relaxed text-neutral-500">
               Open the playlist in any music app and screenshot it, scrolling a bit less than a full screen each time, or
               take one scrolling screenshot. Song names are read automatically and matched to our catalog.
             </p>
-            {screenshots.length > 0 && (
-              <p className="text-[11px] text-neutral-400">
-                {screenshots.length} screenshot{screenshots.length > 1 ? 's' : ''} selected — pick more to add them.{' '}
-                <button type="button" onClick={() => setScreenshots([])} disabled={isBusy} className="font-semibold text-brand-400 hover:underline">
-                  Clear
-                </button>
-              </p>
-            )}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="screenshot-title" className="text-xs font-semibold text-neutral-300">
