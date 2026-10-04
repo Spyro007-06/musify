@@ -23,10 +23,10 @@ const CONCURRENCY = 5;
 const pairKey = (userId: string, trackId: string): string => `${userId}::${trackId}`;
 
 interface RawSignals {
-  listening: { userId: string; spotifyTrackId: string; completedSong: boolean; listenPercentage: number | null; numberOfReplays: number }[];
-  skips: { userId: string; spotifyTrackId: string; skipTime: number }[];
-  likes: { userId: string; spotifyTrackId: string }[];
-  dislikes: { userId: string; spotifyTrackId: string }[];
+  listening: { userId: string; trackId: string; completedSong: boolean; listenPercentage: number | null; numberOfReplays: number }[];
+  skips: { userId: string; trackId: string; skipTime: number }[];
+  likes: { userId: string; trackId: string }[];
+  dislikes: { userId: string; trackId: string }[];
 }
 
 async function fetchRawSignals(): Promise<RawSignals> {
@@ -34,15 +34,15 @@ async function fetchRawSignals(): Promise<RawSignals> {
     prisma.listeningHistory.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20000,
-      select: { userId: true, spotifyTrackId: true, completedSong: true, listenPercentage: true, numberOfReplays: true },
+      select: { userId: true, trackId: true, completedSong: true, listenPercentage: true, numberOfReplays: true },
     }),
     prisma.skippedSongs.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20000,
-      select: { userId: true, spotifyTrackId: true, skipTime: true },
+      select: { userId: true, trackId: true, skipTime: true },
     }),
-    prisma.likedTrack.findMany({ select: { userId: true, spotifyTrackId: true } }),
-    prisma.dislikedSong.findMany({ select: { userId: true, spotifyTrackId: true } }),
+    prisma.likedTrack.findMany({ select: { userId: true, trackId: true } }),
+    prisma.dislikedSong.findMany({ select: { userId: true, trackId: true } }),
   ]);
   return { listening, skips, likes, dislikes };
 }
@@ -52,20 +52,20 @@ export function buildRatingMatrix(signals: RawSignals): RatingMatrix {
   const eventScoresByPair = new Map<string, number[]>();
 
   for (const ev of signals.listening) {
-    const key = pairKey(ev.userId, ev.spotifyTrackId);
+    const key = pairKey(ev.userId, ev.trackId);
     const list = eventScoresByPair.get(key) ?? [];
     list.push(scorePlayEvent(ev));
     eventScoresByPair.set(key, list);
   }
   for (const ev of signals.skips) {
-    const key = pairKey(ev.userId, ev.spotifyTrackId);
+    const key = pairKey(ev.userId, ev.trackId);
     const list = eventScoresByPair.get(key) ?? [];
     list.push(scoreSkipEvent({ skipTime: ev.skipTime }));
     eventScoresByPair.set(key, list);
   }
 
-  const likedSet = new Set(signals.likes.map((l) => pairKey(l.userId, l.spotifyTrackId)));
-  const dislikedSet = new Set(signals.dislikes.map((d) => pairKey(d.userId, d.spotifyTrackId)));
+  const likedSet = new Set(signals.likes.map((l) => pairKey(l.userId, l.trackId)));
+  const dislikedSet = new Set(signals.dislikes.map((d) => pairKey(d.userId, d.trackId)));
 
   const allKeys = new Set<string>([...eventScoresByPair.keys(), ...likedSet, ...dislikedSet]);
   const matrix: RatingMatrix = new Map();
@@ -124,7 +124,7 @@ async function fetchAffinityMaps(userIds: string[]): Promise<Map<string, Affinit
   };
 
   genreRows.forEach((g) => ensure(g.userId).genreAffinity.set(g.genre.toLowerCase(), g.score));
-  artistRows.forEach((a) => ensure(a.userId).artistAffinity.set(a.spotifyArtistId, a.score));
+  artistRows.forEach((a) => ensure(a.userId).artistAffinity.set(a.artistId, a.score));
 
   return result;
 }
@@ -221,7 +221,7 @@ export async function recomputeAllUserScores(): Promise<RecomputeSummary> {
         ...(topN.length > 0
           ? [
               prisma.recommendationScores.createMany({
-                data: topN.map((t) => ({ userId, spotifyTrackId: t.trackId, score: t.score, reason: t.reason })),
+                data: topN.map((t) => ({ userId, trackId: t.trackId, score: t.score, reason: t.reason })),
               }),
             ]
           : []),
@@ -245,7 +245,7 @@ export async function recomputeAllUserScores(): Promise<RecomputeSummary> {
 }
 
 export interface PrecomputedScore {
-  spotifyTrackId: string;
+  trackId: string;
   score: number;
   reason: string | null;
 }
@@ -257,7 +257,7 @@ export async function getPrecomputedScores(userId: string, limit = TOP_N_PER_USE
     orderBy: { score: 'desc' },
     take: limit,
   });
-  return rows.map((r) => ({ spotifyTrackId: r.spotifyTrackId, score: r.score, reason: r.reason }));
+  return rows.map((r) => ({ trackId: r.trackId, score: r.score, reason: r.reason }));
 }
 
 export { CANDIDATE_POOL_SIZE, TOP_N_PER_USER };

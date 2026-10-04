@@ -62,15 +62,15 @@ async function main() {
     prisma.listeningHistory.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20000,
-      select: { userId: true, spotifyTrackId: true, completedSong: true, listenPercentage: true, numberOfReplays: true },
+      select: { userId: true, trackId: true, completedSong: true, listenPercentage: true, numberOfReplays: true },
     }),
     prisma.skippedSongs.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20000,
-      select: { userId: true, spotifyTrackId: true, skipTime: true },
+      select: { userId: true, trackId: true, skipTime: true },
     }),
-    prisma.likedTrack.findMany({ select: { userId: true, spotifyTrackId: true } }),
-    prisma.dislikedSong.findMany({ select: { userId: true, spotifyTrackId: true } }),
+    prisma.likedTrack.findMany({ select: { userId: true, trackId: true } }),
+    prisma.dislikedSong.findMany({ select: { userId: true, trackId: true } }),
   ]);
 
   const fullMatrix = buildRatingMatrix({ listening, skips, likes, dislikes });

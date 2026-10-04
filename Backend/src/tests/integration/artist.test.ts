@@ -68,7 +68,7 @@ describe('GET /api/artists/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.isFollowing).toBe(true);
     expect(prismaMock.artistAffinity.findUnique).toHaveBeenCalledWith({
-      where: { userId_spotifyArtistId: { userId: user.id, spotifyArtistId: 'artist-1' } },
+      where: { userId_artistId: { userId: user.id, artistId: 'artist-1' } },
     });
   });
 
@@ -90,7 +90,7 @@ describe('GET /api/artists/:id/top-tracks, /albums, /related', () => {
   it('top-tracks: marks isLiked correctly per-track for the authenticated user', async () => {
     saavnMock.getArtistTopTracks.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
     prismaMock.user.findUnique.mockResolvedValue(user as any);
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 't1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ trackId: 't1' } as any]);
 
     const res = await request(app).get('/api/artists/artist-1/top-tracks').set('Authorization', authHeader());
 
@@ -143,7 +143,7 @@ describe('POST/DELETE /api/artists/:id/follow — toggle + auth boundary', () =>
     expect(res.status).toBe(200);
     expect(prismaMock.artistAffinity.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId_spotifyArtistId: { userId: user.id, spotifyArtistId: 'artist-1' } },
+        where: { userId_artistId: { userId: user.id, artistId: 'artist-1' } },
         update: { isFollowed: true },
       })
     );

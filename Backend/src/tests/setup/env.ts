@@ -14,6 +14,8 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.CSRF_SECRET = 'test-csrf-secret';
 process.env.RATE_LIMIT_MAX = '10000';
 process.env.AUTH_RATE_LIMIT_MAX = '10000';
+process.env.AI_RATE_LIMIT_MAX = '10000';
+process.env.IMPORT_RATE_LIMIT_MAX = '10000';
 process.env.SWAGGER_ENABLED = 'false';
 // Explicitly unset (not just "not set here") so dotenv.config() in
 // src/config/env.ts can't backfill these from a developer's real .env —

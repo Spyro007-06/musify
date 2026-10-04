@@ -30,7 +30,7 @@ describe('MusicService.getRecommended', () => {
 
   it('falls back to likes/history-derived recs when the user has no favourite genres', async () => {
     prismaMock.genreAffinity.findMany.mockResolvedValue([]);
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ userId: 'user-1', spotifyTrackId: 'liked-1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ userId: 'user-1', trackId: 'liked-1' } as any]);
     prismaMock.listeningHistory.findMany.mockResolvedValue([]);
     prismaMock.artistAffinity.findMany.mockResolvedValue([]);
     saavnMock.getTracks.mockResolvedValue([track({ id: 'liked-1', genre: 'hindi' })]);
@@ -62,9 +62,9 @@ describe('MusicService.getRecentlyPlayed', () => {
     // Newest first, matching the real query's orderBy — track-1 was played
     // twice, track-2 once.
     prismaMock.listeningHistory.findMany.mockResolvedValue([
-      { spotifyTrackId: 'track-1', timestamp: new Date('2026-01-03') },
-      { spotifyTrackId: 'track-2', timestamp: new Date('2026-01-02') },
-      { spotifyTrackId: 'track-1', timestamp: new Date('2026-01-01') },
+      { trackId: 'track-1', timestamp: new Date('2026-01-03') },
+      { trackId: 'track-2', timestamp: new Date('2026-01-02') },
+      { trackId: 'track-1', timestamp: new Date('2026-01-01') },
     ] as any);
     saavnMock.getTracks.mockResolvedValue([track({ id: 'track-1' }), track({ id: 'track-2' })]);
     prismaMock.likedTrack.findMany.mockResolvedValue([]);
@@ -79,8 +79,8 @@ describe('MusicService.getAutoplayTracks', () => {
   const songs = (...ids: string[]) => ids.map((id) => track({ id, title: `Song ${id}` }));
 
   beforeEach(() => {
-    prismaMock.listeningHistory.findMany.mockResolvedValue([{ spotifyTrackId: 'played' }] as any);
-    prismaMock.skippedSongs.findMany.mockResolvedValue([{ spotifyTrackId: 'skipped' }] as any);
+    prismaMock.listeningHistory.findMany.mockResolvedValue([{ trackId: 'played' }] as any);
+    prismaMock.skippedSongs.findMany.mockResolvedValue([{ trackId: 'skipped' }] as any);
     prismaMock.likedTrack.findMany.mockResolvedValue([]);
   });
 
@@ -105,5 +105,21 @@ describe('MusicService.getAutoplayTracks', () => {
     expect(result.map((t: any) => t.id)).toEqual(['n1', 'f1', 't1', 'played']);
     feed.mockRestore();
     trending.mockRestore();
+  });
+});
+
+describe('MusicService.getRecommended — mood check-in', () => {
+  it('serves the active mood in the user\'s languages before any other signal', async () => {
+    prismaMock.userPreferences.findUnique.mockResolvedValue({ favouriteLanguages: ['Hindi', 'Tamil'] } as any);
+    prismaMock.moodHistory.findFirst.mockResolvedValue({ mood: 'workout' } as any);
+    saavnMock.getRecommendationsByGenres.mockResolvedValue([track({ id: 'gym-pick' })]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([]);
+
+    const result = await MusicService.getRecommended('user-1');
+
+    expect(saavnMock.getRecommendationsByGenres).toHaveBeenCalledWith(['hindi workout', 'tamil workout'], 20);
+    expect(result).toMatchObject({ basis: 'mood', mood: 'workout', personalized: true });
+    expect(result.tracks.map((t: any) => t.id)).toEqual(['gym-pick']);
+    expect(prismaMock.genreAffinity.findMany).not.toHaveBeenCalled();
   });
 });

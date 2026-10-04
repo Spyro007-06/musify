@@ -11,6 +11,8 @@ import { useDiscoverWeekly, useRecommendedArtists } from '@/hooks/use-recommenda
 import { useAuthStore } from '@/stores/auth-store';
 import { HomeHeader } from '@/components/home/home-header';
 import { ShortcutGrid } from '@/components/home/shortcut-grid';
+import { MoodCheckIn } from '@/components/home/mood-check-in';
+import { MOODS } from '@/lib/constants/moods';
 import { PlaylistRow, PlaylistShelf } from '@/components/home/playlist-row';
 import { MusicSection } from '@/components/music/music-section';
 import { DiscoverWeeklyHero } from '@/components/discover/discover-weekly-hero';
@@ -167,6 +169,7 @@ export default function HomePage() {
   );
 
   const hasLibrary = isAuthenticated && !isInitializing;
+  const activeMood = recommended.personalizedBasis === 'mood' ? MOODS.find((m) => m.id === recommended.mood) : undefined;
   const topArtist = mixArtists[0];
 
   return (
@@ -214,33 +217,43 @@ export default function HomePage() {
         </MusicSection>
       )}
 
-      <MusicSection
-        title="More of what you like"
-        subtitle={
-          recommended.personalizedBasis === 'history'
-            ? 'Inspired by your listening history'
-            : recommended.personalizedBasis === 'taste'
-            ? 'Picked to match your favourite genres'
-            : recommended.personalizedBasis === 'language'
-            ? 'Fresh picks in your preferred languages'
-            : 'Popular picks to get you started — tune your taste in Settings'
-        }
-        isLoading={recommended.isLoading}
-        isError={recommended.isError}
-        error={recommended.error}
-        onRetry={recommended.refetch}
-        isEmpty={recommendedShelfTracks.length === 0}
-        skeletonType="card"
-        skeletonCount={6}
-      >
-        <ShelfRow>
-          {recommendedShelfTracks.map((track) => (
-            <ShelfItem key={`rec-${track.id}`}>
-              <TrackCard track={track} onPlay={(t) => playFrom('More of what you like', t, recommendedTracks)} />
-            </ShelfItem>
-          ))}
-        </ShelfRow>
-      </MusicSection>
+      <div className="space-y-4">
+        <MoodCheckIn />
+        <MusicSection
+          title={activeMood ? `For your ${activeMood.shortName.toLowerCase()} mood` : 'More of what you like'}
+          subtitle={
+            activeMood
+              ? 'Picked for how you feel right now, in your languages'
+              : recommended.personalizedBasis === 'history'
+              ? 'Inspired by your listening history'
+              : recommended.personalizedBasis === 'taste'
+              ? 'Picked to match your favourite genres'
+              : recommended.personalizedBasis === 'language'
+              ? 'Fresh picks in your preferred languages'
+              : 'Popular picks to get you started — tune your taste in Settings'
+          }
+          isLoading={recommended.isLoading}
+          isError={recommended.isError}
+          error={recommended.error}
+          onRetry={recommended.refetch}
+          isEmpty={recommendedShelfTracks.length === 0}
+          skeletonType="card"
+          skeletonCount={6}
+        >
+          <ShelfRow>
+            {recommendedShelfTracks.map((track) => (
+              <ShelfItem key={`rec-${track.id}`}>
+                <TrackCard
+                  track={track}
+                  onPlay={(t) =>
+                    playFrom(activeMood ? `${activeMood.shortName} mood` : 'More of what you like', t, recommendedTracks)
+                  }
+                />
+              </ShelfItem>
+            ))}
+          </ShelfRow>
+        </MusicSection>
+      </div>
 
       {mixArtists.length > 0 && (
         <MusicSection title="Your top mixes">

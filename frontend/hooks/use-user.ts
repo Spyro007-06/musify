@@ -6,11 +6,12 @@ import {
   updateUserProfile,
   getUserPreferences,
   updateUserPreferences,
+  userApi,
   UserPreferences,
   UpdateProfileRequest,
 } from '@/lib/api/user';
 import { useAuthStore } from '@/stores/auth-store';
-import { User } from '@/types/user';
+import { User, MoodId } from '@/types/user';
 
 export function useUserProfile() {
   const { isAuthenticated, isInitializing } = useAuthStore();
@@ -105,5 +106,43 @@ export function useUpdatePreferences() {
       queryClient.invalidateQueries({ queryKey: ['ai', 'recommendations'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
     },
+  });
+}
+
+export function useListeningStats(month: string) {
+  const { isAuthenticated, isInitializing } = useAuthStore();
+  return useQuery({
+    queryKey: ['user', 'stats', month],
+    queryFn: async () => (await userApi.getListeningStats(month)).data ?? null,
+    enabled: isAuthenticated && !isInitializing,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useActiveMood() {
+  const { isAuthenticated, isInitializing } = useAuthStore();
+  return useQuery({
+    queryKey: ['user', 'mood'],
+    queryFn: async () => (await userApi.getMood()).data?.mood ?? null,
+    enabled: isAuthenticated && !isInitializing,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+/** Checks in a mood (or clears it with null); the home recommendations follow it. */
+export function useSetMood() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mood: MoodId | null) => {
+      await userApi.setMood(mood);
+      return mood;
+    },
+    onMutate: (mood) => {
+      const previous = queryClient.getQueryData<MoodId | null>(['user', 'mood']);
+      queryClient.setQueryData(['user', 'mood'], mood);
+      return { previous };
+    },
+    onError: (_err, _mood, context) => queryClient.setQueryData(['user', 'mood'], context?.previous ?? null),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['music', 'recommended'] }),
   });
 }

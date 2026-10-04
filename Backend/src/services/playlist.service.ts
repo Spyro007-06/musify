@@ -39,22 +39,22 @@ export class PlaylistService {
     const [likedTracks, recentlyPlayed, playlistTracks] = await Promise.all([
       prisma.likedTrack.findMany({
         where: { userId },
-        select: { spotifyTrackId: true }
+        select: { trackId: true }
       }),
       prisma.listeningHistory.findMany({
         where: { userId },
-        select: { spotifyTrackId: true }
+        select: { trackId: true }
       }),
       prisma.playlistTrack.findMany({
         where: { playlist: { ownerId: userId } },
-        select: { spotifyTrackId: true }
+        select: { trackId: true }
       })
     ]);
 
     const trackIds = Array.from(new Set([
-      ...likedTracks.map((t: any) => t.spotifyTrackId),
-      ...recentlyPlayed.map((t: any) => t.spotifyTrackId),
-      ...playlistTracks.map((t: any) => t.spotifyTrackId)
+      ...likedTracks.map((t: any) => t.trackId),
+      ...recentlyPlayed.map((t: any) => t.trackId),
+      ...playlistTracks.map((t: any) => t.trackId)
     ]));
 
     const moviePlaylistsMap = new Map<string, any>();
@@ -120,8 +120,8 @@ export class PlaylistService {
       include: {
         owner: { select: { username: true } },
         tracks: {
-          select: { spotifyTrackId: true, addedAt: true },
-          orderBy: { addedAt: 'asc' }
+          select: { trackId: true },
+          orderBy: [{ position: 'asc' }, { addedAt: 'asc' }]
         }
       }
     });
@@ -137,7 +137,7 @@ export class PlaylistService {
       throw ApiError.forbidden(ERROR_MESSAGES.PLAYLIST_ACCESS_DENIED);
     }
 
-    const trackIds = playlist.tracks.map((t: any) => t.spotifyTrackId);
+    const trackIds = playlist.tracks.map((t: any) => t.trackId);
     const saavnTracks = await this.saavn.getTracks(trackIds);
     const populatedTracks = await MusicService.populateLikes(saavnTracks, userId);
 
@@ -189,8 +189,9 @@ export class PlaylistService {
         isPublic: payload.isPublic !== undefined ? payload.isPublic : true,
         ownerId: userId,
         tracks: trackIds.length > 0 ? {
-          create: trackIds.map(id => ({
-            spotifyTrackId: id
+          create: trackIds.map((id, i) => ({
+            trackId: id,
+            position: i
           }))
         } : undefined
       }
@@ -228,7 +229,7 @@ export class PlaylistService {
 
     const existingTrack = await prisma.playlistTrack.findUnique({
       where: {
-        playlistId_spotifyTrackId: { playlistId, spotifyTrackId: trackId }
+        playlistId_trackId: { playlistId, trackId: trackId }
       }
     });
 
@@ -239,9 +240,62 @@ export class PlaylistService {
     await prisma.playlistTrack.create({
       data: {
         playlistId,
-        spotifyTrackId: trackId,
+        trackId: trackId,
+        position: await this.nextPosition(playlistId),
       }
     });
+  }
+
+  /** Position just past the playlist's last track (0 when empty). */
+  public static async nextPosition(playlistId: string): Promise<number> {
+    const { _max } = await prisma.playlistTrack.aggregate({ where: { playlistId }, _max: { position: true } });
+    return _max.position === null ? 0 : _max.position + 1;
+  }
+
+  private static async getOwnedPlaylist(playlistId: string, userId: string) {
+    const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+    if (!playlist) throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
+    if (playlist.ownerId !== userId) throw ApiError.forbidden(ERROR_MESSAGES.PLAYLIST_ACCESS_DENIED);
+    return playlist;
+  }
+
+  public static async updatePlaylist(
+    playlistId: string,
+    userId: string,
+    data: { title?: string; description?: string; coverUrl?: string; isPublic?: boolean }
+  ): Promise<any> {
+    await this.getOwnedPlaylist(playlistId, userId);
+    const playlist = await prisma.playlist.update({
+      where: { id: playlistId },
+      data: {
+        ...data,
+        ...(data.title !== undefined && { slug: uniqueSlug(data.title) }),
+        // An empty string clears it rather than storing "".
+        ...(data.description !== undefined && { description: data.description.trim() || null }),
+      },
+    });
+    return {
+      id: playlist.id,
+      title: playlist.title,
+      description: playlist.description,
+      isPublic: playlist.isPublic,
+    };
+  }
+
+  /** Saves a new track order. `trackIds` must be exactly the playlist's current tracks. */
+  public static async reorderTracks(playlistId: string, userId: string, trackIds: string[]): Promise<void> {
+    await this.getOwnedPlaylist(playlistId, userId);
+    const current = await prisma.playlistTrack.findMany({ where: { playlistId }, select: { trackId: true } });
+    const requested = new Set(trackIds);
+    if (requested.size !== trackIds.length || requested.size !== current.length || current.some((t) => !requested.has(t.trackId))) {
+      throw ApiError.conflict('The playlist changed while you were reordering it. Reload and try again.');
+    }
+    // One statement instead of a round trip per track. "spotifyTrackId" is
+    // trackId's physical column name (see @map in schema.prisma).
+    await prisma.$executeRaw`
+      UPDATE "PlaylistTrack" AS pt SET "position" = o.ord - 1
+      FROM unnest(${trackIds}::text[]) WITH ORDINALITY AS o(track_id, ord)
+      WHERE pt."playlistId" = ${playlistId} AND pt."spotifyTrackId" = o.track_id`;
   }
 
   public static async removeTrackFromPlaylist(playlistId: string, trackId: string, userId: string): Promise<void> {
@@ -259,7 +313,7 @@ export class PlaylistService {
 
     const existingTrack = await prisma.playlistTrack.findUnique({
       where: {
-        playlistId_spotifyTrackId: { playlistId, spotifyTrackId: trackId }
+        playlistId_trackId: { playlistId, trackId: trackId }
       }
     });
 

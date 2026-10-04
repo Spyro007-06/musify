@@ -18,7 +18,7 @@ describe('recomputeAllUserScores — stale data cleanup', () => {
     prismaMock.listeningHistory.findMany.mockResolvedValue([]);
     prismaMock.skippedSongs.findMany.mockResolvedValue([]);
     prismaMock.likedTrack.findMany.mockResolvedValue([
-      { id: 'l1', userId: 'active-user', spotifyTrackId: 'track-1', createdAt: now } as any,
+      { id: 'l1', userId: 'active-user', trackId: 'track-1', createdAt: now } as any,
     ]);
     prismaMock.dislikedSong.findMany.mockResolvedValue([]);
     prismaMock.genreAffinity.findMany.mockResolvedValue([]);

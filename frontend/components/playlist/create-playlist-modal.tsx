@@ -363,7 +363,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
 
           {summary.unmatched.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-neutral-300">Not found on JioSaavn ({summary.unmatched.length})</p>
+              <p className="text-xs font-semibold text-neutral-300">Not found ({summary.unmatched.length})</p>
               <ul className="max-h-48 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 px-3.5 py-2 text-xs">
                 {summary.unmatched.map((t, i) => (
                   <li key={i} className="truncate py-1 text-neutral-400">
@@ -400,7 +400,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
             />
             <p className="text-[11px] leading-relaxed text-neutral-500">
               Open the playlist in any music app and screenshot it, scrolling a bit less than a full screen each time, or
-              take one scrolling screenshot. Song names are read automatically and matched on JioSaavn.
+              take one scrolling screenshot. Song names are read automatically and matched to our catalog.
             </p>
           </div>
           <div className="space-y-1.5">
@@ -451,7 +451,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               className={inputClass}
             />
             <p className="text-[11px] text-neutral-500">
-              The playlist must be public. Songs are matched on JioSaavn, which takes a few seconds. Over 100 songs?
+              The playlist must be public. Songs are matched to our catalog, which takes a few seconds. Over 100 songs?
               You&rsquo;ll be shown how to add the rest.
             </p>
           </div>

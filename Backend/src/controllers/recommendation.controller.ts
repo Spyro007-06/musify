@@ -162,7 +162,7 @@ export class RecommendationController {
       
       if (action === 'complete') {
         await RecommendationService.logPlayHistory(authReq.user.id, {
-          spotifyTrackId: trackId,
+          trackId: trackId,
           completedSong: true,
           listenPercentage: 100,
         });
@@ -170,7 +170,7 @@ export class RecommendationController {
         await RecommendationService.logSkip(authReq.user.id, trackId, skipTime || 0, duration || 180);
       } else if (action === 'replay') {
         await RecommendationService.logPlayHistory(authReq.user.id, {
-          spotifyTrackId: trackId,
+          trackId: trackId,
           completedSong: true,
           numberOfReplays: 1,
         });

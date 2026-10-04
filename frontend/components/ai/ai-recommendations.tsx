@@ -54,10 +54,10 @@ export function AiRecommendations({ className }: { className?: string }) {
   React.useEffect(() => {
     recommendations.forEach((item) => {
       queryClient.prefetchQuery({
-        queryKey: ['music', 'track', item.spotifyTrackId],
+        queryKey: ['music', 'track', item.trackId],
         queryFn: async () => {
           try {
-            const res = await musicApi.getTrack(item.spotifyTrackId);
+            const res = await musicApi.getTrack(item.trackId);
             return res.data || null;
           } catch (err: unknown) {
             const status = (err as { status?: number })?.status;
@@ -225,7 +225,7 @@ export function AiRecommendations({ className }: { className?: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {recommendations.map((item, idx) => (
             <AIRecommendationCard
-              key={item.spotifyTrackId || idx}
+              key={item.trackId || idx}
               item={item}
             />
           ))}
@@ -241,7 +241,7 @@ export function AiRecommendations({ className }: { className?: string }) {
 }
 
 function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
-  const { data: track, isLoading: isTrackLoading } = useTrack(item.spotifyTrackId);
+  const { data: track, isLoading: isTrackLoading } = useTrack(item.trackId);
   const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayerStore();
 
   const matchPercentage = Math.round(item.score * 100);
@@ -343,7 +343,7 @@ function AIRecommendationCard({ item }: { item: AIRecommendationItem }) {
             </div>
             <div className="min-w-0">
               <h4 className="text-sm font-semibold text-white truncate group-hover:text-accent-300 transition-colors">
-                Track {item.spotifyTrackId}
+                Track {item.trackId}
               </h4>
               <p className="text-xs text-neutral-400 truncate">
                 Curated Recommendation

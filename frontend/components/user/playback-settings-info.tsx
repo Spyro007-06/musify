@@ -1,14 +1,23 @@
 'use client';
 
 import * as React from 'react';
-import { Volume2, Radio, Check, Info } from 'lucide-react';
+import { Volume2, Radio, Check, Info, Blend } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { usePlayerStore } from '@/stores/player-store';
+import { getAudioEngine } from '@/lib/audio/audio-engine';
+import { MAX_CROSSFADE_SECONDS } from '@/lib/player/player-constants';
 
 interface PlaybackSettingsInfoProps {
   className?: string;
 }
 
 export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
+  const crossfade = usePlayerStore((s) => s.crossfadeSeconds);
+  const setCrossfade = usePlayerStore((s) => s.setCrossfade);
+  // Checked after mount: it depends on the browser (iOS doesn't let pages set volume).
+  const [canFade, setCanFade] = React.useState(true);
+  React.useEffect(() => setCanFade(getAudioEngine().supportsCrossfade()), []);
+
   return (
     <div
       className={cn(
@@ -38,7 +47,7 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
             </span>
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            Streams are served directly from the JioSaavn catalog at the highest available bitrates for maximum acoustic clarity.
+            Streams are served directly from our music catalog at the highest available bitrates for maximum acoustic clarity.
           </p>
         </div>
 
@@ -55,6 +64,36 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
             Persistent HTML5 audio runtime keeps your playback uninterrupted across route transitions and page navigations.
           </p>
         </div>
+      </div>
+
+      {/* Crossfade */}
+      <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="crossfade" className="flex items-center gap-2 text-xs font-semibold text-white">
+            <Blend className="h-3.5 w-3.5 text-brand-400" />
+            Crossfade
+          </label>
+          <span className="text-xs font-semibold tabular-nums text-neutral-300" aria-hidden="true">
+            {crossfade === 0 || !canFade ? 'Off' : `${crossfade} s`}
+          </span>
+        </div>
+        <input
+          id="crossfade"
+          type="range"
+          min={0}
+          max={MAX_CROSSFADE_SECONDS}
+          step={1}
+          value={canFade ? crossfade : 0}
+          disabled={!canFade}
+          onChange={(e) => setCrossfade(Number(e.target.value))}
+          aria-valuetext={crossfade === 0 ? 'Off' : `${crossfade} seconds`}
+          className="w-full accent-brand-500 disabled:opacity-40"
+        />
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          {canFade
+            ? 'Blend the end of each song into the next. The next song is always buffered early, so even with crossfade off there is no gap between tracks.'
+            : "This browser doesn't let websites change playback volume, so crossfade isn't available here. Songs still play back to back without a gap."}
+        </p>
       </div>
 
       {/* Notice */}

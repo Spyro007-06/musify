@@ -5,6 +5,8 @@ import {
   AUTO_QUEUE_RETRY_MS,
   DEFAULT_VOLUME,
   MAX_SKIPPED_FAILURES,
+  MAX_CROSSFADE_SECONDS,
+  PRELOAD_NEXT_SECONDS,
   PREVIOUS_TRACK_THRESHOLD,
   SKIP_LOG_THRESHOLD,
 } from '@/lib/player/player-constants';
@@ -12,17 +14,19 @@ import { shuffleArray } from '@/lib/player/player-utils';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
 import { musicApi } from '@/lib/api/music';
 import { userSignalsApi } from '@/lib/api/user-signals';
+import { useAuthStore } from '@/stores/auth-store';
 
 // Reports how a track was left (naturally finished vs. skipped away from) to
 // the recommendation engine. Fire-and-forget: never let a logging failure
 // affect playback, and don't log for guests (endpoints require auth).
 function logOutgoingTrack(track: Track, currentTime: number, duration: number, completed: boolean) {
-  if (typeof window === 'undefined') return;
+  // A guest's 401 here would bounce them to /login mid-song (apiClient's refresh-failed redirect).
+  if (typeof window === 'undefined' || !useAuthStore.getState().isAuthenticated) return;
 
   if (completed) {
     userSignalsApi
       .logPlayHistory({
-        spotifyTrackId: track.id,
+        trackId: track.id,
         albumId: track.album?.id,
         artistId: track.artists?.[0]?.id,
         genre: track.genre,
@@ -84,6 +88,16 @@ function getSavedRepeat(): RepeatMode {
     return val === 'all' || val === 'one' ? val : 'off';
   } catch {
     return 'off';
+  }
+}
+
+function getSavedCrossfade(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const val = Number(localStorage.getItem('musify_crossfade'));
+    return Number.isFinite(val) ? Math.max(0, Math.min(MAX_CROSSFADE_SECONDS, Math.round(val))) : 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -210,6 +224,8 @@ export interface PlayerState {
   isMuted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** Seconds the end of a song overlaps the next one; 0 = off. */
+  crossfadeSeconds: number;
   error: string | null;
   isExpanded: boolean;
   isQueueOpen: boolean;
@@ -242,6 +258,7 @@ export interface PlayerState {
   /** Shuffle the upcoming context again (shown while shuffle is on). */
   reshuffle: () => void;
   cycleRepeat: () => void;
+  setCrossfade: (seconds: number) => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
   maybeTopUpQueue: () => void;
   /** Appends to the Queued list; plays it right away if nothing is loaded yet. */
@@ -288,6 +305,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isMuted: false,
   shuffle: false,
   repeat: 'off',
+  crossfadeSeconds: 0,
   error: null,
   isExpanded: false,
   isQueueOpen: false,
@@ -616,6 +634,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setCrossfade: (seconds: number) => {
+    const clamped = Math.max(0, Math.min(MAX_CROSSFADE_SECONDS, Math.round(seconds)));
+    set({ crossfadeSeconds: clamped });
+    try {
+      localStorage.setItem('musify_crossfade', String(clamped));
+    } catch {
+      // Ignore
+    }
+  },
+
   setQueue: (newQueue: Track[], startIndex = 0) => {
     const track = newQueue[startIndex] || null;
     set({
@@ -699,6 +727,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({ currentTime: time });
     const { sleepEndsAt } = get();
     if (sleepEndsAt && Date.now() >= sleepEndsAt) expireSleepTimer();
+    prepareNextTrack(get(), time);
   },
   setDuration: (duration: number) => set({ duration }),
   setIsPlaying: (playing: boolean) => set({ isPlaying: playing }),
@@ -710,6 +739,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       isMuted: getSavedMuted(),
       shuffle: getSavedShuffle(),
       repeat: getSavedRepeat(),
+      crossfadeSeconds: getSavedCrossfade(),
     });
   },
 }));
@@ -754,6 +784,41 @@ function expireSleepTimer() {
 
 function upcomingTrack({ queue, currentIndex, repeat, userQueue }: PlayerState): Track | undefined {
   return userQueue[0] ?? queue[currentIndex + 1] ?? (repeat === 'all' ? queue[0] : undefined);
+}
+
+// The playback generation already crossfaded out of, so it happens once per song.
+let crossfadedGeneration = -1;
+
+/**
+ * Near the end of a song: buffer the next one on the engine's standby
+ * element (so the switch is gapless), and with crossfade on, start it early
+ * and fade between the two. Only once the next stream URL is already warm,
+ * so the switch happens synchronously, with no network wait mid-fade.
+ */
+function prepareNextTrack(state: PlayerState, time: number) {
+  const { currentTrack, isPlaying, duration, repeat, sleepAtTrackEnd, crossfadeSeconds } = state;
+  if (!currentTrack || !isPlaying || !duration || repeat === 'one') return;
+  const next = upcomingTrack(state);
+  const url = next && streamUrlCache.get(next.id);
+  if (!url) return;
+
+  const remaining = duration - time;
+  const engine = getAudioEngine();
+  if (remaining <= Math.max(PRELOAD_NEXT_SECONDS, crossfadeSeconds + 5)) engine.preload(url);
+
+  const fade =
+    crossfadeSeconds > 0 &&
+    !sleepAtTrackEnd && // "end of track" must stop at the real end
+    duration > crossfadeSeconds * 3 && // don't fade away most of a short clip
+    remaining <= crossfadeSeconds &&
+    crossfadedGeneration !== activePlaybackGeneration;
+  if (!fade) return;
+
+  crossfadedGeneration = activePlaybackGeneration;
+  engine.armCrossfade(crossfadeSeconds);
+  // Counts as a completed listen; the next song loads synchronously (URL cached).
+  state.nextTrack('ended');
+  engine.armCrossfade(0);
 }
 
 // Warm the next track's stream URL whenever what "next" is changes — a

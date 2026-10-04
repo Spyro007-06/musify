@@ -105,6 +105,19 @@ export const errorHandler = (
     return;
   }
 
+  // Body-parser rejections (oversized or malformed JSON) are the client's
+  // mistake, not a server bug: answer with their own status, don't report.
+  const bodyErrType = (err as { type?: string }).type;
+  if (bodyErrType === 'entity.too.large' || bodyErrType === 'entity.parse.failed') {
+    const tooLarge = bodyErrType === 'entity.too.large';
+    sendError({
+      res,
+      statusCode: tooLarge ? HTTP_STATUS.PAYLOAD_TOO_LARGE : HTTP_STATUS.BAD_REQUEST,
+      message: tooLarge ? 'Request body is too large.' : 'Malformed JSON body.',
+    });
+    return;
+  }
+
   // 7. Unknown/programming errors — log, report, and return 500
   logError(err, { url: req.originalUrl, method: req.method });
   captureException(err, { url: req.originalUrl, method: req.method });

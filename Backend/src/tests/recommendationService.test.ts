@@ -56,7 +56,7 @@ describe('scoreCandidates — each signal moves the score in the right direction
 
   it('a precomputed score (from the periodic model) drives a much higher score than a candidate with none', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T13:00:00'));
-    mockScoreCandidatesDeps({ precomputed: [{ userId: 'user-1', spotifyTrackId: 'track-1', score: 0.9, reason: 'Because you like this' } as any] });
+    mockScoreCandidatesDeps({ precomputed: [{ userId: 'user-1', trackId: 'track-1', score: 0.9, reason: 'Because you like this' } as any] });
 
     const [scored] = await svc.scoreCandidates('user-1', [track()]);
 
@@ -68,7 +68,7 @@ describe('scoreCandidates — each signal moves the score in the right direction
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T13:00:00'));
     mockScoreCandidatesDeps({
       genreRows: [{ userId: 'user-1', genre: 'pop', score: 30 } as any],
-      artistRows: [{ userId: 'user-1', spotifyArtistId: 'artist-1', score: 30 } as any],
+      artistRows: [{ userId: 'user-1', artistId: 'artist-1', score: 30 } as any],
     });
     const [withMatch] = await svc.scoreCandidates('user-1', [track({ id: 'match', genre: 'pop' })]);
 
@@ -80,7 +80,7 @@ describe('scoreCandidates — each signal moves the score in the right direction
 
   it('a liked track scores higher than an otherwise-identical unliked track', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T13:00:00'));
-    mockScoreCandidatesDeps({ likes: [{ userId: 'user-1', spotifyTrackId: 'track-1' } as any] });
+    mockScoreCandidatesDeps({ likes: [{ userId: 'user-1', trackId: 'track-1' } as any] });
     const [liked] = await svc.scoreCandidates('user-1', [track()]);
 
     mockScoreCandidatesDeps();
@@ -91,7 +91,7 @@ describe('scoreCandidates — each signal moves the score in the right direction
 
   it('a recently-played track scores higher than one that has not been played', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T13:00:00'));
-    mockScoreCandidatesDeps({ recentlyPlayed: [{ spotifyTrackId: 'track-1' } as any] });
+    mockScoreCandidatesDeps({ recentlyPlayed: [{ trackId: 'track-1' } as any] });
     const [recent] = await svc.scoreCandidates('user-1', [track()]);
 
     mockScoreCandidatesDeps();
@@ -124,7 +124,7 @@ describe('scoreCandidates — each signal moves the score in the right direction
 
   it('a trending track (last-24h global play count) scores higher and is flagged isTrending', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T13:00:00'));
-    mockScoreCandidatesDeps({ trendingGroups: [{ spotifyTrackId: 'track-1', _count: { spotifyTrackId: 50 } } as any] });
+    mockScoreCandidatesDeps({ trendingGroups: [{ trackId: 'track-1', _count: { trackId: 50 } } as any] });
     const [trending] = await svc.scoreCandidates('user-1', [track()]);
 
     mockScoreCandidatesDeps();
@@ -137,10 +137,10 @@ describe('scoreCandidates — each signal moves the score in the right direction
   it('score never exceeds 100 even when every signal stacks', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T08:00:00'));
     mockScoreCandidatesDeps({
-      precomputed: [{ userId: 'user-1', spotifyTrackId: 'track-1', score: 1.0, reason: 'x' } as any],
-      likes: [{ userId: 'user-1', spotifyTrackId: 'track-1' } as any],
-      recentlyPlayed: [{ spotifyTrackId: 'track-1' } as any],
-      trendingGroups: [{ spotifyTrackId: 'track-1', _count: { spotifyTrackId: 50 } } as any],
+      precomputed: [{ userId: 'user-1', trackId: 'track-1', score: 1.0, reason: 'x' } as any],
+      likes: [{ userId: 'user-1', trackId: 'track-1' } as any],
+      recentlyPlayed: [{ trackId: 'track-1' } as any],
+      trendingGroups: [{ trackId: 'track-1', _count: { trackId: 50 } } as any],
     });
 
     const [scored] = await svc.scoreCandidates('user-1', [track({ genre: 'pop' })]);
@@ -350,7 +350,7 @@ describe('getRecommendedSongs', () => {
       track({ id: 'high', title: 'High Song', genre: 'pop' }),
     ]);
     prismaMock.recommendationScores.findMany.mockResolvedValue([
-      { userId: 'user-1', spotifyTrackId: 'high', score: 0.9, reason: 'x' } as any,
+      { userId: 'user-1', trackId: 'high', score: 0.9, reason: 'x' } as any,
     ]);
     prismaMock.likedTrack.findMany.mockResolvedValue([]);
 
@@ -390,7 +390,7 @@ describe('getRecommendedAlbums', () => {
   it('scores an album by a followed/history artist higher than one with no connection (matches by real artist id, not name)', async () => {
     prismaMock.userPreferences.findUnique.mockResolvedValue(null);
     prismaMock.genreAffinity.findMany.mockResolvedValue([]);
-    prismaMock.artistAffinity.findMany.mockResolvedValue([{ userId: 'user-1', spotifyArtistId: 'artist-1' } as any]);
+    prismaMock.artistAffinity.findMany.mockResolvedValue([{ userId: 'user-1', artistId: 'artist-1' } as any]);
     prismaMock.listeningHistory.findMany.mockResolvedValue([]);
     saavnMock.getNewReleases.mockResolvedValue([
       { id: 'album-known', artist: { id: 'artist-1', name: 'Known' }, genre: 'pop', tracks: [] },
@@ -410,7 +410,7 @@ describe('getDiscoverWeekly', () => {
       track({ id: 'already-heard', title: 'Already Heard Song' }),
       track({ id: 'new-to-me', title: 'New To Me Song' }),
     ]);
-    prismaMock.listeningHistory.findMany.mockResolvedValue([{ spotifyTrackId: 'already-heard' } as any]);
+    prismaMock.listeningHistory.findMany.mockResolvedValue([{ trackId: 'already-heard' } as any]);
     prismaMock.likedTrack.findMany.mockResolvedValue([]);
 
     const result = await RecommendationService.getDiscoverWeekly('user-1');

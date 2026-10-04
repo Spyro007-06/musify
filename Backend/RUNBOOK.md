@@ -51,6 +51,19 @@ not a code change. At minimum:
    `npx prisma migrate deploy` (against `DATABASE_URL`) as a separate
    step/job — not inside the app's own startup path, so a bad migration
    doesn't take down already-running instances mid-deploy.
+   - `20261002120000_playlist_order_drop_session_history` adds
+     `PlaylistTrack.position` (backfilled from add order) and drops the
+     never-used `SessionHistory` table plus `ListeningHistory.sessionId`.
+     Run it right before deploying that release: until the new code is
+     live, the old code's listening-history reads/writes fail (they still
+     select `sessionId`); everything else keeps working. Playlist reads in
+     the new code need `position`, so don't deploy it before migrating.
+   - The `spotifyTrackId`/`spotifyArtistId` columns keep their names in the
+     database; the code calls them `trackId`/`artistId` via `@map`.
+   - If `SAAVN_PROXY_URL` is set, `SAAVN_PROXY_KEY` must be set to the same
+     value on the backend and the frontend (Vercel) before deploying: the
+     production relay now rejects keyless requests, and the backend refuses
+     to boot with a relay URL but no key.
 3. **Start the container**, pointing health checks at:
    - Liveness: `GET /api/health/live` — restart the container if this fails.
    - Readiness: `GET /api/health/ready` — stop routing traffic here if this

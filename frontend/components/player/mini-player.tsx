@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { Maximize2, ListMusic, ListPlus, Heart, Disc3, Play, Pause, Loader2, Download } from 'lucide-react';
+import { Maximize2, ListMusic, ListPlus, Heart, Disc3, Play, Pause, Loader2, Download, MicVocal } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
+import { useUiStore } from '@/stores/ui-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
 import { Track } from '@/types/track';
@@ -27,6 +28,7 @@ export function MiniPlayer() {
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const openExpanded = usePlayerStore((s) => s.openExpanded);
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
+  const setLyricsOpen = useUiStore((s) => s.setLyricsOpen);
   const setError = usePlayerStore((s) => s.setError);
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
@@ -234,6 +236,20 @@ export function MiniPlayer() {
 
         {/* Right column: Queue Toggle, Volume Slider, Expand Button */}
         <div className="flex items-center justify-end gap-3 w-1/4 min-w-[200px] max-w-xs">
+          {/* Lyrics: opens the full player on its lyrics view */}
+          <button
+            type="button"
+            onClick={() => {
+              setLyricsOpen(true);
+              openExpanded();
+            }}
+            disabled={!currentTrack}
+            aria-label="Show lyrics"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+          >
+            <MicVocal className="h-4 w-4" />
+          </button>
+
           {/* Download Button */}
           <button
             type="button"

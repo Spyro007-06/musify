@@ -7,6 +7,7 @@ import { redis, redisEnabled } from '@config/redis';
 import { dedupeById } from '@utils/dedupe';
 import { env } from '@config/env';
 import { viaSaavnProxy } from '@utils/saavnProxy';
+import { unescapeHtml } from '@utils/unescapeHtml';
 
 // Route jiosaavn-sdk's requests through the Mumbai relay when configured
 // (see utils/saavnProxy.ts for why). Installed once, before any SDK call.
@@ -75,30 +76,6 @@ async function allOrThrow<T>(promises: Promise<T>[], errorMessage: string): Prom
 const MIN_PLAYLIST_SONGS = 30;
 const hasEnoughSongs = (p: any) => Number(p?.songCount) >= MIN_PLAYLIST_SONGS;
 
-function unescapeHtml(str: string): string {
-  // JioSaavn returns non-string values (arrays/objects) for some fields —
-  // e.g. artist.bio — on a truthy-but-not-a-string input this used to throw
-  // TypeError: str.replace is not a function, which got reported to users as
-  // "Music catalog is temporarily unavailable" (see mapArtist below).
-  if (!str || typeof str !== 'string') return '';
-  return str
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&#039;/g, "'")
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&ldquo;/g, '“')
-    .replace(/&rdquo;/g, '”')
-    .replace(/&lsquo;/g, '‘')
-    .replace(/&rsquo;/g, '’')
-    .replace(/&middot;/g, '·')
-    .replace(/&ndash;/g, '–')
-    .replace(/&mdash;/g, '—')
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/');
-}
-
 /**
  * JioSaavn's search results occasionally contain the exact same track twice
  * under different ids (seen live: three identical "Raga of Revenge /
@@ -165,7 +142,9 @@ export class SaavnService {
         type: 'album',
       } : undefined,
       playCount: item.playCount ? Number(item.playCount) : 0,
-      genre: item.language || undefined
+      genre: item.language || undefined,
+      // undefined when the source didn't say (search results), so callers only skip on an explicit false.
+      hasLyrics: typeof item.hasLyrics === 'boolean' ? item.hasLyrics : undefined,
     };
   }
 
@@ -674,7 +653,7 @@ export class SaavnService {
           description: unescapeHtml(p.description || ''),
           cover: p.image?.[p.image.length - 1]?.url || null,
           tracksCount: p.songCount ? Number(p.songCount) : p.songs?.length || 0,
-          owner: 'JioSaavn',
+          owner: 'MUSIFY',
           isPublic: true,
           tracks: dedupeById((p.songs || []).map((s: any) => this.mapTrack(s))),
         };
@@ -710,7 +689,7 @@ export class SaavnService {
       description: unescapeHtml(p.subtitle || p.description || fallbackDescription),
       cover: p.image?.[p.image.length - 1]?.url || null,
       tracksCount: p.songCount ? Number(p.songCount) : 10,
-      owner: 'JioSaavn',
+      owner: 'MUSIFY',
       isPublic: true,
     };
   }
@@ -788,7 +767,7 @@ export class SaavnService {
         description: unescapeHtml(p.subtitle || p.description || ''),
         cover: p.image?.[p.image.length - 1]?.url || null,
         tracksCount: p.songCount ? Number(p.songCount) : 0,
-        owner: 'JioSaavn',
+        owner: 'MUSIFY',
         isPublic: true
       })) || []),
       top: await this.resolveTopResult(value(allRes)?.topQuery?.results?.[0], tracks),

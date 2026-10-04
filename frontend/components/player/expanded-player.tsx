@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ListMusic, Heart, Disc3, Download } from 'lucide-react';
+import { ChevronDown, ListMusic, Heart, Disc3, Download, MicVocal } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerProgress } from './player-progress';
 import { PlayerControls } from './player-controls';
 import { PlayerVolume } from './player-volume';
+import { LyricsPanel } from './lyrics-panel';
+import { useUiStore } from '@/stores/ui-store';
 import { useLikeTrack } from '@/hooks/use-music';
 import { useDownloadTrack } from '@/hooks/use-download-track';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
@@ -18,6 +20,8 @@ export function ExpandedPlayer() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const lyricsOpen = useUiStore((s) => s.lyricsOpen);
+  const toggleLyrics = useUiStore((s) => s.toggleLyrics);
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
   const likeMutation = useLikeTrack();
@@ -98,30 +102,48 @@ export function ExpandedPlayer() {
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={toggleQueue}
-          aria-label="Toggle Queue"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
-        >
-          <ListMusic className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={toggleLyrics}
+            aria-label={lyricsOpen ? 'Show artwork' : 'Show lyrics'}
+            aria-pressed={lyricsOpen}
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
+              lyricsOpen ? 'text-brand-400 bg-brand-500/10' : 'text-neutral-300 hover:text-white hover:bg-white/10'
+            )}
+          >
+            <MicVocal className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleQueue}
+            aria-label="Toggle Queue"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+          >
+            <ListMusic className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Main Center Area */}
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center py-6 max-w-lg mx-auto w-full">
-        {/* Large Artwork */}
-        <div className="relative aspect-square w-full max-w-[320px] sm:max-w-[380px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10">
-          <ImageWithFallback
-            src={artwork}
-            alt={currentTrack.title}
-            fallbackIcon={<Disc3 className={cn('h-1/3 w-1/3 text-neutral-600', isPlaying && 'animate-spin-slow')} />}
-            fill
-            priority
-            sizes="(max-width: 640px) 320px, 380px"
-            className="object-cover"
-          />
-        </div>
+        {/* Lyrics in place of the artwork when toggled on */}
+        {lyricsOpen ? (
+          <LyricsPanel className="h-[320px] w-full max-w-[380px] px-1 sm:h-[380px] [mask-image:linear-gradient(transparent,black_12%,black_88%,transparent)] py-10" />
+        ) : (
+          <div className="relative aspect-square w-full max-w-[320px] sm:max-w-[380px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10">
+            <ImageWithFallback
+              src={artwork}
+              alt={currentTrack.title}
+              fallbackIcon={<Disc3 className={cn('h-1/3 w-1/3 text-neutral-600', isPlaying && 'animate-spin-slow')} />}
+              fill
+              priority
+              sizes="(max-width: 640px) 320px, 380px"
+              className="object-cover"
+            />
+          </div>
+        )}
 
         {/* Track Title, Artist, and Like button */}
         <div className="mt-8 flex items-center justify-between w-full px-2">

@@ -1,3 +1,5 @@
+import { Track } from './track';
+
 export type UserRole = 'USER' | 'ARTIST' | 'ADMIN' | 'SUPERADMIN';
 
 export interface UserPreferences {
@@ -35,7 +37,7 @@ export interface UpdateProfileRequest {
 }
 
 export interface LogPlayHistoryPayload {
-  spotifyTrackId: string;
+  trackId: string;
   albumId?: string;
   artistId?: string;
   genre?: string;
@@ -60,3 +62,19 @@ export interface LogSkipPayload {
   skipTime?: number;
   duration?: number;
 }
+
+/** A month of listening (GET /user/stats). */
+export interface ListeningStats {
+  month: string; // YYYY-MM
+  minutesListened: number;
+  plays: number;
+  skips: number;
+  uniqueTracks: number;
+  uniqueArtists: number;
+  topTracks: { track: Track; plays: number }[];
+  topArtists: { id: string; name: string; image: string | null; plays: number }[];
+  topLanguages: { name: string; plays: number }[];
+}
+
+/** Ids of lib/constants/moods.ts's MOODS (the backend accepts only these). */
+export type MoodId = 'chill' | 'focus' | 'workout' | 'party' | 'sleep' | 'romance';

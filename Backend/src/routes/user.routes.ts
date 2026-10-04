@@ -3,7 +3,7 @@ import { RecommendationController } from '@controllers/recommendation.controller
 import { UserController } from '@controllers/user.controller';
 import { authenticate } from '@middlewares/auth';
 import { validate } from '@middlewares/validate';
-import { updateProfileSchema } from '@validators/user.validator';
+import { updateProfileSchema, moodCheckInSchema, statsQuerySchema } from '@validators/user.validator';
 import {
   updatePreferencesSchema,
   logPlayHistorySchema,
@@ -23,5 +23,13 @@ router.post('/history', authenticate, validate(logPlayHistorySchema), Recommenda
 router.post('/likes', authenticate, validate(logLikeSchema), RecommendationController.logLike);
 router.post('/dislikes', authenticate, validate(logDislikeSchema), RecommendationController.logDislike);
 router.post('/skip', authenticate, validate(logSkipSchema), RecommendationController.logSkip);
+
+// Monthly listening stats ("Wrapped"): GET /user/stats?month=YYYY-MM (default: this month)
+router.get('/stats', authenticate, validate(statsQuerySchema, 'query'), UserController.getStats);
+
+// Mood check-in from the home screen; steers recommendations for 3 hours.
+router.get('/mood', authenticate, UserController.getMood);
+router.post('/mood', authenticate, validate(moodCheckInSchema), UserController.checkInMood);
+router.delete('/mood', authenticate, UserController.clearMood);
 
 export default router;

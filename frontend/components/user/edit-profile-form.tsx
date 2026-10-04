@@ -116,7 +116,8 @@ export function EditProfileForm({
     }
 
     setClientErrors((prev) => {
-      const { avatarUrl: _drop, ...rest } = prev;
+      const rest = { ...prev };
+      delete rest.avatarUrl;
       return rest;
     });
     setIsProcessingImage(true);

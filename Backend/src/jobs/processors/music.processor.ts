@@ -16,9 +16,9 @@ export interface ProcessMusicMetadataResult {
 const MAX_TRACK_IDS_PER_JOB = 200;
 
 /**
- * Resolves and cache-warms metadata for a batch of tracks (spotifyTrackIds)
+ * Resolves and cache-warms metadata for a batch of tracks (trackIds)
  * via the existing JioSaavn integration. MUSIFY never persists track
- * metadata to Postgres — tracks are always identified by spotifyTrackId and
+ * metadata to Postgres — tracks are always identified by trackId and
  * resolved live from Saavn (see services/recommendation/engine.ts's own
  * fetchTrackMetadata) — so "processing" here means populating the Redis
  * cache-aside layer (SaavnService.getTracksCached) rather than writing rows,

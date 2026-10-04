@@ -132,7 +132,7 @@ describe('GET /api/search — intent parsing', () => {
   it('"my liked songs" (authenticated) returns the user\'s own LikedTrack rows, hydrated', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     prismaMock.searchHistory.create.mockResolvedValue({} as any);
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 't1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ trackId: 't1' } as any]);
     saavnMock.getTracks.mockResolvedValue([{ id: 't1', title: 'My Song', artists: [] }]);
 
     const res = await request(app).get('/api/search').query({ q: 'my liked songs' }).set('Authorization', authHeader());

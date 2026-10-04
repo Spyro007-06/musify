@@ -131,6 +131,33 @@ export const globalLimiter = redisEnabled
  * Strict Auth Rate Limiter
  * Applied to sensitive endpoints like /login and /signup to prevent brute force attacks.
  */
+/**
+ * Hourly per-user budget for routes that fan out into expensive upstream
+ * calls (Gemini, bulk catalog matching). Must run after `authenticate`.
+ */
+export function userHourlyLimiter(prefix: string, max: number, message: string) {
+  const windowMs = 60 * 60 * 1000;
+  const getIdentifier = (req: Request) => `user:${req.user?.id ?? req.ip}`;
+  return redisEnabled
+    ? createUpstashLimiter(prefix, max, windowMs, message, { getIdentifier })
+    : rateLimit({
+        windowMs,
+        max,
+        message: (req: Request, res: Response) => ({
+          success: false,
+          message: `${message} Try again in ${formatRetryAfter(retryAfterFrom(res))}.`,
+        }),
+        standardHeaders: true,
+        legacyHeaders: false,
+        // trust proxy is deliberately `true` (see app.ts); skip the lib's warning about it.
+        validate: { trustProxy: false },
+        keyGenerator: getIdentifier,
+      });
+}
+
+export const aiLimiter = userHourlyLimiter('ai', env.AI_RATE_LIMIT_MAX, "You've generated a lot of AI playlists.");
+export const importLimiter = userHourlyLimiter('import', env.IMPORT_RATE_LIMIT_MAX, 'Too many playlist imports.');
+
 export const authLimiter = redisEnabled
   ? createUpstashLimiter(
       'auth',

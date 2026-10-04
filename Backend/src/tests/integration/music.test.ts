@@ -55,7 +55,7 @@ describe('GET /api/music/trending', () => {
   it('marks a track as liked when the (optional) authenticated user has liked it', async () => {
     saavnMock.getTrendingTracks.mockResolvedValue([track()]);
     prismaMock.user.findUnique.mockResolvedValue(user as any);
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 'track-1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ trackId: 'track-1' } as any]);
 
     const res = await request(app).get('/api/music/trending').set('Authorization', authHeader());
 
@@ -103,7 +103,7 @@ describe('GET /api/music/recommended', () => {
   it('for an authenticated user, derives signals from their own history/likes/follows before recommending', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     prismaMock.genreAffinity.findMany.mockResolvedValue([]); // no favourite genres -> falls through to history/likes signals
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 'track-1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ trackId: 'track-1' } as any]);
     prismaMock.listeningHistory.findMany.mockResolvedValue([]);
     prismaMock.artistAffinity.findMany.mockResolvedValue([]);
     saavnMock.getTracks.mockResolvedValue([track({ genre: 'hindi' })]);
@@ -171,7 +171,7 @@ describe('GET /api/music/tracks/:trackId/stream', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.url).toBe('https://example.com/stream.mp3');
     expect(prismaMock.listeningHistory.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ userId: user.id, spotifyTrackId: 'track-1' }) })
+      expect.objectContaining({ data: expect.objectContaining({ userId: user.id, trackId: 'track-1' }) })
     );
   });
 
@@ -325,7 +325,7 @@ describe('GET /api/music/albums/:id and /api/music/albums', () => {
 describe('GET /api/music/liked, /api/music/categories, /api/music/recommendations', () => {
   it('liked songs requires auth and returns the user\'s liked tracks', async () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
-    prismaMock.likedTrack.findMany.mockResolvedValue([{ spotifyTrackId: 'track-1' } as any]);
+    prismaMock.likedTrack.findMany.mockResolvedValue([{ trackId: 'track-1' } as any]);
     saavnMock.getTracks.mockResolvedValue([track()]);
 
     const res = await request(app).get('/api/music/liked').set('Authorization', authHeader());

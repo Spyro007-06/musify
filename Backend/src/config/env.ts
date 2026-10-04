@@ -29,6 +29,11 @@ const envSchema = z.object({
   // alone fans out into several parallel API calls).
   RATE_LIMIT_MAX: z.string().default('600').transform(Number),
   AUTH_RATE_LIMIT_MAX: z.string().default('10').transform(Number),
+  // Per user per hour. AI playlist generation calls Gemini several times per
+  // request; imports (Spotify link, screenshot reads, song batches) each fan
+  // out into many catalog lookups, and one big import takes ~10-20 calls.
+  AI_RATE_LIMIT_MAX: z.string().default('10').transform(Number),
+  IMPORT_RATE_LIMIT_MAX: z.string().default('60').transform(Number),
 
   // Security
   CSRF_SECRET: z.string().default('super-secret-csrf-key-for-dev-only'),
@@ -73,8 +78,9 @@ const envSchema = z.object({
 
   // JioSaavn relay in Mumbai (optional). JioSaavn serves a smaller catalog
   // outside India; set this to the frontend's /saavn route (e.g.
-  // https://<frontend>/saavn) when the backend runs elsewhere. The key is
-  // optional hardening: set the same SAAVN_PROXY_KEY on the frontend too.
+  // https://<frontend>/saavn) when the backend runs elsewhere. In production
+  // the relay rejects every request without SAAVN_PROXY_KEY, so set the same
+  // key on both sides (checked below).
   SAAVN_PROXY_URL: z.string().url().optional(),
   SAAVN_PROXY_KEY: z.string().optional(),
 });
@@ -96,6 +102,13 @@ if (!parseResult.success) {
 // secret and appearing to work.
 if (parseResult.data.NODE_ENV === 'production' && parseResult.data.CSRF_SECRET === 'super-secret-csrf-key-for-dev-only') {
   console.error('❌ CSRF_SECRET is still the default dev value in a production environment. Set a real secret before starting.');
+  process.exit(1);
+}
+
+// The production relay refuses keyless requests, so a URL without a key
+// would quietly fail every catalog call; fail the boot instead.
+if (parseResult.data.NODE_ENV === 'production' && parseResult.data.SAAVN_PROXY_URL && !parseResult.data.SAAVN_PROXY_KEY) {
+  console.error('❌ SAAVN_PROXY_URL is set without SAAVN_PROXY_KEY. Set the same key here and on the frontend.');
   process.exit(1);
 }
 

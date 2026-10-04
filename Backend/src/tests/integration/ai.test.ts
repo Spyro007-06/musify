@@ -73,7 +73,7 @@ describe('auth is actually enforced on every /api/ai/* route (not just trusted f
 });
 
 describe('GET /api/ai/recommendations', () => {
-  it('delegates to RecommendationService\'s real scoring engine (not a mock) and shapes {spotifyTrackId, score, reason}', async () => {
+  it('delegates to RecommendationService\'s real scoring engine (not a mock) and shapes {trackId, score, reason}', async () => {
     mockCleanRecommendationBaseline();
     saavnMock.getTrendingTracks.mockResolvedValue([{ id: 'track-real-1', genre: 'pop', title: 'Real Song' }]);
     const { agent } = await authedAgent();
@@ -85,7 +85,7 @@ describe('GET /api/ai/recommendations', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data[0]).toEqual(
       expect.objectContaining({
-        spotifyTrackId: 'track-real-1',
+        trackId: 'track-real-1',
         score: expect.any(Number),
         reason: expect.any(String),
       })
@@ -167,7 +167,7 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(res.status).toBe(201);
     const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
     expect(data.title).toBe('Gym Fuel');
-    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual(
+    expect(data.tracks.create.map((t: any) => t.trackId)).toEqual(
       [...round1.filter((_, i) => i % 2 === 0), ...more.slice(0, 15)].map((s) => `id-${s.title}`)
     );
     // Later rounds ask for 3x the 15 missing and leave out everything tried, found or not.
@@ -215,7 +215,7 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(res.status).toBe(201);
     const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
     const fill = (seed: string, n: number) => Array.from({ length: n }, (_, i) => `id-${seed}-s${i}`);
-    expect(data.tracks.create.map((t: any) => t.spotifyTrackId)).toEqual([
+    expect(data.tracks.create.map((t: any) => t.trackId)).toEqual([
       ...songs.map((s) => `id-${s.title}`),
       ...fill('Song 0', 8),
       ...fill('Song 1', 8),

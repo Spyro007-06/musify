@@ -8,17 +8,24 @@ export const updatePreferencesSchema = z.object({
   favouriteMoods: z.array(z.string()).optional(),
 });
 
-export const logPlayHistorySchema = z.object({
-  spotifyTrackId: z.string().min(1),
-  albumId: z.string().optional(),
-  artistId: z.string().optional(),
-  genre: z.string().optional(),
-  device: z.string().optional(),
-  sessionDuration: z.number().nonnegative().optional(),
-  listenPercentage: z.number().min(0).max(100).optional(),
-  completedSong: z.boolean().optional(),
-  numberOfReplays: z.number().int().nonnegative().optional(),
-});
+export const logPlayHistorySchema = z.preprocess(
+  // Tabs still running the frontend from before the rename send `spotifyTrackId`.
+  (body) =>
+    body && typeof body === 'object' && !('trackId' in body) && 'spotifyTrackId' in body
+      ? { ...body, trackId: (body as { spotifyTrackId: unknown }).spotifyTrackId }
+      : body,
+  z.object({
+    trackId: z.string().min(1),
+    albumId: z.string().optional(),
+    artistId: z.string().optional(),
+    genre: z.string().optional(),
+    device: z.string().optional(),
+    sessionDuration: z.number().nonnegative().optional(),
+    listenPercentage: z.number().min(0).max(100).optional(),
+    completedSong: z.boolean().optional(),
+    numberOfReplays: z.number().int().nonnegative().optional(),
+  })
+);
 
 export const logLikeSchema = z.object({
   targetId: z.string().min(1),

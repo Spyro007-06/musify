@@ -47,7 +47,7 @@ export class SearchService {
         });
 
         if (likedTracks.length > 0) {
-          const trackIds = likedTracks.map(t => t.spotifyTrackId);
+          const trackIds = likedTracks.map(t => t.trackId);
           let tracks = await this.saavn.getTracks(trackIds);
           tracks = await MusicService.populateLikes(tracks, userId);
           return { tracks, albums: [], artists: [], playlists: [] };
