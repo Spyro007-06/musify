@@ -5,13 +5,14 @@ import { musicApi } from '@/lib/api/music';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function useTrending(languages?: string, artists?: string) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
   return useQuery({
     queryKey: ['music', 'trending', languages, artists, isAuthenticated],
     queryFn: async () => {
       const res = await musicApi.getTrending(languages, artists);
       return res.data || [];
     },
+    enabled: !isInitializing,
     staleTime: 1000 * 60 * 5,
   });
 }
@@ -28,13 +29,14 @@ export function useNewReleases(languages?: string, artists?: string) {
 }
 
 export function useRecommended() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
   const query = useQuery({
     queryKey: ['music', 'recommended', isAuthenticated],
     queryFn: async () => {
       const res = await musicApi.getRecommended();
       return res.data || { tracks: [], personalized: false, basis: 'generic' as const };
     },
+    enabled: !isInitializing,
     staleTime: 1000 * 60 * 5,
   });
   return {
@@ -58,16 +60,17 @@ export function useCategories() {
 }
 
 export function useTopHits() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
   return useQuery({
     queryKey: ['music', 'topHits', isAuthenticated],
     queryFn: async () => (await musicApi.getTopHits()).data || [],
+    enabled: !isInitializing,
     staleTime: 1000 * 60 * 15,
   });
 }
 
 export function useMood(mood: string) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
   return useQuery({
     queryKey: ['music', 'mood', mood, isAuthenticated],
     queryFn: async () => {
@@ -75,7 +78,7 @@ export function useMood(mood: string) {
       const res = await musicApi.getMood(mood);
       return res.data || [];
     },
-    enabled: !!mood,
+    enabled: !!mood && !isInitializing,
     staleTime: 1000 * 60 * 15,
   });
 }

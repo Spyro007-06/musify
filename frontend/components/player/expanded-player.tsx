@@ -23,6 +23,7 @@ export function ExpandedPlayer() {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const toggleQueue = usePlayerStore((s) => s.toggleQueue);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const queueSource = usePlayerStore((s) => s.queueSource);
   const lyricsOpen = useUiStore((s) => s.lyricsOpen);
   const toggleLyrics = useUiStore((s) => s.toggleLyrics);
 
@@ -103,10 +104,10 @@ export function ExpandedPlayer() {
 
         <div className="flex flex-col items-center text-center">
           <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-semibold">
-            Playing from collection
+            {queueSource ? 'Playing from' : currentTrack.album?.title ? 'Playing from album' : 'Now playing'}
           </span>
           <span className="text-xs font-medium text-white truncate max-w-[200px] sm:max-w-xs">
-            {currentTrack.album?.title || 'MUSIFY Stream'}
+            {queueSource || currentTrack.album?.title || currentTrack.title}
           </span>
         </div>
 
@@ -138,11 +139,11 @@ export function ExpandedPlayer() {
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center py-6 max-w-lg mx-auto w-full">
         {/* Lyrics in place of the artwork when toggled on */}
         {lyricsOpen ? (
-          <LyricsPanel className="h-[320px] w-full max-w-[380px] px-1 sm:h-[380px] [mask-image:linear-gradient(transparent,black_12%,black_88%,transparent)] py-10" />
+          <LyricsPanel className="h-[min(420px,50dvh)] w-full max-w-[420px] px-1 [mask-image:linear-gradient(transparent,black_12%,black_88%,transparent)] py-10" />
         ) : (
           <div
             {...swipe.handlers}
-            className="relative aspect-square w-full max-w-[320px] touch-none sm:max-w-[380px] overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10"
+            className="relative aspect-square w-full max-w-[min(420px,calc(100dvh-24rem))] touch-none overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10"
           >
             <ImageWithFallback
               src={artwork}
@@ -150,14 +151,14 @@ export function ExpandedPlayer() {
               fallbackIcon={<Disc3 className={cn('h-1/3 w-1/3 text-neutral-600', isPlaying && 'animate-spin-slow')} />}
               fill
               priority
-              sizes="(max-width: 640px) 320px, 380px"
+              sizes="420px"
               className="object-cover"
             />
           </div>
         )}
 
         {/* Track Title, Artist, and Like button */}
-        <div className="mt-6 sm:mt-8 flex items-center justify-between w-full px-2">
+        <div className="mt-8 flex items-center justify-between w-full px-2">
           <div className="min-w-0 pr-4">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
               {currentTrack.title}
@@ -201,12 +202,12 @@ export function ExpandedPlayer() {
         </div>
 
         {/* Progress Slider */}
-        <div className="mt-2 sm:mt-6 w-full px-2">
+        <div className="mt-4 sm:mt-6 w-full px-2">
           <PlayerProgress />
         </div>
 
         {/* Big Controls */}
-        <div className="mt-2 sm:mt-6 flex items-center justify-center w-full">
+        <div className="mt-4 sm:mt-6 flex items-center justify-center w-full">
           <PlayerControls size="lg" />
         </div>
 

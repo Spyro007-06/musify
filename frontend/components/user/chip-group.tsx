@@ -57,13 +57,13 @@ export function ChipGroup({
           )}
           {selected.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-accent-400">
+              <span className="text-[11px] font-medium text-brand-400">
                 {selected.length} selected
               </span>
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="-my-2 px-2 py-2 text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
               >
                 Clear
               </button>
@@ -83,9 +83,9 @@ export function ChipGroup({
               type="button"
               onClick={() => toggleOption(opt.value)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all select-none border',
+                'inline-flex min-h-10 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-medium transition-all select-none border',
                 isSelected
-                  ? 'bg-accent-600 border-accent-500 text-white shadow-sm shadow-accent-950/50 hover:bg-accent-500'
+                  ? 'bg-brand-500 border-brand-400 text-black shadow-sm shadow-brand-950/50 hover:bg-brand-400'
                   : 'bg-neutral-900/90 border-white/10 text-neutral-300 hover:bg-neutral-800 hover:text-white'
               )}
             >

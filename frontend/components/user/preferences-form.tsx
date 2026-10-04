@@ -175,7 +175,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-4">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-400 mb-1">
             <Sliders className="h-3.5 w-3.5" />
             Tuning & Taste Profile
           </div>
@@ -186,7 +186,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
         </div>
 
         {isDirty && (
-          <span className="self-start sm:self-auto rounded-full bg-accent-500/10 px-3 py-1 text-[11px] font-semibold text-accent-400 border border-accent-500/20">
+          <span className="self-start sm:self-auto rounded-full bg-brand-500/10 px-3 py-1 text-[11px] font-semibold text-brand-400 border border-brand-500/20">
             Unsaved Changes
           </span>
         )}
@@ -198,7 +198,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Genres */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Music className="h-4 w-4 text-accent-400" />
+          <Music className="h-4 w-4 text-brand-400" />
           <span>Favourite Genres</span>
         </div>
         <ChipGroup
@@ -212,7 +212,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Languages */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Languages className="h-4 w-4 text-accent-400" />
+          <Languages className="h-4 w-4 text-brand-400" />
           <span>Preferred Languages</span>
         </div>
         <ChipGroup
@@ -226,7 +226,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Moods */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Smile className="h-4 w-4 text-accent-400" />
+          <Smile className="h-4 w-4 text-brand-400" />
           <span>Favourite Moods & Vibes</span>
         </div>
         <ChipGroup
@@ -240,7 +240,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Artists */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Mic2 className="h-4 w-4 text-accent-400" />
+          <Mic2 className="h-4 w-4 text-brand-400" />
           <span>Favourite Artists</span>
         </div>
         <TagInput
@@ -255,7 +255,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
       {/* Favourite Albums */}
       <div className="space-y-3 border-t border-white/5 pt-6">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Disc3 className="h-4 w-4 text-accent-400" />
+          <Disc3 className="h-4 w-4 text-brand-400" />
           <span>Favourite Albums</span>
         </div>
         <TagInput
@@ -282,7 +282,7 @@ export function PreferencesForm({ className }: PreferencesFormProps) {
         <button
           type="submit"
           disabled={!isDirty || updatePreferencesMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-accent-500 disabled:opacity-40 transition-all shadow-lg shadow-accent-950/40"
+          className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-2.5 text-xs font-bold text-black hover:bg-brand-400 disabled:opacity-40 transition-all shadow-lg shadow-brand-950/40"
         >
           {updatePreferencesMutation.isPending ? (
             <>

@@ -124,18 +124,18 @@ export default function ProfilePage() {
             {/* Liked Songs Shortcut */}
             <Link
               href="/library/liked"
-              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-accent-500/30 hover:bg-neutral-850 transition-all duration-200"
+              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-brand-500/30 hover:bg-neutral-850 transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-600/20 text-accent-400 group-hover:scale-105 transition-transform">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400 group-hover:scale-105 transition-transform">
                   <Heart className="h-5 w-5 fill-current" />
                 </div>
-                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-accent-400 transition-colors">
+                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-brand-400 transition-colors">
                   View All →
                 </span>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white group-hover:text-accent-300 transition-colors">
+                <h3 className="text-sm font-bold text-white group-hover:text-brand-300 transition-colors">
                   Liked Songs
                 </h3>
                 <p className="text-xs text-neutral-400">
@@ -147,13 +147,13 @@ export default function ProfilePage() {
             {/* Playlists Shortcut */}
             <Link
               href="/library/playlists"
-              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-accent-500/30 hover:bg-neutral-850 transition-all duration-200"
+              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-brand-500/30 hover:bg-neutral-850 transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 group-hover:scale-105 transition-transform">
                   <ListMusic className="h-5 w-5" />
                 </div>
-                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-accent-400 transition-colors">
+                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-brand-400 transition-colors">
                   View All →
                 </span>
               </div>
@@ -170,13 +170,13 @@ export default function ProfilePage() {
             {/* Listening History Shortcut */}
             <Link
               href="/library/recently-played"
-              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-accent-500/30 hover:bg-neutral-850 transition-all duration-200"
+              className="group flex flex-col justify-between rounded-2xl bg-neutral-900/60 p-5 border border-white/5 hover:border-brand-500/30 hover:bg-neutral-850 transition-all duration-200"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600/20 text-brand-400 group-hover:scale-105 transition-transform">
                   <History className="h-5 w-5" />
                 </div>
-                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-accent-400 transition-colors">
+                <span className="text-[11px] font-medium text-neutral-500 group-hover:text-brand-400 transition-colors">
                   View All →
                 </span>
               </div>
@@ -195,9 +195,9 @@ export default function ProfilePage() {
           <AccountDetails user={displayUser} />
 
           {/* Preference Tuning Teaser */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-accent-500/20 bg-gradient-to-r from-accent-950/30 via-neutral-900 to-neutral-900 p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-950/30 via-neutral-900 to-neutral-900 p-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-accent-400">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand-400">
                 <Sliders className="h-3.5 w-3.5" />
                 Algorithm Personalization
               </div>
@@ -211,7 +211,7 @@ export default function ProfilePage() {
 
             <Link
               href="/settings?tab=preferences"
-              className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-950/50 shrink-0"
+              className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-xs font-bold text-black hover:bg-brand-400 transition-colors shadow-lg shadow-brand-950/50 shrink-0"
             >
               <Sliders className="h-3.5 w-3.5" />
               Tune Preferences

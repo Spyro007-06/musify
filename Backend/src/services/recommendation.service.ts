@@ -3,6 +3,7 @@ import { SaavnService } from './saavn.service';
 import { MusicService } from './music.service';
 import { logger } from '@utils/logger';
 import { dedupeById } from '@utils/dedupe';
+import { withCache } from '@utils/cache';
 import { getPrecomputedScores } from './recommendation/engine';
 import { contentBasedScore, type AffinityMaps } from './recommendation/contentBased';
 
@@ -294,9 +295,8 @@ export class RecommendationService {
    * Flat recommendations for songs sorted by recommendation score
    */
   public static async getRecommendedSongs(userId: string, limit = 50): Promise<any[]> {
-    const candidates = await this.getCandidatePool(userId);
-    const scored = await this.scoreCandidates(userId, candidates);
-    const sorted = scored.sort((a, b) => b.score - a.score).map(s => s.track).slice(0, limit);
+    const scored = await this.getScoredPool(userId);
+    const sorted = [...scored].sort((a, b) => b.score - a.score).map(s => s.track).slice(0, limit);
     return MusicService.populateLikes(sorted, userId);
   }
 
@@ -437,9 +437,20 @@ export class RecommendationService {
    * Flat discovery weekly list
    */
   public static async getDiscoverWeekly(userId: string): Promise<any[]> {
-    const candidates = await this.getCandidatePool(userId);
-    const scored = await this.scoreCandidates(userId, candidates);
-    return this.buildDiscoverWeekly(userId, scored);
+    return this.buildDiscoverWeekly(userId, await this.getScoredPool(userId));
+  }
+
+  /**
+   * The scored candidate pool (up to ~9 Saavn calls and 6 Prisma queries,
+   * ~10s), cached for 30 minutes. The Discover page asks for Recommended
+   * Songs and Discover Weekly at once; they share this one computation.
+   * Likes and listening history are still applied fresh by the callers.
+   * Shared read-only: callers copy before sorting.
+   */
+  private static getScoredPool(userId: string): Promise<any[]> {
+    return withCache(`reco:scored-pool:v1:${userId}`, 30 * 60, async () =>
+      this.scoreCandidates(userId, await this.getCandidatePool(userId))
+    );
   }
 
   /**

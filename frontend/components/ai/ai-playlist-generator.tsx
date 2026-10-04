@@ -97,7 +97,7 @@ export function AiPlaylistGenerator({ className }: { className?: string }) {
           Describe the vibe, we build the tracklist
         </h2>
         <p className="text-xs sm:text-sm text-neutral-400 max-w-xl">
-          Enter natural prompts mentioning genres, moods, eras, or artists. The generator curates songs and persists a real playlist directly in your library.
+          Describe a mood, genre, era or artist, and we&apos;ll build a playlist and save it to your library.
         </p>
       </div>
 

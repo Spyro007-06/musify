@@ -7,7 +7,7 @@ export const redisEnabled = Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_RE
 /**
  * Upstash Redis is entirely opt-in — with no UPSTASH_REDIS_REST_URL/TOKEN
  * set, `redis` is null and callers (rate limiter, Saavn cache) fall back to
- * their pre-Redis behavior (in-memory limiting, no caching).
+ * in-memory, per-instance limiting and caching.
  */
 export const redis = redisEnabled
   ? new Redis({
@@ -19,5 +19,5 @@ export const redis = redisEnabled
 if (redisEnabled) {
   logger.info('Upstash Redis configured — distributed rate limiting and Saavn response caching enabled.');
 } else {
-  logger.info('UPSTASH_REDIS_REST_URL/TOKEN not set — rate limiting is in-memory (per-instance) and Saavn responses are not cached.');
+  logger.info('UPSTASH_REDIS_REST_URL/TOKEN not set — rate limiting and response caching are in-memory (per-instance).');
 }

@@ -1,6 +1,7 @@
 import '../tests/setup/saavnMock';
 import { saavnMock } from './setup/saavnMock';
 import { LyricsService, parseLrc } from '@services/lyrics.service';
+import { clearMemoryCache } from '@utils/cache';
 
 const track = { id: 't1', title: 'Song - From "Film"', duration: 200, artists: [{ name: 'Composer' }, { name: 'Singer' }], hasLyrics: true };
 
@@ -46,6 +47,7 @@ describe('LyricsService.getLyrics', () => {
     ]);
 
     jest.restoreAllMocks();
+    clearMemoryCache(); // same track again: skip the cached first answer
     saavnMock.getTrack.mockResolvedValue(track as any);
     mockFetch({ 'lrclib.net/api/search': [{ artistName: 'Singer', duration: 200, plainLyrics: 'From lrclib' }] });
     expect(await LyricsService.getLyrics('t1')).toEqual({ synced: false, instrumental: false, lines: [{ time: null, text: 'From lrclib' }] });

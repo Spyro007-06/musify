@@ -8,6 +8,13 @@
   --foreground: #f5f5ef;
 }
 
+/* No pull-to-refresh: a downward swipe (e.g. closing the player) reloaded
+   the app, which stopped playback. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 body {
   color: var(--foreground);
   background: var(--background);

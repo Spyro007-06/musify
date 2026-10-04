@@ -15,7 +15,7 @@ import { ApiError } from '@/types/api';
  * Optional auth: returns isFollowing state if authenticated.
  */
 export function useArtist(id: string) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
 
   return useQuery<Artist, Error>({
     queryKey: ['artists', id, 'detail', isAuthenticated],
@@ -26,7 +26,7 @@ export function useArtist(id: string) {
       }
       return res.data;
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !isInitializing,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: (failureCount, error) => {
       // Don't retry on 404
@@ -41,7 +41,7 @@ export function useArtist(id: string) {
  * Optional auth: populates isLiked per track if authenticated.
  */
 export function useArtistTopTracks(id: string) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
 
   return useQuery<Track[], Error>({
     queryKey: ['artists', id, 'top-tracks', isAuthenticated],
@@ -49,7 +49,7 @@ export function useArtistTopTracks(id: string) {
       const res = await artistsApi.getTopTracks(id);
       return res.data || [];
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !isInitializing,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

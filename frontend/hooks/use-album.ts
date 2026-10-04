@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/auth-store';
  * Optional auth: populates isLiked on each track if authenticated.
  */
 export function useAlbum(id: string) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, isInitializing } = useAuthStore();
 
   return useQuery<Album, Error>({
     queryKey: ['music', 'album', id, isAuthenticated],
@@ -22,7 +22,7 @@ export function useAlbum(id: string) {
       }
       return res.data;
     },
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !isInitializing,
     staleTime: 1000 * 60 * 10, // 10 minutes
     retry: (failureCount, error) => {
       // Do not retry on 404 Not Found

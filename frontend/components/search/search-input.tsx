@@ -33,7 +33,8 @@ export function SearchInput({
         <label htmlFor="search-input-field" className="sr-only">
           Search songs, artists, albums, or playlists
         </label>
-        <div className="pointer-events-none absolute left-4 flex items-center justify-center text-neutral-400">
+        {/* z-10: the input's backdrop-blur would otherwise paint over the icon */}
+        <div className="pointer-events-none absolute left-4 z-10 flex items-center justify-center text-neutral-400">
           <Search className="h-5 w-5" />
         </div>
 
@@ -57,9 +58,9 @@ export function SearchInput({
           )}
         />
 
-        <div className="absolute right-4 flex items-center gap-2">
+        <div className="absolute right-2 z-10 flex items-center gap-2">
           {isSearching ? (
-            <Loader2 className="h-4 w-4 animate-spin text-neutral-400" aria-label="Searching" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin text-neutral-400" aria-label="Searching" />
           ) : value ? (
             <button
               type="button"
@@ -68,7 +69,7 @@ export function SearchInput({
                 inputRef.current?.focus();
               }}
               aria-label="Clear search input"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
