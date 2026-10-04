@@ -94,7 +94,7 @@ Playlist (catalog-sourced, e.g. mood results) {
 
 - **GET /music/trending** → `200`, `data: Track[]`.
 - **GET /music/new-releases** → `200`, `data: Album[]`.
-- **GET /music/recommended** → `200`, `data: Track[]` — for an authenticated user, derived from their own likes/history/follows; anonymous gets generic picks.
+- **GET /music/recommended** → `200`, `data: { tracks: Track[], personalized: boolean, basis: 'mood'|'taste'|'history'|'language'|'generic', mood? }` — for an authenticated user, a mood checked in within the last 3 hours (`POST /user/mood`) wins (`basis: 'mood'`), then favourite genres, then likes/history/follows; anonymous gets generic picks.
 - **GET /music/tracks/:id** → `200`, `data: Track`; `404` if unknown.
 - **GET /music/albums/:id** → `200`, `data: Album`; `404` if unknown.
 - **GET /music/albums** — query: `page?: number` (default 1) → `200`, `data: Album[]`, paginated `meta`.
@@ -104,6 +104,7 @@ Playlist (catalog-sourced, e.g. mood results) {
 - **GET /music/recently-played** — query: `page?, limit?` → `200`, `data: Track[]`, newest-first.
 - **GET /music/categories** → `200`, `data: { id, name, cover, gradient }[]` — fixed list of language categories (hindi/punjabi/tamil/english).
 - **GET /music/mood/:mood** — `mood` is a freeform string, not a fixed enum (passed straight through to a catalog playlist search) → `200`, `data: Playlist[]`.
+- **GET /music/tracks/:trackId/lyrics** (no auth) → `200`, `data: { synced: boolean, instrumental: boolean, lines: { time: number|null, text: string }[] }`. Time-synced lyrics from LRCLIB when it has them (`time` = seconds into the song), else the catalog's plain lyrics, else LRCLIB's plain ones; `lines` is empty when none exist. Cached for a week. `404` unknown track.
 - **GET /music/tracks/:trackId/stream** → `200`, `data: { url: string }`; logs a play in listening history if authenticated. `404` unknown track, `503` if the upstream stream source itself is down.
 - **GET /music/recommendations** — query: `languages?: string (comma-separated), limit?: number` → `200`, `data: Track[]`.
 
@@ -145,6 +146,8 @@ Playlist (catalog-sourced, e.g. mood results) {
 - **GET /playlists** → `200`, `data`: the caller's playlists.
 - **POST /playlists** — body: `{ title: string, description?: string, coverUrl?: string, isPublic?: boolean }` → `201`, `data`: created playlist.
 - **GET /playlists/:id** → `200`, `data`: playlist + tracks (private playlists only visible to their owner). `404` unknown/inaccessible.
+- **PUT /playlists/:id** — body: `{ title?: string (1-100), description?: string (≤500; empty clears it), coverUrl?: string, isPublic?: boolean }` → `200`, `data: { id, title, description, isPublic }`; owner-only.
+- **PUT /playlists/:id/tracks/order** — body: `{ trackIds: string[] }`, exactly the playlist's current tracks in the new order → `200`; `409` if the list doesn't match (a track was added/removed meanwhile); owner-only. Playlists are read in this order (`PlaylistTrack.position`); new tracks are appended.
 - **DELETE /playlists/:id** → `200`; owner-only.
 - **POST /playlists/:playlistId/tracks** — body: `{ trackId: string }` → `200`.
 - **DELETE /playlists/:playlistId/tracks/:trackId** → `200`.
@@ -204,7 +207,11 @@ All routes take the identity from the JWT; none accept a `userId` param.
 - **PUT /user/profile** — body: `{ displayName?: string (1-60), avatarUrl?: string (url), bio?: string (max 500) }` → `200`.
 - **POST /user/preferences** — body: `{ favouriteGenres?: string[], favouriteArtists?: string[], favouriteLanguages?: string[], favouriteAlbums?: string[], favouriteMoods?: string[] }` → `200`.
 - **GET /user/preferences** → `200`, `data`: stored preference lists.
-- **POST /user/history** — body: `{ spotifyTrackId: string, albumId?, artistId?, genre?, device?, sessionDuration?: number, listenPercentage?: number (0-100), completedSong?: boolean, numberOfReplays?: number }` → `200`.
+- **GET /user/stats** — query: `month?: 'YYYY-MM'` (UTC; default this month; not in the future) → `200`, `data: { month, minutesListened, plays, skips, uniqueTracks, uniqueArtists, topTracks: { track, plays }[], topArtists: { id, name, image, plays }[], topLanguages: { name, plays }[] }` (top 5 each). Plays are completed listens; minutes also count time listened before skipping. Past months are cached for 30 days, the current one for 10 minutes.
+- **GET /user/mood** → `200`, `data: { mood: string|null }` — the latest check-in from the last 3 hours.
+- **POST /user/mood** — body: `{ mood: 'chill'|'focus'|'workout'|'party'|'sleep'|'romance' }` → `200`. Steers `GET /music/recommended` for 3 hours.
+- **DELETE /user/mood** → `200`; withdraws the active check-in.
+- **POST /user/history** — body: `{ trackId: string, albumId?, artistId?, genre?, device?, sessionDuration?: number, listenPercentage?: number (0-100), completedSong?: boolean, numberOfReplays?: number }` → `200`.
 - **POST /user/likes** — body: `{ targetId: string, type?: 'song'|'album'|'artist' (default 'song') }` → `200`.
 - **POST /user/dislikes** — body: `{ trackId: string }` → `200`.
 - **POST /user/skip** — body: `{ trackId: string, skipTime?: number, duration?: number }` → `200`.
@@ -240,6 +247,15 @@ No auth on any of these (used by orchestrators/load balancers).
 | GET | `/health/ready` | Readiness — `200 { status: 'ok', checks: { database: 'ok' } }` if a DB query succeeds within 3s; `503 { status: 'not_ready', checks: { database: 'unreachable' } }` otherwise. |
 
 ---
+
+## Per-user rate limits on expensive routes
+
+On top of the global limiter, keyed per signed-in user, per hour (429 with `Retry-After` and a "Try again in …" message):
+
+- `POST /ai/playlist/generate` — `AI_RATE_LIMIT_MAX` (default 10).
+- `POST /playlists/import/spotify`, `POST /playlists/import/screenshot`, `POST /playlists/:id/import/songs` — one shared `IMPORT_RATE_LIMIT_MAX` budget (default 60; a large import uses 10-20 calls).
+
+JSON bodies are capped at 100kb, except `POST /playlists/import/screenshot` (8mb) and `PUT /user/profile` (1mb, the avatar is a data URL). Oversized bodies get `413`, malformed JSON `400`.
 
 ## Error status codes used across the API
 

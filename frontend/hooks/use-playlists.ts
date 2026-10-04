@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { playlistsApi } from '@/lib/api/playlists';
 import { useAuthStore } from '@/stores/auth-store';
 import { Playlist } from '@/types/playlist';
+import { Track } from '@/types/track';
 
 export function usePlaylists() {
   const { isAuthenticated, isInitializing } = useAuthStore();
@@ -72,6 +73,47 @@ export function useImportSpotifyPlaylist() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
     },
+  });
+}
+
+export function useUpdatePlaylist(playlistId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { title?: string; description?: string; isPublic?: boolean }) => {
+      const res = await playlistsApi.updatePlaylist(playlistId, data);
+      return res.data;
+    },
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.setQueryData<Playlist | null>(['playlists', 'detail', playlistId], (old) =>
+          old ? { ...old, ...updated } : old
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
+    },
+  });
+}
+
+/** Saves a new order, showing it right away and rolling back if the save fails. */
+export function useReorderPlaylistTracks(playlistId: string) {
+  const queryClient = useQueryClient();
+  const key = ['playlists', 'detail', playlistId];
+
+  return useMutation({
+    mutationFn: async (tracks: Track[]) => {
+      await playlistsApi.reorderTracks(playlistId, tracks.map((t) => t.id));
+    },
+    onMutate: async (tracks) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Playlist | null>(key);
+      queryClient.setQueryData<Playlist | null>(key, (old) => (old ? { ...old, tracks } : old));
+      return { previous };
+    },
+    onError: (_err, _tracks, context) => {
+      queryClient.setQueryData(key, context?.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }
 

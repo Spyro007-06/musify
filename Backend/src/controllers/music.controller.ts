@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Readable } from 'stream';
 import { MusicService } from '@services/music.service';
+import { LyricsService } from '@services/lyrics.service';
 import { sendSuccess, sendPaginated } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
@@ -75,6 +76,15 @@ export class MusicController {
         message: 'Track retrieved successfully.',
         data: track,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async getLyrics(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const lyrics = await LyricsService.getLyrics(req.params.trackId);
+      sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Lyrics retrieved successfully.', data: lyrics });
     } catch (error) {
       next(error);
     }

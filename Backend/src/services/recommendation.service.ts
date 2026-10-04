@@ -65,9 +65,9 @@ export class RecommendationService {
       for (const artist of favouriteArtists) {
         queries.push(
           prisma.artistAffinity.upsert({
-            where: { userId_spotifyArtistId: { userId, spotifyArtistId: artist } },
+            where: { userId_artistId: { userId, artistId: artist } },
             update: { score: { increment: 5.0 } },
-            create: { userId, spotifyArtistId: artist, score: 10.0 },
+            create: { userId, artistId: artist, score: 10.0 },
           })
         );
       }
@@ -99,7 +99,7 @@ export class RecommendationService {
       favouriteLanguages: prefs?.favouriteLanguages || [],
       favouriteAlbums: prefs?.favouriteAlbums || [],
       favouriteGenres: genres.map((g: any) => g.genre),
-      favouriteArtists: artists.map((a: any) => a.spotifyArtistId),
+      favouriteArtists: artists.map((a: any) => a.artistId),
       favouriteMoods: prefs?.favouriteMoods || []
     };
   }
@@ -110,7 +110,7 @@ export class RecommendationService {
   public static async logPlayHistory(
     userId: string,
     historyData: {
-      spotifyTrackId: string;
+      trackId: string;
       albumId?: string;
       artistId?: string;
       genre?: string;
@@ -122,7 +122,7 @@ export class RecommendationService {
     }
   ): Promise<void> {
     const {
-      spotifyTrackId,
+      trackId,
       albumId,
       artistId,
       genre,
@@ -136,7 +136,7 @@ export class RecommendationService {
       prisma.listeningHistory.create({
         data: {
           userId,
-          spotifyTrackId,
+          trackId,
           albumId,
           artistId,
           genre,
@@ -152,9 +152,9 @@ export class RecommendationService {
     if (artistId && completedSong) {
        queries.push(
          prisma.artistAffinity.upsert({
-           where: { userId_spotifyArtistId: { userId, spotifyArtistId: artistId } },
+           where: { userId_artistId: { userId, artistId: artistId } },
            update: { score: { increment: 1.0 } },
-           create: { userId, spotifyArtistId: artistId, score: 1.0 },
+           create: { userId, artistId: artistId, score: 1.0 },
          })
        );
     }
@@ -181,9 +181,9 @@ export class RecommendationService {
     if (type === 'song') {
       queries.push(
         prisma.likedTrack.upsert({
-          where: { userId_spotifyTrackId: { userId, spotifyTrackId: targetId } },
+          where: { userId_trackId: { userId, trackId: targetId } },
           update: {},
-          create: { userId, spotifyTrackId: targetId },
+          create: { userId, trackId: targetId },
         })
       );
     } else if (type === 'album') {
@@ -197,9 +197,9 @@ export class RecommendationService {
     } else if (type === 'artist') {
       queries.push(
         prisma.artistAffinity.upsert({
-          where: { userId_spotifyArtistId: { userId, spotifyArtistId: targetId } },
+          where: { userId_artistId: { userId, artistId: targetId } },
           update: { score: { increment: 10.0 }, isFollowed: true },
-          create: { userId, spotifyArtistId: targetId, score: 20.0, isFollowed: true },
+          create: { userId, artistId: targetId, score: 20.0, isFollowed: true },
         })
       );
     }
@@ -211,15 +211,15 @@ export class RecommendationService {
   /**
    * Log dislike action
    */
-  public static async logDislike(userId: string, spotifyTrackId: string): Promise<void> {
+  public static async logDislike(userId: string, trackId: string): Promise<void> {
     const queries = [
       prisma.dislikedSong.upsert({
-        where: { userId_spotifyTrackId: { userId, spotifyTrackId } },
+        where: { userId_trackId: { userId, trackId } },
         update: {},
-        create: { userId, spotifyTrackId },
+        create: { userId, trackId },
       }),
       prisma.likedTrack.deleteMany({ // deleteMany won't throw if not found
-        where: { userId, spotifyTrackId },
+        where: { userId, trackId },
       }),
     ];
 
@@ -230,14 +230,14 @@ export class RecommendationService {
   /**
    * Log skip action
    */
-  public static async logSkip(userId: string, spotifyTrackId: string, skipTime: number, duration: number): Promise<void> {
+  public static async logSkip(userId: string, trackId: string, skipTime: number, duration: number): Promise<void> {
     const listenPercentage = duration > 0 ? (skipTime / duration) * 100 : 0;
 
     const queries = [
       prisma.listeningHistory.create({
         data: {
           userId,
-          spotifyTrackId,
+          trackId,
           listenPercentage,
           completedSong: false,
         },
@@ -245,7 +245,7 @@ export class RecommendationService {
       prisma.skippedSongs.create({
         data: {
           userId,
-          spotifyTrackId,
+          trackId,
           skipTime
         }
       }),
@@ -302,7 +302,7 @@ export class RecommendationService {
 
   /**
    * Same real candidate-pool + scoring pipeline as getRecommendedSongs,
-   * but returns the lightweight {spotifyTrackId, score, reason} shape
+   * but returns the lightweight {trackId, score, reason} shape
    * (score normalized to a 0-1 fraction) instead of discarding the score
    * the way getRecommendedSongs's Track[] return does. Exists for
    * AIService.getRecommendations, which needs the score/reason rather
@@ -319,7 +319,7 @@ export class RecommendationService {
     userId: string,
     limit = 20,
     genreKeywords?: string[]
-  ): Promise<{ spotifyTrackId: string; score: number; reason: string }[]> {
+  ): Promise<{ trackId: string; score: number; reason: string }[]> {
     const candidates = await this.getCandidatePool(userId);
 
     let pool = candidates;
@@ -336,7 +336,7 @@ export class RecommendationService {
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map((s) => ({
-        spotifyTrackId: s.track.id,
+        trackId: s.track.id,
         score: Math.round((s.score / 100) * 100) / 100,
         reason: s.reason,
       }));
@@ -389,11 +389,11 @@ export class RecommendationService {
     const prefs = await this.getUserPreferences(userId);
     const followed = await prisma.artistAffinity.findMany({ where: { userId } });
 
-    // favouriteArtists / spotifyArtistId are real Saavn artist IDs — use them directly,
+    // favouriteArtists / artistId are real Saavn artist IDs — use them directly,
     // no need to search by name first.
     const seedArtistIds = new Set<string>([
       ...(prefs?.favouriteArtists || []),
-      ...followed.map((f: any) => f.spotifyArtistId)
+      ...followed.map((f: any) => f.artistId)
     ]);
 
     const similarArtistsPool: any[] = [];
@@ -453,9 +453,9 @@ export class RecommendationService {
   private static async buildDiscoverWeekly(userId: string, scored: any[]): Promise<any[]> {
     const userHistory = await prisma.listeningHistory.findMany({
       where: { userId },
-      select: { spotifyTrackId: true }
+      select: { trackId: true }
     });
-    const historyTrackIds = new Set(userHistory.map((h: any) => h.spotifyTrackId));
+    const historyTrackIds = new Set(userHistory.map((h: any) => h.trackId));
 
     const discoveryTracks = scored
       .filter(s => !historyTrackIds.has(s.track.id))
@@ -580,7 +580,7 @@ export class RecommendationService {
 
     // 2. Recently Played
     if (history.length > 0) {
-      const recentIds = Array.from(new Set(history.map((h: any) => h.spotifyTrackId))) as string[];
+      const recentIds = Array.from(new Set(history.map((h: any) => h.trackId))) as string[];
       const recentTracks = await this.saavn.getTracks(recentIds.slice(0, 10));
       sections.push({
         id: 'recently-played',
@@ -624,7 +624,7 @@ export class RecommendationService {
     // 4. Continue Listening
     const incomplete = history.filter((h: any) => h.completedSong === false);
     if (incomplete.length > 0) {
-      const incIds = Array.from(new Set(incomplete.map((h: any) => h.spotifyTrackId))) as string[];
+      const incIds = Array.from(new Set(incomplete.map((h: any) => h.trackId))) as string[];
       const incTracks = await this.saavn.getTracks(incIds.slice(0, 10));
       sections.push({
         id: 'continue-listening',
@@ -782,7 +782,7 @@ export class RecommendationService {
       });
 
       if (likes.length > 0) {
-        const likedIds = likes.map(l => l.spotifyTrackId);
+        const likedIds = likes.map(l => l.trackId);
         const likedTracks = await this.saavn.getTracks(likedIds);
         likedTracks.forEach(addTrack);
 
@@ -817,7 +817,7 @@ export class RecommendationService {
 
       const followed = await prisma.artistAffinity.findMany({ where: { userId } });
       const followPromises = followed.slice(0, 3).map(async (follow: any) => {
-        const searchRes = await this.saavn.search(follow.spotifyArtistId);
+        const searchRes = await this.saavn.search(follow.artistId);
         if (searchRes.artists && searchRes.artists[0]) {
           return this.saavn.getArtistTopTracks(searchRes.artists[0].id);
         }
@@ -892,12 +892,12 @@ export class RecommendationService {
         prisma.artistAffinity.findMany({ where: { userId } }),
       ]);
 
-      const precomputedMap = new Map(precomputed.map((p) => [p.spotifyTrackId, p]));
-      const likedIds = new Set(likes.map((l) => l.spotifyTrackId));
-      const recentIds = new Set(recentlyPlayed.map((r: any) => r.spotifyTrackId));
+      const precomputedMap = new Map(precomputed.map((p) => [p.trackId, p]));
+      const likedIds = new Set(likes.map((l) => l.trackId));
+      const recentIds = new Set(recentlyPlayed.map((r: any) => r.trackId));
       const affinities: AffinityMaps = {
         genreAffinity: new Map(genreRows.map((g) => [g.genre.toLowerCase(), g.score])),
-        artistAffinity: new Map(artistRows.map((a) => [a.spotifyArtistId, a.score])),
+        artistAffinity: new Map(artistRows.map((a) => [a.artistId, a.score])),
       };
 
       const currentHour = new Date().getHours();
@@ -907,13 +907,13 @@ export class RecommendationService {
       // Live trending, kept as a real-time signal (last 24h), separate from the periodic model.
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const trendingGroups = await prisma.listeningHistory.groupBy({
-        by: ['spotifyTrackId'],
+        by: ['trackId'],
         where: { timestamp: { gte: oneDayAgo } },
-        _count: { spotifyTrackId: true },
-        orderBy: { _count: { spotifyTrackId: 'desc' } },
+        _count: { trackId: true },
+        orderBy: { _count: { trackId: 'desc' } },
         take: 100,
       });
-      const globalTrendingIds = new Set(trendingGroups.map((g: any) => g.spotifyTrackId));
+      const globalTrendingIds = new Set(trendingGroups.map((g: any) => g.trackId));
 
       for (const track of candidates) {
         const precomputedEntry = precomputedMap.get(track.id);
@@ -1050,20 +1050,20 @@ export class RecommendationService {
       // --- Scoring ---
       const scored: any[] = [];
       const history = await prisma.listeningHistory.findMany({ where: { userId } });
-      const historyIds = new Set(history.map((h: any) => h.spotifyTrackId));
+      const historyIds = new Set(history.map((h: any) => h.trackId));
       const precomputedScores = new Map(
-        (await getPrecomputedScores(userId, 1000)).map((p) => [p.spotifyTrackId, p.score])
+        (await getPrecomputedScores(userId, 1000)).map((p) => [p.trackId, p.score])
       );
 
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const trendingGroups = await prisma.listeningHistory.groupBy({
-        by: ['spotifyTrackId'],
+        by: ['trackId'],
         where: { timestamp: { gte: oneDayAgo } },
-        _count: { spotifyTrackId: true },
-        orderBy: { _count: { spotifyTrackId: 'desc' } },
+        _count: { trackId: true },
+        orderBy: { _count: { trackId: 'desc' } },
         take: 100,
       });
-      const globalTrendingIds = new Set(trendingGroups.map((g: any) => g.spotifyTrackId));
+      const globalTrendingIds = new Set(trendingGroups.map((g: any) => g.trackId));
 
       for (const track of candidates) {
         let score = 0;

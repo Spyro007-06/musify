@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PlaylistController } from '@controllers/playlist.controller';
 import { authenticate, optionalAuthenticate } from '@middlewares/auth';
+import { importLimiter } from '@middlewares/rateLimiter';
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.post('/', authenticate, PlaylistController.createPlaylist);
  *       201:
  *         description: Created, with matched and unmatched songs
  */
-router.post('/import/spotify', authenticate, PlaylistController.importFromSpotify);
+router.post('/import/spotify', authenticate, importLimiter, PlaylistController.importFromSpotify);
 
 /**
  * @swagger
@@ -97,7 +98,7 @@ router.post('/import/spotify', authenticate, PlaylistController.importFromSpotif
  *       503:
  *         description: GEMINI_API_KEY is not configured
  */
-router.post('/import/screenshot', authenticate, PlaylistController.readScreenshot);
+router.post('/import/screenshot', authenticate, importLimiter, PlaylistController.readScreenshot);
 
 /**
  * @swagger
@@ -137,7 +138,7 @@ router.post('/import/screenshot', authenticate, PlaylistController.readScreensho
  *       200:
  *         description: Added count, matched and unmatched songs
  */
-router.post('/:id/import/songs', authenticate, PlaylistController.importSongs);
+router.post('/:id/import/songs', authenticate, importLimiter, PlaylistController.importSongs);
 
 /**
  * @swagger
@@ -173,6 +174,30 @@ router.post('/:id/import/songs', authenticate, PlaylistController.importSongs);
  */
 router.get('/:id', optionalAuthenticate, PlaylistController.getPlaylist);
 router.delete('/:id', authenticate, PlaylistController.deletePlaylist);
+
+/**
+ * @swagger
+ * /playlists/{id}:
+ *   put:
+ *     summary: Rename / edit your playlist (title, description, coverUrl, isPublic — all optional)
+ *     tags: [Playlists]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OK
+ * /playlists/{id}/tracks/order:
+ *   put:
+ *     summary: Save a new track order. Body `{ trackIds }` must list exactly the playlist's tracks (409 otherwise).
+ *     tags: [Playlists]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.put('/:id', authenticate, PlaylistController.updatePlaylist);
+router.put('/:id/tracks/order', authenticate, PlaylistController.reorderTracks);
 
 /**
  * @swagger

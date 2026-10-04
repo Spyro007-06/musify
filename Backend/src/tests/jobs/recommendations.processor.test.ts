@@ -26,8 +26,8 @@ describe('generateUserRecommendations', () => {
       expiredCacheRowsCleaned: 0,
     });
     engine.getPrecomputedScores.mockResolvedValue([
-      { spotifyTrackId: 't1', score: 0.9, reason: 'x' },
-      { spotifyTrackId: 't2', score: 0.5, reason: 'y' },
+      { trackId: 't1', score: 0.9, reason: 'x' },
+      { trackId: 't2', score: 0.5, reason: 'y' },
     ]);
 
     const result = await generateUserRecommendations(makeJob('user-1'));

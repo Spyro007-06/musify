@@ -3,6 +3,8 @@ import { prisma } from '@config/database';
 import { ApiError } from '@utils/ApiError';
 import { ERROR_MESSAGES } from '@constants/messages';
 import { logger } from '@utils/logger';
+import { MoodService } from './mood.service';
+import { MOOD_SEARCH_TERMS, type Mood } from '@constants/moods';
 
 // Autoplay refill size, and the point below which the seeds' suggestions get
 // topped up from the "Made For You" feed.
@@ -28,12 +30,12 @@ export class MusicService {
       const liked = await prisma.likedTrack.findMany({
         where: {
           userId,
-          spotifyTrackId: { in: trackIds },
+          trackId: { in: trackIds },
         },
-        select: { spotifyTrackId: true },
+        select: { trackId: true },
       });
 
-      const likedIdsSet = new Set(liked.map(l => l.spotifyTrackId));
+      const likedIdsSet = new Set(liked.map(l => l.trackId));
       return tracks.map(t => ({
         ...t,
         isLiked: likedIdsSet.has(t.id),
@@ -113,8 +115,20 @@ export class MusicService {
    */
   public static async getRecommended(
     userId?: string
-  ): Promise<{ tracks: any[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }> {
+  ): Promise<{ tracks: any[]; personalized: boolean; basis: 'mood' | 'taste' | 'history' | 'language' | 'generic'; mood?: Mood }> {
     const preferredLanguages = await this.getPreferredLanguages(userId);
+
+    // A mood check-in (home screen chips) is the freshest signal there is:
+    // while it's active, this row is that mood, in the user's languages.
+    const mood = userId ? await MoodService.getActiveMood(userId) : null;
+    if (mood) {
+      const term = MOOD_SEARCH_TERMS[mood];
+      const queries = preferredLanguages.length > 0 ? preferredLanguages.map((l) => `${l.toLowerCase()} ${term}`) : [term];
+      const moodTracks = await this.saavn.getRecommendationsByGenres(queries, 20);
+      if (moodTracks.length > 0) {
+        return { tracks: await this.populateLikes(moodTracks, userId), personalized: true, basis: 'mood', mood };
+      }
+    }
 
     // A saved language preference is authoritative for "Made For You" too —
     // skip the genre/history-bias branches below (neither language-filters)
@@ -159,8 +173,8 @@ export class MusicService {
         ]);
 
         const trackIds = Array.from(new Set([
-          ...likes.map(l => l.spotifyTrackId),
-          ...history.map((h: any) => h.spotifyTrackId),
+          ...likes.map(l => l.trackId),
+          ...history.map((h: any) => h.trackId),
         ]));
 
         if (trackIds.length > 0) {
@@ -183,7 +197,7 @@ export class MusicService {
           // Fetch followed artists details
           if (followed.length > 0) {
             const followedArtists = await Promise.all(
-              followed.map((f: any) => this.saavn.getArtist(f.spotifyArtistId))
+              followed.map((f: any) => this.saavn.getArtist(f.artistId))
             );
             followedArtists.forEach((a: any) => {
               if (a) artists.add(a.name);
@@ -283,7 +297,7 @@ export class MusicService {
 
     const existingLike = await prisma.likedTrack.findUnique({
       where: {
-        userId_spotifyTrackId: { userId, spotifyTrackId: trackId },
+        userId_trackId: { userId, trackId: trackId },
       },
     });
 
@@ -294,7 +308,7 @@ export class MusicService {
     await prisma.likedTrack.create({
       data: {
         userId,
-        spotifyTrackId: trackId,
+        trackId: trackId,
       },
     });
   }
@@ -302,7 +316,7 @@ export class MusicService {
   public static async unlikeTrack(userId: string, trackId: string): Promise<void> {
     const existingLike = await prisma.likedTrack.findUnique({
       where: {
-        userId_spotifyTrackId: { userId, spotifyTrackId: trackId },
+        userId_trackId: { userId, trackId: trackId },
       },
     });
 
@@ -326,7 +340,7 @@ export class MusicService {
 
     if (likes.length === 0) return [];
     
-    const trackIds = likes.map(l => l.spotifyTrackId);
+    const trackIds = likes.map(l => l.trackId);
     const tracks = await this.saavn.getTracks(trackIds);
     return tracks.map(t => ({ ...t, isLiked: true }));
   }
@@ -342,7 +356,7 @@ export class MusicService {
 
     if (history.length === 0) return [];
 
-    const historyIds = history.map((h: any) => h.spotifyTrackId);
+    const historyIds = history.map((h: any) => h.trackId);
     const uniqueIds = Array.from(new Set(historyIds));
     const tracks = await this.saavn.getTracks(uniqueIds);
 
@@ -353,12 +367,12 @@ export class MusicService {
     const seenTrackIds = new Set<string>();
     const populated = history
       .filter((h: any) => {
-        if (seenTrackIds.has(h.spotifyTrackId)) return false;
-        seenTrackIds.add(h.spotifyTrackId);
+        if (seenTrackIds.has(h.trackId)) return false;
+        seenTrackIds.add(h.trackId);
         return true;
       })
       .map((h: any) => {
-        const track = tracks.find(t => t.id === h.spotifyTrackId);
+        const track = tracks.find(t => t.id === h.trackId);
         return track ? { ...track } : null;
       })
       .filter(Boolean);
@@ -385,11 +399,11 @@ export class MusicService {
     const heard = new Set<string>();
     if (userId) {
       const [history, skipped] = await Promise.all([
-        prisma.listeningHistory.findMany({ where: { userId }, select: { spotifyTrackId: true }, distinct: ['spotifyTrackId'] }),
-        prisma.skippedSongs.findMany({ where: { userId }, select: { spotifyTrackId: true } }),
+        prisma.listeningHistory.findMany({ where: { userId }, select: { trackId: true }, distinct: ['trackId'] }),
+        prisma.skippedSongs.findMany({ where: { userId }, select: { trackId: true } }),
       ]);
-      for (const row of history) heard.add(row.spotifyTrackId);
-      for (const row of skipped) excluded.add(row.spotifyTrackId);
+      for (const row of history) heard.add(row.trackId);
+      for (const row of skipped) excluded.add(row.trackId);
     }
 
     const fresh: any[] = [];
@@ -463,7 +477,7 @@ export class MusicService {
     // wait on. This was previously `await`-ed directly in front of the
     // response, adding a full DB round-trip to every "press play".
     if (userId) {
-      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+      prisma.listeningHistory.create({ data: { userId, trackId: trackId } }).catch((err) => {
         console.error('Failed to log listening history:', err);
       });
     }
@@ -486,7 +500,7 @@ export class MusicService {
     }
 
     if (userId) {
-      prisma.listeningHistory.create({ data: { userId, spotifyTrackId: trackId } }).catch((err) => {
+      prisma.listeningHistory.create({ data: { userId, trackId: trackId } }).catch((err) => {
         console.error('Failed to log listening history:', err);
       });
     }

@@ -5,7 +5,6 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import hpp from 'hpp';
 import { doubleCsrf } from 'csrf-csrf';
-import xss from 'xss-clean';
 import swaggerUi from 'swagger-ui-express';
 import { globalLimiter } from '@middlewares/rateLimiter';
 
@@ -57,8 +56,16 @@ app.use((_req, res, next) => {
 
 // Utility Middlewares (must be before CSRF so cookies can be parsed)
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Express's 100kb default everywhere, except the two routes whose JSON body
+// carries an image: a screenshot (base64, capped at ~6MB by its validator)
+// and a profile update (avatar as a downscaled data URL).
+const defaultJson = express.json();
+const largeJson: Record<string, ReturnType<typeof express.json>> = {
+  [`${env.API_PREFIX}/playlists/import/screenshot`]: express.json({ limit: '8mb' }),
+  [`${env.API_PREFIX}/user/profile`]: express.json({ limit: '1mb' }),
+};
+app.use((req, res, next) => (largeJson[req.path] ?? defaultJson)(req, res, next));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 import { Request } from 'express';
 
@@ -109,7 +116,6 @@ app.use(
 );
 app.use(globalLimiter);
 app.use(hpp());
-app.use(xss());
 app.use(doubleCsrfProtection);
 
 // CSRF Token Endpoint

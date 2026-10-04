@@ -22,7 +22,7 @@
 | Layer | Tech |
 |---|---|
 | 🖥️ **Frontend** (`frontend/`) | Next.js 15 (App Router) · React 19 · TypeScript · Tailwind CSS · TanStack Query · Zustand |
-| ⚙️ **Backend** (`Backend/`) | Express · TypeScript · Prisma + PostgreSQL (Supabase) · Socket.IO · Zod · Winston · Sentry |
+| ⚙️ **Backend** (`Backend/`) | Express · TypeScript · Prisma + PostgreSQL (Supabase) · Zod · Winston · Sentry |
 | 🔐 **Auth/DB** | Supabase (Postgres + auth) |
 | 🎧 **Music data** | External third-party music catalog API |
 | ⚡ **Optional infra** | Upstash Redis (distributed rate limiting + response caching) |

@@ -3,6 +3,8 @@ import { PlaylistService } from '@services/playlist.service';
 import { SpotifyImportService } from '@services/spotifyImport.service';
 import {
   createPlaylistSchema,
+  updatePlaylistSchema,
+  reorderTracksSchema,
   addTrackSchema,
   importSpotifySchema,
   importSongsSchema,
@@ -137,6 +139,28 @@ export class PlaylistController {
         statusCode: HTTP_STATUS.OK,
         message: SUCCESS_MESSAGES.TRACK_REMOVED_FROM_PLAYLIST,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async updatePlaylist(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const data = updatePlaylistSchema.parse(req.body);
+      const playlist = await PlaylistService.updatePlaylist(req.params.id, authReq.user.id, data);
+      sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Playlist updated.', data: playlist });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public static async reorderTracks(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { trackIds } = reorderTracksSchema.parse(req.body);
+      await PlaylistService.reorderTracks(req.params.id, authReq.user.id, trackIds);
+      sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Playlist order saved.' });
     } catch (error) {
       next(error);
     }

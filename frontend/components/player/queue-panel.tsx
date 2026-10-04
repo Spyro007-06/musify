@@ -6,18 +6,10 @@ import { usePlayerStore, QueueRef, SleepTimerOption } from '@/stores/player-stor
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Track } from '@/types/track';
 import { cn } from '@/lib/utils/cn';
+import { useDragReorder } from '@/hooks/use-drag-reorder';
 
 type Section = QueueRef['section'];
 const refKey = (section: Section, index: number) => `${section}:${index}`;
-
-interface DragState {
-  section: Section;
-  from: number;
-  to: number;
-  dy: number;
-  startY: number;
-  rowHeight: number;
-}
 
 /**
  * Spotify-style queue: Now playing, then your Queued songs (always played
@@ -47,7 +39,10 @@ export function QueuePanel() {
 
   const [editing, setEditing] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  const [drag, setDrag] = React.useState<DragState | null>(null);
+  const reorder = useDragReorder<Section>(
+    (section) => (section === 'queued' ? userQueue.length : queue.length - currentIndex - 1),
+    moveInQueue
+  );
 
   // Close on Escape key and body scroll lock
   React.useEffect(() => {
@@ -77,7 +72,6 @@ export function QueuePanel() {
   const upcoming = queue.slice(currentIndex + 1);
   const recommended = new Set(recommendedIds);
   const firstRecommended = upcoming.findIndex((t) => recommended.has(t.id));
-  const sectionLength = (section: Section) => (section === 'queued' ? userQueue.length : upcoming.length);
   const selectedRefs = (): QueueRef[] =>
     [...selected].map((k) => {
       const [section, index] = k.split(':');
@@ -98,51 +92,19 @@ export function QueuePanel() {
     setSelected(new Set()); // positions shift after any edit
   };
 
-  // --- drag to reorder (pointer events: works for touch and mouse) ---
-  const onHandleDown = (e: React.PointerEvent<HTMLButtonElement>, section: Section, index: number) => {
-    const row = e.currentTarget.closest<HTMLElement>('[data-queue-row]');
-    if (!row) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDrag({ section, from: index, to: index, dy: 0, startY: e.clientY, rowHeight: row.offsetHeight });
-  };
-  const onHandleMove = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (!drag) return;
-    const dy = e.clientY - drag.startY;
-    const to = Math.max(0, Math.min(sectionLength(drag.section) - 1, drag.from + Math.round(dy / drag.rowHeight)));
-    setDrag({ ...drag, dy, to });
-  };
-  const onHandleUp = () => {
-    if (drag) moveInQueue(drag.section, drag.from, drag.to);
-    setDrag(null);
-  };
-  const onHandleKey = (e: React.KeyboardEvent, section: Section, index: number) => {
-    const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : null;
-    if (to === null || to < 0 || to >= sectionLength(section)) return;
-    e.preventDefault();
-    moveInQueue(section, index, to);
-  };
-
-  const rowShift = (section: Section, index: number): React.CSSProperties | undefined => {
-    if (!drag || drag.section !== section) return undefined;
-    if (index === drag.from) return { transform: `translateY(${drag.dy}px)`, zIndex: 10, position: 'relative' };
-    if (drag.from < drag.to && index > drag.from && index <= drag.to) return { transform: `translateY(${-drag.rowHeight}px)` };
-    if (drag.from > drag.to && index >= drag.to && index < drag.from) return { transform: `translateY(${drag.rowHeight}px)` };
-    return undefined;
-  };
-
   const renderRow = (track: Track, section: Section, index: number) => {
     const key = refKey(section, index);
     const isSelected = selected.has(key);
-    const isDragged = drag?.section === section && drag.from === index;
+    const isDragged = reorder.isDragged(section, index);
     return (
       <div
         key={`${key}-${track.id}`}
-        data-queue-row
-        style={rowShift(section, index)}
+        data-reorder-row
+        style={reorder.rowStyle(section, index)}
         className={cn(
           'flex items-center gap-3 rounded-lg px-2 py-2',
           isDragged ? 'bg-neutral-800 shadow-2xl' : 'transition-transform duration-150',
-          !drag && 'hover:bg-white/[0.06]'
+          !reorder.isDragging && 'hover:bg-white/[0.06]'
         )}
       >
         {editing && (
@@ -176,11 +138,7 @@ export function QueuePanel() {
         <button
           type="button"
           aria-label={`Reorder ${track.title} (drag, or use arrow keys)`}
-          onPointerDown={(e) => onHandleDown(e, section, index)}
-          onPointerMove={onHandleMove}
-          onPointerUp={onHandleUp}
-          onPointerCancel={() => setDrag(null)}
-          onKeyDown={(e) => onHandleKey(e, section, index)}
+          {...reorder.handleProps(section, index)}
           className="flex h-10 w-10 shrink-0 touch-none cursor-grab items-center justify-center rounded-full text-neutral-400 hover:text-white active:cursor-grabbing"
         >
           <Menu className="h-5 w-5" />

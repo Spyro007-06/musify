@@ -21,3 +21,16 @@ export interface Track {
   createdAt?: string;
   updatedAt?: string;
 }
+
+/** `time` is seconds into the song; null when the lyrics aren't time-synced. */
+export interface LyricLine {
+  time: number | null;
+  text: string;
+}
+
+export interface Lyrics {
+  synced: boolean;
+  instrumental: boolean;
+  /** Empty when no lyrics exist for the song. */
+  lines: LyricLine[];
+}

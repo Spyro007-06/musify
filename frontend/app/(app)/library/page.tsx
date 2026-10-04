@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Heart, History, ListMusic, Play, ArrowRight } from 'lucide-react';
+import { Heart, History, ListMusic, Play, ArrowRight, ChartColumn } from 'lucide-react';
 import { useLikedSongs, useRecentlyPlayed } from '@/hooks/use-music';
 import { usePlaylists } from '@/hooks/use-playlists';
 import { usePlayerStore } from '@/stores/player-store';
@@ -86,7 +86,7 @@ export default function LibraryPage() {
       </div>
 
       {/* 2. Quick Navigation Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Liked Songs Tile */}
         <Link
           href="/library/liked"
@@ -189,6 +189,33 @@ export default function LibraryPage() {
                 <p className="text-xs text-neutral-400">
                   {playlists ? playlistsSummary(playlists) : 'Curated collections'}
                 </p>
+              </div>
+            </div>
+
+            <ArrowRight className="h-4 w-4 text-neutral-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+          </div>
+        </Link>
+
+        {/* Stats Tile */}
+        <Link
+          href="/library/stats"
+          className={cn(
+            'group relative overflow-hidden rounded-2xl p-5 border border-cyan-500/20',
+            'bg-gradient-to-br from-cyan-950/50 via-neutral-900/60 to-black',
+            'hover:border-cyan-500/40 hover:from-cyan-950/70 transition-all duration-300 shadow-lg select-none'
+          )}
+        >
+          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-cyan-500/10 blur-2xl group-hover:bg-cyan-500/20 transition-all" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-sky-600 text-black shadow-md shadow-cyan-950/50">
+                <ChartColumn className="h-6 w-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h2 className="font-bold text-base text-white group-hover:text-cyan-300 transition-colors">
+                  Your Stats
+                </h2>
+                <p className="text-xs text-neutral-400">Your month in music</p>
               </div>
             </div>
 

@@ -52,6 +52,16 @@ export const playlistsApi = {
   readScreenshot: (mimeType: string, data: string): Promise<ApiResponse<{ songs: ImportSong[] }>> =>
     apiClient.post<{ songs: ImportSong[] }>('/playlists/import/screenshot', { mimeType, data }),
 
+  updatePlaylist: (
+    id: string,
+    data: { title?: string; description?: string; isPublic?: boolean }
+  ): Promise<ApiResponse<Pick<Playlist, 'id' | 'title' | 'description' | 'isPublic'>>> =>
+    apiClient.put(`/playlists/${encodeURIComponent(id)}`, data),
+
+  /** `trackIds` must list exactly the playlist's tracks, in the new order. */
+  reorderTracks: (id: string, trackIds: string[]): Promise<ApiResponse<void>> =>
+    apiClient.put<void>(`/playlists/${encodeURIComponent(id)}/tracks/order`, { trackIds }),
+
   deletePlaylist: (id: string): Promise<ApiResponse<void>> =>
     apiClient.delete<void>(`/playlists/${encodeURIComponent(id)}`),
 

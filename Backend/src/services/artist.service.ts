@@ -16,7 +16,7 @@ export class ArtistService {
     if (userId) {
       const follow = await prisma.artistAffinity.findUnique({
         where: {
-          userId_spotifyArtistId: { userId, spotifyArtistId: id },
+          userId_artistId: { userId, artistId: id },
         },
       });
       isFollowing = !!follow && follow.isFollowed;
@@ -36,11 +36,11 @@ export class ArtistService {
       const likes = await prisma.likedTrack.findMany({
         where: {
           userId,
-          spotifyTrackId: { in: trackIds },
+          trackId: { in: trackIds },
         },
-        select: { spotifyTrackId: true },
+        select: { trackId: true },
       });
-      const likedIdsSet = new Set(likes.map(l => l.spotifyTrackId));
+      const likedIdsSet = new Set(likes.map(l => l.trackId));
       return tracks.map(t => ({
         ...t,
         isLiked: likedIdsSet.has(t.id),
@@ -66,7 +66,7 @@ export class ArtistService {
 
     const existingFollow = await prisma.artistAffinity.findUnique({
       where: {
-        userId_spotifyArtistId: { userId, spotifyArtistId: artistId },
+        userId_artistId: { userId, artistId: artistId },
       },
     });
 
@@ -76,14 +76,14 @@ export class ArtistService {
 
     await prisma.artistAffinity.upsert({
       where: {
-        userId_spotifyArtistId: { userId, spotifyArtistId: artistId },
+        userId_artistId: { userId, artistId: artistId },
       },
       update: {
         isFollowed: true,
       },
       create: {
         userId,
-        spotifyArtistId: artistId,
+        artistId: artistId,
         isFollowed: true,
       }
     });
@@ -169,7 +169,7 @@ export class ArtistService {
   public static async unfollowArtist(userId: string, artistId: string): Promise<void> {
     const existingFollow = await prisma.artistAffinity.findUnique({
       where: {
-        userId_spotifyArtistId: { userId, spotifyArtistId: artistId },
+        userId_artistId: { userId, artistId: artistId },
       },
     });
 

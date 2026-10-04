@@ -42,6 +42,7 @@ export function useRecommended() {
     data: query.data?.tracks,
     isPersonalized: query.data?.personalized ?? false,
     personalizedBasis: query.data?.basis ?? 'generic',
+    mood: query.data?.mood,
   };
 }
 
@@ -132,6 +133,17 @@ export function useTrack(id: string) {
       if (status === 404) return false;
       return failureCount < 1;
     },
+  });
+}
+
+/** Lyrics never change, so each song's are fetched once per session. */
+export function useLyrics(trackId: string | undefined) {
+  return useQuery({
+    queryKey: ['music', 'lyrics', trackId],
+    queryFn: async () => (await musicApi.getLyrics(trackId!)).data ?? null,
+    enabled: !!trackId,
+    staleTime: Infinity,
+    retry: 1,
   });
 }
 

@@ -251,6 +251,18 @@ router.get('/tracks/:trackId/stream', optionalAuthenticate, MusicController.getS
 
 /**
  * @swagger
+ * /music/tracks/{trackId}/lyrics:
+ *   get:
+ *     summary: "Lyrics for a track: { synced, instrumental, lines: [{ time, text }] }. time is seconds (null when not synced); lines is empty when none exist."
+ *     tags: [Music]
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get('/tracks/:trackId/lyrics', MusicController.getLyrics);
+
+/**
+ * @swagger
  * /music/tracks/{trackId}/download:
  *   get:
  *     summary: Download the track's audio file

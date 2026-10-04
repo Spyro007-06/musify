@@ -108,12 +108,12 @@ describe('DELETE /api/playlists/:id — ownership enforcement', () => {
 describe('GET /api/playlists/:id — JioSaavn editorial playlists', () => {
   it('serves a JioSaavn playlist when the id is not one of ours', async () => {
     prismaMock.playlist.findUnique.mockResolvedValue(null);
-    saavnMock.getPlaylist.mockResolvedValue({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'JioSaavn', isPublic: true, tracks: [] });
+    saavnMock.getPlaylist.mockResolvedValue({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'MUSIFY', isPublic: true, tracks: [] });
 
     const res = await request(app).get('/api/playlists/1134543272');
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toMatchObject({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'JioSaavn' });
+    expect(res.body.data).toMatchObject({ id: '1134543272', title: 'Hot Hits Tamil', owner: 'MUSIFY' });
   });
 
   it('still 404s when JioSaavn has no such playlist either', async () => {
@@ -213,10 +213,11 @@ describe('POST /api/playlists/import/spotify', () => {
 
     const { data } = prismaMock.playlist.create.mock.calls[0][0] as any;
     expect(data).toMatchObject({ title: 'Road Trip', coverUrl: 'https://i.scdn.co/image/cover', ownerId: owner.id });
-    const created = data.tracks.create as { spotifyTrackId: string; addedAt: Date }[];
-    // Duplicate "Hey Jude" saved once; order kept via increasing addedAt.
-    expect(created.map((t) => t.spotifyTrackId)).toEqual(['saavn-jude', 'saavn-stay']);
-    expect(created[0].addedAt.getTime()).toBeLessThan(created[1].addedAt.getTime());
+    // Duplicate "Hey Jude" saved once; Spotify order kept as positions.
+    expect(data.tracks.create).toEqual([
+      { trackId: 'saavn-jude', position: 0 },
+      { trackId: 'saavn-stay', position: 1 },
+    ]);
   });
 
   it('refuses to create an empty playlist when nothing matches', async () => {
@@ -281,6 +282,7 @@ describe('POST /api/playlists/:id/import/songs', () => {
       query.startsWith('Never Gonna') ? { id: 'saavn-rick' } : query.startsWith('Tum Hi Ho') ? { id: 'saavn-tum' } : null
     );
     prismaMock.playlistTrack.createMany.mockResolvedValue({ count: 2 });
+    prismaMock.playlistTrack.aggregate.mockResolvedValue({ _max: { position: 9 } } as any);
 
     const res = await authedPost('/api/playlists/pl-1/import/songs', owner, {
       spotifyIds: [TRACK_A, TRACK_GONE],
@@ -295,8 +297,11 @@ describe('POST /api/playlists/:id/import/songs', () => {
 
     const { data, skipDuplicates } = prismaMock.playlistTrack.createMany.mock.calls[0][0] as any;
     expect(skipDuplicates).toBe(true);
-    expect(data.map((t: any) => t.spotifyTrackId)).toEqual(['saavn-rick', 'saavn-tum']);
-    expect(data[0].addedAt.getTime()).toBeLessThan(data[1].addedAt.getTime());
+    // Appended after the playlist's current last track (position 9).
+    expect(data).toEqual([
+      { playlistId: 'pl-1', trackId: 'saavn-rick', position: 10 },
+      { playlistId: 'pl-1', trackId: 'saavn-tum', position: 11 },
+    ]);
 
     expect(res.body.data.added).toBe(2);
     expect(res.body.data.unmatched.map((t: any) => t.title)).toEqual([`Spotify track ${TRACK_GONE}`, 'Unknown Song']);
@@ -362,5 +367,80 @@ describe('POST /api/playlists/import/screenshot — Gemini overloads', () => {
     const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
     expect(res.status).toBe(502);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+async function authedPut(path: string, user: typeof owner, body: object) {
+  const agent = request.agent(app);
+  const csrfToken = await getCsrfToken(agent);
+  prismaMock.user.findUnique.mockResolvedValue(user as any);
+  return agent.put(path).set('x-csrf-token', csrfToken).set('Authorization', bearerFor(user)).send(body);
+}
+
+describe('PUT /api/playlists/:id — edit details', () => {
+  it('renames the owner\'s playlist and clears an emptied description', async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'playlist-1', ownerId: owner.id } as any);
+    prismaMock.playlist.update.mockResolvedValue({ id: 'playlist-1', title: 'Road Trip', description: null, isPublic: false } as any);
+
+    const res = await authedPut('/api/playlists/playlist-1', owner, { title: 'Road Trip', description: '  ', isPublic: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ id: 'playlist-1', title: 'Road Trip', description: null, isPublic: false });
+    expect(prismaMock.playlist.update).toHaveBeenCalledWith({
+      where: { id: 'playlist-1' },
+      data: expect.objectContaining({ title: 'Road Trip', description: null, isPublic: false, slug: expect.any(String) }),
+    });
+  });
+
+  it("forbids editing someone else's playlist", async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'playlist-1', ownerId: owner.id } as any);
+    const res = await authedPut('/api/playlists/playlist-1', intruder, { title: 'Mine now' });
+    expect(res.status).toBe(403);
+    expect(prismaMock.playlist.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty title with 422', async () => {
+    const res = await authedPut('/api/playlists/playlist-1', owner, { title: '' });
+    expect(res.status).toBe(422);
+  });
+});
+
+describe('PUT /api/playlists/:id/tracks/order', () => {
+  beforeEach(() => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'playlist-1', ownerId: owner.id } as any);
+    prismaMock.playlistTrack.findMany.mockResolvedValue([{ trackId: 'a' }, { trackId: 'b' }, { trackId: 'c' }] as any);
+  });
+
+  it('saves a permutation of the current tracks in one statement', async () => {
+    prismaMock.$executeRaw.mockResolvedValue(3);
+    const res = await authedPut('/api/playlists/playlist-1/tracks/order', owner, { trackIds: ['c', 'a', 'b'] });
+    expect(res.status).toBe(200);
+    expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$executeRaw.mock.calls[0].slice(1)).toEqual([['c', 'a', 'b'], 'playlist-1']);
+  });
+
+  it.each([
+    ['a missing track', ['c', 'a']],
+    ['an unknown track', ['c', 'a', 'z']],
+    ['a duplicate', ['a', 'a', 'b', 'c']],
+  ])('409s on %s instead of half-saving', async (_label, trackIds) => {
+    const res = await authedPut('/api/playlists/playlist-1/tracks/order', owner, { trackIds });
+    expect(res.status).toBe(409);
+    expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/playlists/:id/tracks — position', () => {
+  it('appends after the current last track', async () => {
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'playlist-1', ownerId: owner.id } as any);
+    saavnMock.getTrack.mockResolvedValue({ id: 'new' } as any);
+    prismaMock.playlistTrack.findUnique.mockResolvedValue(null);
+    prismaMock.playlistTrack.aggregate.mockResolvedValue({ _max: { position: 4 } } as any);
+    prismaMock.playlistTrack.create.mockResolvedValue({} as any);
+
+    const res = await authedPost('/api/playlists/playlist-1/tracks', owner, { trackId: 'new' });
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.playlistTrack.create).toHaveBeenCalledWith({ data: { playlistId: 'playlist-1', trackId: 'new', position: 5 } });
   });
 });

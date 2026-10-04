@@ -18,6 +18,10 @@ export const updatePlaylistSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
+export const reorderTracksSchema = z.object({
+  trackIds: z.array(z.string().min(1)).max(5000),
+});
+
 export const addTrackSchema = z.object({
   trackId: z.string().min(1, 'Track ID is required'),
 });

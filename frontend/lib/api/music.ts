@@ -1,9 +1,18 @@
 import { apiClient } from './client';
-import { Track } from '@/types/track';
+import { Track, Lyrics } from '@/types/track';
 import { Album } from '@/types/album';
 import { Category } from '@/types/category';
 import { Playlist } from '@/types/playlist';
 import { ApiResponse } from '@/types/api';
+import { MoodId } from '@/types/user';
+
+/** basis 'mood' = a home-screen mood check-in is steering the picks (see `mood`). */
+export interface RecommendedResult {
+  tracks: Track[];
+  personalized: boolean;
+  basis: 'mood' | 'taste' | 'history' | 'language' | 'generic';
+  mood?: MoodId;
+}
 
 export const musicApi = {
   getTrending: async (languages?: string, artists?: string): Promise<ApiResponse<Track[]>> => {
@@ -25,12 +34,8 @@ export const musicApi = {
     return apiClient.get<Album[]>(`/music/new-releases${query}`);
   },
 
-  getRecommended: async (): Promise<
-    ApiResponse<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>
-  > => {
-    return apiClient.get<{ tracks: Track[]; personalized: boolean; basis: 'taste' | 'history' | 'language' | 'generic' }>(
-      '/music/recommended'
-    );
+  getRecommended: async (): Promise<ApiResponse<RecommendedResult>> => {
+    return apiClient.get<RecommendedResult>('/music/recommended');
   },
 
   getRecommendations: async (genres?: string, limit?: number): Promise<ApiResponse<Track[]>> => {
@@ -90,6 +95,9 @@ export const musicApi = {
   unlikeTrack: async (trackId: string): Promise<ApiResponse<unknown>> => {
     return apiClient.delete<unknown>(`/music/tracks/${encodeURIComponent(trackId)}/like`);
   },
+
+  getLyrics: (trackId: string): Promise<ApiResponse<Lyrics>> =>
+    apiClient.get<Lyrics>(`/music/tracks/${encodeURIComponent(trackId)}/lyrics`, { requiresAuth: false }),
 
   getStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
     return apiClient.get<{ url: string; streamUrl?: string }>(`/music/tracks/${encodeURIComponent(trackId)}/stream`);

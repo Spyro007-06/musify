@@ -1,6 +1,7 @@
 import { prisma } from '@config/database';
 import { env } from '@config/env';
 import { SaavnService } from './saavn.service';
+import { PlaylistService } from './playlist.service';
 import { ApiError } from '@utils/ApiError';
 import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
@@ -147,9 +148,7 @@ export class SpotifyImportService {
 
     // Two Spotify tracks can resolve to the same JioSaavn song; the table allows it once.
     const trackIds = [...new Set(matched.map((m) => m.trackId))];
-    if (trackIds.length === 0) throw ApiError.unprocessable('None of those songs could be found on JioSaavn.');
-    // Staggered addedAt keeps the Spotify order (playlists are read ordered by it).
-    const base = Date.now();
+    if (trackIds.length === 0) throw ApiError.unprocessable('None of those songs could be found in our catalog.');
     const playlist = await prisma.playlist.create({
       data: {
         title: source.title,
@@ -157,7 +156,7 @@ export class SpotifyImportService {
         description: 'Imported from Spotify.',
         coverUrl: source.coverUrl,
         ownerId: userId,
-        tracks: { create: trackIds.map((id, i) => ({ spotifyTrackId: id, addedAt: new Date(base + i) })) },
+        tracks: { create: trackIds.map((id, i) => ({ trackId: id, position: i })) },
       },
     });
 
@@ -188,12 +187,12 @@ export class SpotifyImportService {
     const tracks = [...fromSpotify.filter((t): t is SourceTrack => t !== null), ...songs];
     const { matched, unmatched } = this.splitMatches(tracks, await this.matchOnSaavn(tracks));
 
-    const base = Date.now();
+    const start = await PlaylistService.nextPosition(playlistId);
     const { count } = await prisma.playlistTrack.createMany({
       data: [...new Set(matched.map((m) => m.trackId))].map((id, i) => ({
         playlistId,
-        spotifyTrackId: id,
-        addedAt: new Date(base + i),
+        trackId: id,
+        position: start + i,
       })),
       skipDuplicates: true, // already in the playlist (e.g. from the first 100)
     });

@@ -12,7 +12,7 @@
  *
  * Usage:
  *   npm run loadtest -- --url=http://localhost:3001 --duration=30 --connections=20 \
- *     --token=<jwt> --trackId=<real spotifyTrackId> --playlistId=<real playlist id> \
+ *     --token=<jwt> --trackId=<real trackId> --playlistId=<real playlist id> \
  *     --csrfCookie=<value> --csrfToken=<value>
  *
  * --token is required for the authenticated GET scenarios and for the POST
@@ -98,7 +98,7 @@ async function main() {
     await runScenario(`GET /api/music/tracks/:id`, `/api/music/tracks/${TRACK_ID}`);
     await runScenario(`GET /api/music/tracks/:id/stream`, `/api/music/tracks/${TRACK_ID}/stream`);
   } else {
-    console.log('\n(Skipped track/stream scenarios — pass --trackId=<real spotifyTrackId>.)');
+    console.log('\n(Skipped track/stream scenarios — pass --trackId=<real trackId>.)');
   }
 
   if (PLAYLIST_ID) {
@@ -122,7 +122,7 @@ async function main() {
       await runScenario(
         'POST /api/user/history (write-heavy, invalidates recommendation cache)',
         '/api/user/history',
-        { method: 'POST', headers: writeHeaders, body: JSON.stringify({ spotifyTrackId: TRACK_ID, completedSong: true, listenPercentage: 100 }) }
+        { method: 'POST', headers: writeHeaders, body: JSON.stringify({ trackId: TRACK_ID, completedSong: true, listenPercentage: 100 }) }
       );
       await runScenario(
         'POST /api/user/likes (write-heavy, invalidates recommendation cache)',

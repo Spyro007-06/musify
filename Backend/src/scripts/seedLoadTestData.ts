@@ -138,7 +138,7 @@ async function main() {
         const completed = Math.random() > 0.3;
         return {
           userId: user.id,
-          spotifyTrackId: t.id,
+          trackId: t.id,
           albumId: undefined,
           artistId: t.artists[0]?.id,
           genre: t.genre,
@@ -155,7 +155,7 @@ async function main() {
       await prisma.skippedSongs.createMany({
         data: skipTracks.map((t) => ({
           userId: user.id,
-          spotifyTrackId: t.id,
+          trackId: t.id,
           skipTime: randInt(2, 60),
           timestamp: randomTimestampWithinDays(30),
         })),
@@ -165,7 +165,7 @@ async function main() {
     const likedTracks = pickN(tracks, randInt(0, LIKES_PER_USER_MAX));
     if (likedTracks.length > 0) {
       await prisma.likedTrack.createMany({
-        data: likedTracks.map((t) => ({ userId: user.id, spotifyTrackId: t.id })),
+        data: likedTracks.map((t) => ({ userId: user.id, trackId: t.id })),
         skipDuplicates: true,
       });
     }
@@ -175,7 +175,7 @@ async function main() {
       await prisma.artistAffinity.createMany({
         data: followedArtists.map((artistId) => ({
           userId: user.id,
-          spotifyArtistId: artistId,
+          artistId: artistId,
           score: randInt(1, 30),
           isFollowed: Math.random() > 0.3,
         })),
@@ -210,7 +210,7 @@ async function main() {
           slug: `${username}-playlist-${Date.now()}`,
           isPublic: Math.random() > 0.3,
           ownerId: user.id,
-          tracks: { create: playlistTracks.map((t) => ({ spotifyTrackId: t.id })) },
+          tracks: { create: playlistTracks.map((t) => ({ trackId: t.id })) },
         },
       });
     }

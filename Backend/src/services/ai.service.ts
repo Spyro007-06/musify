@@ -253,7 +253,7 @@ export class AIService {
    * than running a second, separate recommendation system here — that
    * would be pure duplication of already-tested, cron-refreshed logic.
    * The only thing this method adds is shaping the response into the
-   * lightweight {spotifyTrackId, score, reason} contract this endpoint's
+   * lightweight {trackId, score, reason} contract this endpoint's
    * callers expect (frontend resolves each id to a full track), and an
    * optional mood-based genre bias (reusing the existing MOOD_KEYWORDS
    * map already defined above, not a new taxonomy).
@@ -329,8 +329,6 @@ export class AIService {
 
       const finalName =
         playlistName || curated?.title || `AI: ${prompt.charAt(0).toUpperCase() + prompt.slice(1)}`.slice(0, 100);
-      // Staggered addedAt keeps the curated order (playlists are read ordered by it).
-      const base = Date.now();
       const newPlaylist = await prisma.playlist.create({
         data: {
           title: finalName,
@@ -340,7 +338,7 @@ export class AIService {
           ownerId: userId,
           isPublic: false,
           tracks: {
-            create: finalTracks.map((t, i) => ({ spotifyTrackId: t.id, addedAt: new Date(base + i) })),
+            create: finalTracks.map((t, i) => ({ trackId: t.id, position: i })),
           },
         },
         include: {

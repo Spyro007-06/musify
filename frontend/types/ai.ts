@@ -1,7 +1,7 @@
 import { Track } from './track';
 
 export interface AIRecommendationItem {
-  spotifyTrackId: string;
+  trackId: string;
   score: number;
   reason: string;
 }

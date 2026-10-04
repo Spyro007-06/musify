@@ -12,18 +12,30 @@ import {
   Sparkles,
   ArrowLeft,
   Music2,
+  Pencil,
+  Share2,
+  ArrowUpDown,
+  Check,
+  Menu,
 } from 'lucide-react';
-import { usePlaylist, useRemoveTrackFromPlaylist } from '@/hooks/use-playlists';
+import { usePlaylist, useRemoveTrackFromPlaylist, useReorderPlaylistTracks } from '@/hooks/use-playlists';
+import { useDragReorder } from '@/hooks/use-drag-reorder';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePlayerStore } from '@/stores/player-store';
 import { TrackRow } from '@/components/music/track-row';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeletePlaylistModal } from '@/components/playlist/delete-playlist-modal';
+import { EditPlaylistModal } from '@/components/playlist/edit-playlist-modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { Alert } from '@/components/ui/alert';
 import { Track } from '@/types/track';
 import { pluralize } from '@/lib/utils/pluralize';
+import { toast } from '@/stores/toast-store';
+import { cn } from '@/lib/utils/cn';
+
+const secondaryButtonClass =
+  'inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10 transition-colors';
 
 interface PlaylistPageProps {
   params: Promise<{ id: string }>;
@@ -33,6 +45,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
   const { id: playlistId } = React.use(params);
 
   const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const playFrom = usePlayerStore((s) => s.playFrom);
   const togglePlay = usePlayerStore((s) => s.togglePlay);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
@@ -40,8 +53,11 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const { data: playlist, isLoading, isError, error, refetch } = usePlaylist(playlistId);
   const removeTrackMutation = useRemoveTrackFromPlaylist();
+  const reorderMutation = useReorderPlaylistTracks(playlistId);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isReordering, setIsReordering] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
 
   // Check ownership
@@ -56,6 +72,19 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const tracks = React.useMemo(() => playlist?.tracks || [], [playlist?.tracks]);
   const hasTracks = tracks.length > 0;
+
+  // Each drop is saved right away (shown immediately, rolled back on failure).
+  const reorder = useDragReorder<'tracks'>(
+    () => tracks.length,
+    (_list, from, to) => {
+      const next = [...tracks];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      reorderMutation.mutate(next, {
+        onError: (err) => toast.error(err instanceof Error ? err.message : "Couldn't save the new order."),
+      });
+    }
+  );
 
   // Check if current playing track belongs to this playlist
   const isCollectionPlaying =
@@ -90,6 +119,29 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const handlePlayTrack = (track: Track) => {
     playFrom(playlist?.title || 'Playlist', track, tracks);
+  };
+
+  const handleShare = async () => {
+    if (!playlist) return;
+    if (!playlist.isPublic) {
+      toast.info('This playlist is private. Make it public in Edit details to share it.');
+      return;
+    }
+    const url = `${window.location.origin}/playlists/${encodeURIComponent(playlist.id)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: playlist.title, text: `Listen to "${playlist.title}" on MUSIFY`, url });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return; // closed the share sheet
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied. Anyone with it can listen.');
+    } catch {
+      toast.error("Couldn't copy the link.");
+    }
   };
 
   const handleRemoveTrack = async (track: Track) => {
@@ -154,11 +206,11 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
     return (
       <div className="space-y-6 pb-16">
         <Link
-          href="/library/playlists"
+          href={isAuthenticated ? '/library/playlists' : '/'}
           className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Playlists</span>
+          <span>{isAuthenticated ? 'Back to Playlists' : 'Back'}</span>
         </Link>
 
         <div className="max-w-lg mx-auto">
@@ -209,11 +261,11 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
       {/* Back button */}
       <div className="flex items-center justify-between">
         <Link
-          href="/library/playlists"
+          href={isAuthenticated ? '/library/playlists' : '/'}
           className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Playlists</span>
+          <span>{isAuthenticated ? 'Back to Playlists' : 'Back'}</span>
         </Link>
       </div>
 
@@ -294,7 +346,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
       {/* 2. Action Controls Bar */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-4">
-          {hasTracks && (
+          {hasTracks && !isReordering && (
             <button
               type="button"
               onClick={handlePlayAll}
@@ -308,20 +360,48 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
               )}
             </button>
           )}
+          {!isReordering && (
+            <button type="button" onClick={handleShare} aria-label="Share playlist" className={secondaryButtonClass}>
+              <Share2 className="h-3.5 w-3.5" />
+              <span>Share</span>
+            </button>
+          )}
         </div>
 
-        {/* Delete button (Owner only) */}
-        {isOwner && (
-          <button
-            type="button"
-            onClick={() => setIsDeleteModalOpen(true)}
-            aria-label="Delete playlist"
-            className="inline-flex items-center gap-2 rounded-full border border-danger-500/20 bg-danger-950/20 px-4 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-950/40 hover:border-danger-500/40 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            <span>Delete Playlist</span>
-          </button>
-        )}
+        {/* Owner controls */}
+        {isOwner &&
+          (isReordering ? (
+            <button
+              type="button"
+              onClick={() => setIsReordering(false)}
+              className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-black hover:bg-brand-400 transition-colors"
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>Done</span>
+            </button>
+          ) : (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button type="button" onClick={() => setIsEditModalOpen(true)} className={secondaryButtonClass}>
+                <Pencil className="h-3.5 w-3.5" />
+                <span>Edit details</span>
+              </button>
+              {tracks.length > 1 && (
+                <button type="button" onClick={() => setIsReordering(true)} className={secondaryButtonClass}>
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  <span>Reorder</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(true)}
+                aria-label="Delete playlist"
+                className="inline-flex items-center gap-2 rounded-full border border-danger-500/20 bg-danger-950/20 px-4 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-950/40 hover:border-danger-500/40 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete</span>
+              </button>
+            </div>
+          ))}
       </div>
 
       {/* 3. Empty Playlist State */}
@@ -345,8 +425,44 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
         </div>
       )}
 
-      {/* 4. Track List */}
-      {hasTracks && (
+      {/* 4. Track List (drag handles while reordering) */}
+      {hasTracks && isReordering && (
+        <div className="space-y-1">
+          <p className="px-2 pb-1 text-xs text-neutral-400">Drag the handles, or focus one and use the arrow keys.</p>
+          {tracks.map((track, index) => (
+            <div
+              key={`reorder-${track.id}`}
+              data-reorder-row
+              style={reorder.rowStyle('tracks', index)}
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-2 py-2',
+                reorder.isDragged('tracks', index) ? 'bg-neutral-800 shadow-2xl' : 'transition-transform duration-150'
+              )}
+            >
+              <span className="w-6 shrink-0 text-center text-xs tabular-nums text-neutral-500">{index + 1}</span>
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-neutral-800">
+                <ImageWithFallback src={track.artwork} alt="" fill sizes="40px" className="object-cover" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{track.title}</p>
+                <p className="truncate text-xs text-neutral-400">
+                  {track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label={`Move ${track.title} (drag, or use arrow keys)`}
+                {...reorder.handleProps('tracks', index)}
+                className="flex h-10 w-10 shrink-0 touch-none cursor-grab items-center justify-center rounded-full text-neutral-400 hover:text-white active:cursor-grabbing focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hasTracks && !isReordering && (
         <div className="space-y-1">
           {tracks.map((track, index) => (
             <TrackRow
@@ -359,6 +475,10 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             />
           ))}
         </div>
+      )}
+
+      {isOwner && (
+        <EditPlaylistModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} playlist={playlist} />
       )}
 
       {/* Delete Confirmation Modal */}

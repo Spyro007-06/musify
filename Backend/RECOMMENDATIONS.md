@@ -74,7 +74,7 @@ the request path.
 ### The ID-vs-name bug this replaces
 
 Before this rewrite, several functions compared a stored artist **ID**
-(`ArtistAffinity.spotifyArtistId`, `ListeningHistory.artistId`,
+(`ArtistAffinity.artistId`, `ListeningHistory.artistId`,
 `UserPreferences.favouriteArtists`) against a track's artist **name**
 (`track.artists[].name`) via substring matching — which almost never
 matched, so "favorite artist" scoring silently did nothing. Every place that
