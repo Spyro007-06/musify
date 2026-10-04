@@ -5,8 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Music2, Globe2, Lock } from 'lucide-react';
 import { useCreatePlaylist, useImportSpotifyPlaylist } from '@/hooks/use-playlists';
-import { playlistsApi, type ImportSong } from '@/lib/api/playlists';
-import { dedupeSongs, importInBatches, parseSpotifyTrackIds, screenshotToSlices } from '@/lib/playlist-import';
+import { type ImportSong } from '@/lib/api/playlists';
+import {
+  dedupeSongs,
+  importInBatches,
+  parseSpotifyTrackIds,
+  readSlicesPatiently,
+  screenshotToSlices,
+  SLICES_PER_READ,
+} from '@/lib/playlist-import';
 import { Dialog, DialogHeader, DialogActions } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
 import { toast } from '@/stores/toast-store';
@@ -33,6 +40,8 @@ interface ImportSummary {
   knownSpotifyIds: string[];
   /** The link only gave the first 100 songs; offer the paste step. */
   mayHaveMore: boolean;
+  /** Screenshots that couldn't be read (reader busy too long, limit hit), and why. */
+  unread?: { count: number; reason: string };
 }
 
 interface Progress {
@@ -225,19 +234,35 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
     }
 
     try {
-      const found: ImportSong[] = [];
+      // Every screenshot as slices (long scrolling ones give several), each
+      // remembering which screenshot it came from for the "couldn't read" count.
+      const slices: { data: string; shot: number }[] = [];
       for (let i = 0; i < screenshots.length; i++) {
-        setProgress({ label: 'Reading screenshots', done: i, total: screenshots.length });
-        for (const slice of await screenshotToSlices(screenshots[i])) {
-          const read = () => playlistsApi.readScreenshot('image/jpeg', slice);
-          // One retry: the backend may be waking up, or the model briefly busy.
-          const res = await read().catch(() => new Promise((r) => setTimeout(r, 2000)).then(read));
-          found.push(...(res.data?.songs ?? []));
+        setProgress({ label: 'Preparing screenshots', done: i, total: screenshots.length });
+        for (const data of await screenshotToSlices(screenshots[i])) slices.push({ data, shot: i });
+      }
+
+      // A few slices per call: the reader (Gemini's free tier) allows only so
+      // many calls a minute. If it stays busy, keep what's been read so far.
+      const found: ImportSong[] = [];
+      let unread: ImportSummary['unread'];
+      for (let i = 0; i < slices.length; i += SLICES_PER_READ) {
+        const batch = slices.slice(i, i + SLICES_PER_READ);
+        const shotsDone = slices[i].shot;
+        setProgress({ label: 'Reading screenshots', done: shotsDone, total: screenshots.length });
+        const result = await readSlicesPatiently(
+          batch.map((b) => b.data),
+          (secs) => setProgress({ label: `Reader is busy, trying again in ${secs}s`, done: shotsDone, total: screenshots.length })
+        );
+        if ('error' in result) {
+          unread = { count: screenshots.length - shotsDone, reason: result.error };
+          break;
         }
+        found.push(...result.songs);
       }
       const songs = dedupeSongs(found);
       if (songs.length === 0) {
-        setValidationError('No songs found in those screenshots. Make sure the song names are readable.');
+        setValidationError(unread ? unread.reason : 'No songs found in those screenshots. Make sure the song names are readable.');
         return;
       }
 
@@ -256,6 +281,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
         notSent: r.notSent,
         knownSpotifyIds: [],
         mayHaveMore: false,
+        unread,
       });
     } catch (err) {
       setValidationError(err instanceof Error ? err.message : 'Import failed. Please try again.');
@@ -324,6 +350,13 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
             Imported {summary.total - summary.unmatched.length - summary.notSent} of {summary.total} songs into &ldquo;
             {summary.playlist.title}&rdquo;.
           </Alert>
+          {summary.unread && (
+            <Alert variant="warning">
+              {summary.unread.count} of the screenshots weren&rsquo;t read: {summary.unread.reason} Try importing
+              those again in a few minutes.
+            </Alert>
+          )}
+
           {summary.notSent > 0 && (
             <Alert variant="warning">
               {summary.notSent} songs weren&rsquo;t added because the connection dropped.

@@ -1,4 +1,5 @@
 import { playlistsApi, ImportSong } from '@/lib/api/playlists';
+import { ApiError } from '@/types/api';
 
 /** The server takes at most this many songs per request. */
 const BATCH_SIZE = 25;
@@ -78,6 +79,37 @@ export async function screenshotToSlices(file: File): Promise<string[]> {
   }
   bmp.close();
   return slices;
+}
+
+/** Screenshot slices per read: each read is one call against Gemini's per-minute quota. */
+export const SLICES_PER_READ = 4;
+/** Waits before each retry while the reader is busy; per-minute quotas reset within a minute. */
+const BUSY_WAITS_S = [5, 15, 30, 60];
+
+/**
+ * Reads a few slices, waiting out a busy reader (503: Gemini's free-tier
+ * quota) or a dropped connection. Never throws: a batch that still can't be
+ * read (busy after every wait, unreadable, hourly import limit) comes back
+ * as { error } so the caller can keep the songs it already has.
+ */
+export async function readSlicesPatiently(
+  slices: string[],
+  onWait: (seconds: number) => void
+): Promise<{ songs: ImportSong[] } | { error: string }> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return { songs: (await playlistsApi.readScreenshots(slices)).data?.songs ?? [] };
+    } catch (err) {
+      const busy = !(err instanceof ApiError) || err.status === 503 || err.status === 504;
+      if (!busy || attempt >= BUSY_WAITS_S.length) {
+        return { error: err instanceof Error ? err.message : 'The screenshot reader is unavailable.' };
+      }
+      for (let s = BUSY_WAITS_S[attempt]; s > 0; s--) {
+        onWait(s);
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+  }
 }
 
 /** Overlapping screenshots repeat songs; keep the first of each. */
