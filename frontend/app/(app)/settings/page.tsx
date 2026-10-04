@@ -90,7 +90,7 @@ function SettingsContent() {
         <aside className="md:col-span-4 lg:col-span-3">
           <nav
             aria-label="Settings navigation"
-            className="flex md:flex-col gap-1.5 overflow-x-auto pb-2 md:pb-0 scrollbar-none rounded-2xl bg-neutral-900/40 p-2 border border-white/5"
+            className="grid grid-cols-2 md:flex md:flex-col gap-1.5 rounded-2xl bg-neutral-900/40 p-2 border border-white/5"
           >
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -101,9 +101,9 @@ function SettingsContent() {
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap transition-all text-left select-none',
+                    'flex min-h-11 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold md:whitespace-nowrap transition-all text-left select-none',
                     isActive
-                      ? 'bg-accent-600 text-white shadow-md shadow-accent-950/50'
+                      ? 'bg-brand-500 text-black shadow-md shadow-brand-950/50'
                       : 'text-neutral-400 hover:text-white hover:bg-white/5'
                   )}
                 >

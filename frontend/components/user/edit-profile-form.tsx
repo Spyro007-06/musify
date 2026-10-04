@@ -163,7 +163,7 @@ export function EditProfileForm({
           </p>
         </div>
         {isDirty && (
-          <span className="rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold text-accent-400 border border-accent-500/20">
+          <span className="rounded-full bg-brand-500/10 px-2.5 py-1 text-[11px] font-semibold text-brand-400 border border-brand-500/20">
             Unsaved Changes
           </span>
         )}
@@ -178,7 +178,7 @@ export function EditProfileForm({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           aria-label="Change profile photo"
-          className="group relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-neutral-800 overflow-hidden border-2 border-accent-500/30 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+          className="group relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-neutral-800 overflow-hidden border-2 border-brand-500/30 shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           {avatarUrl.trim() && !previewFailed ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -218,7 +218,7 @@ export function EditProfileForm({
 
         <div className="flex-1 space-y-2 w-full">
           <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-300">
-            <ImageIcon className="h-3.5 w-3.5 text-accent-400" />
+            <ImageIcon className="h-3.5 w-3.5 text-brand-400" />
             Profile Photo
           </label>
           <button
@@ -252,7 +252,7 @@ export function EditProfileForm({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-300">
-            <UserIcon className="h-3.5 w-3.5 text-accent-400" />
+            <UserIcon className="h-3.5 w-3.5 text-brand-400" />
             Display Name
           </label>
           <span className="text-[11px] text-neutral-500">
@@ -269,7 +269,7 @@ export function EditProfileForm({
             'w-full rounded-xl bg-neutral-900 px-3.5 py-2.5 text-xs text-white placeholder:text-neutral-500 border transition-all focus:outline-none focus:ring-1',
             clientErrors.displayName
               ? 'border-danger-500 focus:ring-danger-500'
-              : 'border-white/10 focus:border-accent-500 focus:ring-accent-500'
+              : 'border-white/10 focus:border-brand-500 focus:ring-brand-500'
           )}
         />
         {clientErrors.displayName && (
@@ -321,7 +321,7 @@ export function EditProfileForm({
         <button
           type="submit"
           disabled={!isDirty || updateProfileMutation.isPending || isProcessingImage}
-          className="inline-flex items-center gap-2 rounded-full bg-accent-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-accent-500 disabled:opacity-40 transition-all shadow-lg shadow-accent-950/40"
+          className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-6 py-2.5 text-xs font-bold text-black hover:bg-brand-400 disabled:opacity-40 transition-all shadow-lg shadow-brand-950/40"
         >
           {updateProfileMutation.isPending ? (
             <>
