@@ -69,7 +69,7 @@ export function MiniPlayer() {
       {currentTrack && (
         <div
           className={cn(
-            'fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 md:hidden',
+            'fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)-var(--ios-gap))] left-0 right-0 z-30 md:hidden',
             'h-14 bg-neutral-900/95 border-t border-white/10 px-3 flex items-center justify-between backdrop-blur-md shadow-lg shadow-black/50'
           )}
         >

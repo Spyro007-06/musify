@@ -17,7 +17,7 @@ export function AppShell({ children, className }: AppShellProps) {
   const hasTrack = Boolean(usePlayerStore((s) => s.currentTrack));
 
   return (
-    <div className={cn('flex h-dvh w-full flex-col overflow-hidden bg-canvas text-neutral-50', className)}>
+    <div className={cn('flex h-[calc(100dvh+var(--ios-gap))] w-full flex-col overflow-hidden bg-canvas text-neutral-50', className)}>
       {/* 1. Header / Topbar */}
       <Topbar />
 

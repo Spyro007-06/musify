@@ -43,6 +43,23 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+// iOS home-screen apps (navigator.standalone) with the black-translucent
+// status bar draw from the top of the screen, but WebKit sizes the viewport
+// as if the status bar weren't there, so 100dvh and bottom:0 stop that much
+// short. A standalone app always fills the screen, so any shortfall is that
+// bug; store it in --ios-gap (see globals.css). Measured, not assumed, so it
+// stays 0 if Apple fixes it. Bigger changes (keyboard) are ignored.
+const IOS_GAP_SCRIPT = `(function(){
+  if (!navigator.standalone) return;
+  function measure() {
+    var s = screen, landscape = matchMedia('(orientation: landscape)').matches;
+    var gap = (landscape ? Math.min(s.width, s.height) : Math.max(s.width, s.height)) - innerHeight;
+    if (gap >= 0 && gap < 120) document.documentElement.style.setProperty('--ios-gap', gap + 'px');
+  }
+  measure();
+  addEventListener('resize', measure);
+})();`;
+
 export default function RootLayout({
   children,
 }: {
@@ -50,6 +67,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`dark ${bodyFont.variable} ${displayFont.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: IOS_GAP_SCRIPT }} />
+      </head>
       <body className="bg-canvas font-sans text-neutral-50 antialiased">
         <AppProviders>{children}</AppProviders>
         <Analytics />

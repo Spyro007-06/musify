@@ -77,7 +77,7 @@ export function ExpandedPlayer() {
       aria-label="Expanded Music Player"
       aria-modal="true"
       style={swipe.style}
-      className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-black px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:p-8 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 transition-transform ease-out"
+      className="fixed inset-0 bottom-[calc(-1*var(--ios-gap))] z-50 flex flex-col bg-gradient-to-b from-neutral-900/90 via-neutral-950 to-black px-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:p-8 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200 transition-transform ease-out"
     >
       {/* Background ambient artwork glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-30 blur-3xl">
@@ -143,7 +143,7 @@ export function ExpandedPlayer() {
         ) : (
           <div
             {...swipe.handlers}
-            className="relative aspect-square w-full max-w-[min(420px,calc(100dvh-24rem))] touch-none overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10"
+            className="relative aspect-square w-full max-w-[min(420px,calc(100dvh+var(--ios-gap)-24rem))] touch-none overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl border border-white/10"
           >
             <ImageWithFallback
               src={artwork}
