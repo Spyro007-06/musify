@@ -99,8 +99,8 @@ export class PlaylistController {
 
   public static async readScreenshot(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { mimeType, data } = importScreenshotSchema.parse(req.body);
-      const songs = await SpotifyImportService.readScreenshot(mimeType, data);
+      const images = importScreenshotSchema.parse(req.body);
+      const songs = await SpotifyImportService.readScreenshots(images);
 
       sendSuccess({
         res,

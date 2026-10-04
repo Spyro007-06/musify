@@ -5,7 +5,7 @@ import { PlaylistService } from './playlist.service';
 import { ApiError } from '@utils/ApiError';
 import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
-import { askGeminiJson } from '@utils/gemini';
+import { callGeminiJson } from '@utils/gemini';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { ERROR_MESSAGES } from '@constants/messages';
 
@@ -114,8 +114,8 @@ async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
 }
 
 const SCREENSHOT_PROMPT =
-  'This is a screenshot of a music playlist or song list, from any app. List every song visible, ' +
-  'top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
+  'These are screenshots of a music playlist or song list, from any app, in order (they may overlap). ' +
+  'List every song visible in them, top to bottom, with its title and main artist exactly as shown. Skip anything that is not a song ' +
   'row of the list itself: headers, buttons, ads, the now-playing bar, rows cut off at the top or bottom ' +
   'edge, and suggestions shown below the list (such as "Recommended Songs" or "You might also like"). ' +
   'If a row shows no artist, use an empty string. Write titles and artists in Latin letters, transliterating ' +
@@ -200,13 +200,15 @@ export class SpotifyImportService {
     return { added: count, matched, unmatched: [...lost, ...unmatched] };
   }
 
-  /** Reads the song list off one screenshot with Gemini. */
-  public static async readScreenshot(mimeType: string, base64: string): Promise<SourceTrack[]> {
+  /** Reads the song list off a few screenshots (in order) with one Gemini call. */
+  public static async readScreenshots(images: { mimeType: string; data: string }[]): Promise<SourceTrack[]> {
     if (!env.GEMINI_API_KEY) {
-      throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Screenshot import is not set up yet (GEMINI_API_KEY is missing).');
+      // 501, not 503: 503 means "busy, retry soon" to the client.
+      throw new ApiError(HTTP_STATUS.NOT_IMPLEMENTED, 'Screenshot import is not set up yet (GEMINI_API_KEY is missing).');
     }
 
-    const text = await askGeminiJson([{ text: SCREENSHOT_PROMPT }, { inline_data: { mime_type: mimeType, data: base64 } }], {
+    const parts = [{ text: SCREENSHOT_PROMPT }, ...images.map((i) => ({ inline_data: { mime_type: i.mimeType, data: i.data } }))];
+    const result = await callGeminiJson(parts, {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
@@ -214,8 +216,13 @@ export class SpotifyImportService {
         required: ['title', 'artist'],
       },
     });
-    if (text === null) throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
-    return parseScreenshotSongs(text);
+    // Every model rate-limited or overloaded: almost always the free tier's
+    // per-minute quota (429). 503 tells the client to wait and retry.
+    if (!('text' in result) && result.busy) {
+      throw new ApiError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'The screenshot reader is busy right now. Please try again in a minute.');
+    }
+    if (!('text' in result)) throw new ApiError(HTTP_STATUS.BAD_GATEWAY, 'Could not read that screenshot right now. Please try again.');
+    return parseScreenshotSongs(result.text);
   }
 }
 
