@@ -11,6 +11,12 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    // next/og renders plain <img>. The rule already skips these files, but
+    // its path check misses Windows backslashes, so say it explicitly.
+    files: ["**/opengraph-image.tsx"],
+    rules: { "@next/next/no-img-element": "off" },
+  },
 ];
 
 export default eslintConfig;

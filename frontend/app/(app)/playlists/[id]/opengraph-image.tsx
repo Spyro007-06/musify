@@ -28,7 +28,6 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         }}
       >
         {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element -- next/og renders plain <img>
           <img src={cover} width={440} height={440} alt="" style={{ borderRadius: 28, objectFit: 'cover' }} />
         ) : (
           <div style={{ width: 440, height: 440, borderRadius: 28, background: '#1f2937', display: 'flex' }} />
