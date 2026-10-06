@@ -2,8 +2,10 @@ import { apiClient } from './client';
 import { Playlist } from '@/types/playlist';
 import { ApiResponse } from '@/types/api';
 
-export interface SpotifyImportResult {
+export interface LinkImportResult {
   playlist: { id: string; title: string; cover: string | null; tracksCount: number };
+  /** Songs newly added (ones already in the playlist are skipped). */
+  added: number;
   total: number;
   matched: { title: string; artist: string; trackId: string }[];
   unmatched: { title: string; artist: string }[];
@@ -11,6 +13,10 @@ export interface SpotifyImportResult {
   spotifyIds: string[];
   /** Spotify's page lists at most 100 songs; true when that page was full. */
   mayHaveMore: boolean;
+  /** The app the link was from: "Spotify", "YouTube", "Apple Music"… */
+  source: string;
+  /** Other apps: songs the playlist has that the link didn't give (screenshots can add them). */
+  missing: number;
 }
 
 export interface ImportSongsResult {
@@ -39,8 +45,12 @@ export const playlistsApi = {
   }): Promise<ApiResponse<Playlist>> =>
     apiClient.post<Playlist>('/playlists', data),
 
-  importFromSpotify: (url: string): Promise<ApiResponse<SpotifyImportResult>> =>
-    apiClient.post<SpotifyImportResult>('/playlists/import/spotify', { url }),
+  /**
+   * A new playlist from a playlist link (Spotify, YouTube, Apple Music, JioSaavn, Deezer, Gaana),
+   * or with playlistId its songs added to that (own) playlist.
+   */
+  importFromLink: (url: string, playlistId?: string): Promise<ApiResponse<LinkImportResult>> =>
+    apiClient.post<LinkImportResult>('/playlists/import/link', { url, playlistId }),
 
   /** At most 25 songs per call (the server rejects more). */
   importSongs: (

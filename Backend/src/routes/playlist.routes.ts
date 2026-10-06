@@ -47,9 +47,10 @@ router.post('/', authenticate, PlaylistController.createPlaylist);
 
 /**
  * @swagger
- * /playlists/import/spotify:
+ * /playlists/import/link:
  *   post:
- *     summary: Import a public Spotify playlist, matching its songs on JioSaavn
+ *     summary: Import a public playlist link (Spotify, YouTube, YouTube Music, Apple Music, JioSaavn, Deezer, Gaana), matching its songs on JioSaavn. /playlists/import/spotify is the old name.
+ *     description: With playlistId, the songs are added to that playlist of the user's instead (200).
  *     tags: [Playlists]
  *     security:
  *       - BearerAuth: []
@@ -64,11 +65,13 @@ router.post('/', authenticate, PlaylistController.createPlaylist);
  *             properties:
  *               url:
  *                 type: string
+ *               playlistId:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Created, with matched and unmatched songs
  */
-router.post('/import/spotify', authenticate, importLimiter, PlaylistController.importFromSpotify);
+router.post(['/import/link', '/import/spotify'], authenticate, importLimiter, PlaylistController.importFromSpotify);
 
 /**
  * @swagger

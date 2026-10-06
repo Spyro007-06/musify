@@ -7,6 +7,7 @@ import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
 import { callGeminiJson } from '@utils/gemini';
 import { HTTP_STATUS } from '@constants/httpCodes';
+import { LinkTrack, readPlaylistLink } from './playlistLinks';
 import { ERROR_MESSAGES } from '@constants/messages';
 
 /** A song to find on JioSaavn. Screenshots carry no duration. */
@@ -103,6 +104,22 @@ async function fetchSpotifyPlaylist(url: string) {
   };
 }
 
+/** Any supported app's playlist link: Spotify's read here, the rest by playlistLinks. */
+async function fetchLinkedPlaylist(url: string) {
+  const trimmed = url.trim();
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    // Not a URL: maybe a spotify:playlist: URI.
+  }
+  if (trimmed.startsWith('spotify:') || (parsed && /(^|\.)spotify\.com$/i.test(parsed.hostname))) {
+    return { source: 'Spotify', missing: 0, ...(await fetchSpotifyPlaylist(trimmed)) };
+  }
+  if (!parsed) throw ApiError.badRequest('Paste a playlist link, like https://music.youtube.com/playlist?list=…');
+  return readPlaylistLink(parsed);
+}
+
 async function fetchSpotifyTrack(id: string): Promise<SourceTrack | null> {
   const e = await readSpotifyEmbed(`track/${id}`);
   if (!e?.title) return null;
@@ -125,10 +142,16 @@ export class SpotifyImportService {
   private static saavn = SaavnService.getInstance();
 
   /** Finds each song on JioSaavn; null where there's no confident match. */
-  public static matchOnSaavn(tracks: SourceTrack[]) {
-    return pooled(tracks, (t) => {
+  public static matchOnSaavn(tracks: LinkTrack[]) {
+    return pooled(tracks, async (t) => {
+      if (t.saavnId) return { id: t.saavnId }; // a JioSaavn link: already in our catalog
       const title = cleanTitle(t.title);
-      return this.saavn.findSongByDuration(`${title.replace(/…$/, '')} ${t.artist}`.trim(), t.durationSec ?? 0, t.artist, title);
+      return this.saavn.findSongByDuration(
+        `${title.replace(/…$/, '')} ${t.artist}`.trim(),
+        t.durationSec ?? 0,
+        t.looseArtist ? undefined : t.artist,
+        title
+      );
     });
   }
 
@@ -142,32 +165,60 @@ export class SpotifyImportService {
     return { matched, unmatched };
   }
 
-  public static async importPlaylist(userId: string, url: string) {
-    const source = await fetchSpotifyPlaylist(url);
+  /** The user's own playlist, or a 404/403 — checked before any slow lookups. */
+  private static async ownPlaylist(userId: string, playlistId: string) {
+    const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+    if (!playlist) throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
+    if (playlist.ownerId !== userId) throw ApiError.forbidden(ERROR_MESSAGES.PLAYLIST_ACCESS_DENIED);
+    return playlist;
+  }
+
+  /** Appends after the playlist's last song; ones already in it are skipped. Returns how many were added. */
+  private static async appendTracks(playlistId: string, trackIds: string[]): Promise<number> {
+    const start = await PlaylistService.nextPosition(playlistId);
+    const { count } = await prisma.playlistTrack.createMany({
+      data: trackIds.map((trackId, i) => ({ playlistId, trackId, position: start + i })),
+      skipDuplicates: true,
+    });
+    return count;
+  }
+
+  /** A new playlist from a playlist link (any supported app) — or, with intoPlaylistId, its songs added to one of the user's own. */
+  public static async importPlaylist(userId: string, url: string, intoPlaylistId?: string) {
+    const target = intoPlaylistId ? await this.ownPlaylist(userId, intoPlaylistId) : null;
+    const source = await fetchLinkedPlaylist(url);
     const { matched, unmatched } = this.splitMatches(source.tracks, await this.matchOnSaavn(source.tracks));
 
     // Two Spotify tracks can resolve to the same JioSaavn song; the table allows it once.
     const trackIds = [...new Set(matched.map((m) => m.trackId))];
     if (trackIds.length === 0) throw ApiError.unprocessable('None of those songs could be found in our catalog.');
-    const playlist = await prisma.playlist.create({
-      data: {
-        title: source.title,
-        slug: uniqueSlug(source.title),
-        description: 'Imported from Spotify.',
-        coverUrl: source.coverUrl,
-        ownerId: userId,
-        tracks: { create: trackIds.map((id, i) => ({ trackId: id, position: i })) },
-      },
-    });
+    const playlist =
+      target ??
+      (await prisma.playlist.create({
+        data: {
+          title: source.title,
+          slug: uniqueSlug(source.title),
+          description: `Imported from ${source.source}.`,
+          coverUrl: source.coverUrl,
+          ownerId: userId,
+          tracks: { create: trackIds.map((id, i) => ({ trackId: id, position: i })) },
+        },
+      }));
+    const added = target ? await this.appendTracks(target.id, trackIds) : trackIds.length;
 
     return {
       playlist: { id: playlist.id, title: playlist.title, cover: playlist.coverUrl, tracksCount: trackIds.length },
+      added,
       total: source.tracks.length,
       matched,
       unmatched,
       // Lets the client skip these when the user pastes the full track list.
-      spotifyIds: source.tracks.map((t: { spotifyId: string }) => t.spotifyId).filter(Boolean),
-      mayHaveMore: source.tracks.length >= EMBED_TRACK_LIMIT,
+      spotifyIds: source.tracks.map((t: { spotifyId?: string }) => t.spotifyId).filter(Boolean),
+      // Spotify's embed stops at 100: the rest can be pasted as track links.
+      mayHaveMore: source.source === 'Spotify' && source.tracks.length >= EMBED_TRACK_LIMIT,
+      source: source.source,
+      /** Other apps: songs the link didn't give (more than 100, or unavailable); screenshots can add them. */
+      missing: source.missing,
     };
   }
 
@@ -178,26 +229,17 @@ export class SpotifyImportService {
    * the client sends the next batch when this one returns.
    */
   public static async importSongs(userId: string, playlistId: string, spotifyIds: string[], songs: SourceTrack[]) {
-    const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
-    if (!playlist) throw ApiError.notFound(ERROR_MESSAGES.PLAYLIST_NOT_FOUND);
-    if (playlist.ownerId !== userId) throw ApiError.forbidden(ERROR_MESSAGES.PLAYLIST_ACCESS_DENIED);
+    await this.ownPlaylist(userId, playlistId);
 
     const fromSpotify = await pooled(spotifyIds, fetchSpotifyTrack);
     const lost = spotifyIds.filter((_, i) => !fromSpotify[i]).map((id) => ({ title: `Spotify track ${id}`, artist: '' }));
     const tracks = [...fromSpotify.filter((t): t is SourceTrack => t !== null), ...songs];
     const { matched, unmatched } = this.splitMatches(tracks, await this.matchOnSaavn(tracks));
 
-    const start = await PlaylistService.nextPosition(playlistId);
-    const { count } = await prisma.playlistTrack.createMany({
-      data: [...new Set(matched.map((m) => m.trackId))].map((id, i) => ({
-        playlistId,
-        trackId: id,
-        position: start + i,
-      })),
-      skipDuplicates: true, // already in the playlist (e.g. from the first 100)
-    });
+    // Ones already in the playlist (e.g. from the first 100) are skipped.
+    const added = await this.appendTracks(playlistId, [...new Set(matched.map((m) => m.trackId))]);
 
-    return { added: count, matched, unmatched: [...lost, ...unmatched] };
+    return { added, matched, unmatched: [...lost, ...unmatched] };
   }
 
   /** Reads the song list off a few screenshots (in order) with one Gemini call. */

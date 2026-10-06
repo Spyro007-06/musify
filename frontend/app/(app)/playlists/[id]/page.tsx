@@ -17,6 +17,7 @@ import {
   ArrowUpDown,
   Check,
   Menu,
+  ListPlus,
 } from 'lucide-react';
 import { usePlaylist, useRemoveTrackFromPlaylist, useReorderPlaylistTracks } from '@/hooks/use-playlists';
 import { useDragReorder } from '@/hooks/use-drag-reorder';
@@ -27,6 +28,7 @@ import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DeletePlaylistModal } from '@/components/playlist/delete-playlist-modal';
 import { EditPlaylistModal } from '@/components/playlist/edit-playlist-modal';
+import { CreatePlaylistModal } from '@/components/playlist/create-playlist-modal';
 import { ErrorState } from '@/components/ui/error-state';
 import { Alert } from '@/components/ui/alert';
 import { Track } from '@/types/track';
@@ -57,6 +59,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  const [isAddSongsOpen, setIsAddSongsOpen] = React.useState(false);
   const [isReordering, setIsReordering] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
 
@@ -381,6 +384,10 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             </button>
           ) : (
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <button type="button" onClick={() => setIsAddSongsOpen(true)} className={secondaryButtonClass}>
+                <ListPlus className="h-3.5 w-3.5" />
+                <span>Add songs</span>
+              </button>
               <button type="button" onClick={() => setIsEditModalOpen(true)} className={secondaryButtonClass}>
                 <Pencil className="h-3.5 w-3.5" />
                 <span>Edit details</span>
@@ -413,15 +420,27 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
           <h3 className="text-base font-bold text-white">This playlist is empty</h3>
           <p className="mt-1 text-xs text-neutral-400 max-w-sm">
             {isOwner
-              ? 'Browse songs across MUSIFY and tap the Add to Playlist button to build this collection.'
+              ? 'Import songs from a Spotify playlist or screenshots, or tap Add to Playlist on any song across MUSIFY.'
               : 'The creator has not added any songs to this playlist yet.'}
           </p>
-          <Link
-            href="/discover"
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors"
-          >
-            <span>Discover Music</span>
-          </Link>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setIsAddSongsOpen(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2 text-xs font-semibold text-black hover:bg-brand-400 transition-colors"
+              >
+                <ListPlus className="h-3.5 w-3.5" />
+                <span>Import songs</span>
+              </button>
+            )}
+            <Link
+              href="/discover"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black hover:bg-neutral-200 transition-colors"
+            >
+              <span>Discover Music</span>
+            </Link>
+          </div>
         </div>
       )}
 
@@ -475,6 +494,14 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             />
           ))}
         </div>
+      )}
+
+      {isOwner && (
+        <CreatePlaylistModal
+          isOpen={isAddSongsOpen}
+          onClose={() => setIsAddSongsOpen(false)}
+          target={{ id: playlist.id, title: playlist.title }}
+        />
       )}
 
       {isOwner && (

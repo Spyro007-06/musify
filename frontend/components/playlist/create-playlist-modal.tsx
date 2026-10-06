@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Music2, Globe2, Lock } from 'lucide-react';
-import { useCreatePlaylist, useImportSpotifyPlaylist } from '@/hooks/use-playlists';
+import { useCreatePlaylist, useImportPlaylistLink } from '@/hooks/use-playlists';
 import { type ImportSong } from '@/lib/api/playlists';
 import {
   dedupeSongs,
@@ -18,16 +18,19 @@ import { Dialog, DialogHeader, DialogActions } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
+import { pluralize } from '@/lib/utils/pluralize';
 
 export interface CreatePlaylistModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: (playlistId: string, playlistTitle: string) => void;
+  /** Import into this existing playlist of the user's instead of creating one ("Add songs"). */
+  target?: { id: string; title: string };
 }
 
 type Mode = 'create' | 'import' | 'screenshots';
 
-const MODE_LABELS: Record<Mode, string> = { create: 'New playlist', import: 'Spotify link', screenshots: 'Screenshots' };
+const MODE_LABELS: Record<Mode, string> = { create: 'New playlist', import: 'Playlist link', screenshots: 'Screenshots' };
 
 /** Where an import stands; shown on the result screen and grown by "add the rest". */
 interface ImportSummary {
@@ -40,6 +43,8 @@ interface ImportSummary {
   knownSpotifyIds: string[];
   /** The link only gave the first 100 songs; offer the paste step. */
   mayHaveMore: boolean;
+  /** Songs a non-Spotify link didn't give (over 100, or unavailable there): screenshots can add them. */
+  missing?: number;
   /** Screenshots that couldn't be read (reader busy too long, limit hit), and why. */
   unread?: { count: number; reason: string };
 }
@@ -50,18 +55,20 @@ interface Progress {
   total: number;
 }
 
-export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlaylistModalProps) {
+export function CreatePlaylistModal({ isOpen, onClose, onCreated, target }: CreatePlaylistModalProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const createMutation = useCreatePlaylist();
-  const importMutation = useImportSpotifyPlaylist();
+  const importMutation = useImportPlaylistLink();
   const [progress, setProgress] = React.useState<Progress | null>(null);
   const isBusy = createMutation.isPending || importMutation.isPending || progress !== null;
 
   // Importing only makes sense from the library; the "add to playlist" flow
   // (onCreated) needs a fresh, empty playlist.
   const canImport = !onCreated;
-  const [mode, setMode] = React.useState<Mode>('create');
+  const hasTarget = Boolean(target);
+  const modes: Mode[] = hasTarget ? ['import', 'screenshots'] : ['create', 'import', 'screenshots'];
+  const [mode, setMode] = React.useState<Mode>(modes[0]);
   const [spotifyUrl, setSpotifyUrl] = React.useState('');
   const [pastedSongs, setPastedSongs] = React.useState('');
   const [screenshots, setScreenshots] = React.useState<File[]>([]);
@@ -81,14 +88,14 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
       setCoverUrl('');
       setIsPublic(true);
       setValidationError(null);
-      setMode('create');
+      setMode(hasTarget ? 'import' : 'create');
       setSpotifyUrl('');
       setPastedSongs('');
       setScreenshots([]);
       setSummary(null);
       setProgress(null);
     }
-  }, [isOpen]);
+  }, [isOpen, hasTarget]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,17 +162,27 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
     e.preventDefault();
     setValidationError(null);
 
-    if (!/open\.spotify\.com\/(.+\/)?playlist\/[A-Za-z0-9]{22}|^spotify:playlist:[A-Za-z0-9]{22}$/.test(spotifyUrl.trim())) {
-      setValidationError('Paste a Spotify playlist link, like https://open.spotify.com/playlist/…');
+    // Which apps work is the server's call; it explains when one doesn't.
+    if (!/^(https?:\/\/\S+|spotify:playlist:\S+)$/i.test(spotifyUrl.trim())) {
+      setValidationError('Paste a link to a playlist, like https://music.youtube.com/playlist?list=…');
       return;
     }
 
     try {
-      const result = await importMutation.mutateAsync(spotifyUrl.trim());
+      const result = await importMutation.mutateAsync({ url: spotifyUrl.trim(), playlistId: target?.id });
       if (!result) return;
-      if (result.unmatched.length === 0 && !result.mayHaveMore) {
-        toast.success(`Imported "${result.playlist.title}" with all ${result.total} songs.`);
-        openPlaylist(result.playlist.id);
+      if (result.unmatched.length === 0 && !result.mayHaveMore && !result.missing) {
+        if (target) {
+          toast.success(
+            result.added > 0
+              ? `Added ${pluralize(result.added, 'song')} to "${target.title}".`
+              : `All of those songs are already in "${target.title}".`
+          );
+          onClose();
+        } else {
+          toast.success(`Imported "${result.playlist.title}" with all ${result.total} songs.`);
+          openPlaylist(result.playlist.id);
+        }
       } else {
         setSummary({
           playlist: result.playlist,
@@ -174,6 +191,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
           notSent: 0,
           knownSpotifyIds: result.spotifyIds ?? [],
           mayHaveMore: result.mayHaveMore,
+          missing: result.missing,
         });
       }
     } catch (err) {
@@ -266,8 +284,8 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
         return;
       }
 
-      const playlistTitle = (title.trim() || 'Imported playlist').slice(0, 100);
-      const playlist = await createMutation.mutateAsync({ title: playlistTitle, description: 'Imported from screenshots.' });
+      const playlistTitle = target?.title ?? (title.trim() || 'Imported playlist').slice(0, 100);
+      const playlist = target ?? (await createMutation.mutateAsync({ title: playlistTitle, description: 'Imported from screenshots.' }));
       if (!playlist?.id) throw new Error('Could not create the playlist.');
 
       const r = await importInBatches(playlist.id, { songs }, (done, total) =>
@@ -304,22 +322,36 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
     <Dialog isOpen={isOpen} onClose={onClose} labelledBy="create-playlist-title" isBusy={isBusy}>
       <DialogHeader
         icon={Music2}
-        title={mode === 'import' ? 'Import from Spotify' : mode === 'screenshots' ? 'Import from screenshots' : 'Create Playlist'}
+        title={
+          target
+            ? 'Add songs'
+            : mode === 'import'
+              ? 'Import from a link'
+              : mode === 'screenshots'
+                ? 'Import from screenshots'
+                : 'Create Playlist'
+        }
         titleId="create-playlist-title"
         subtitle={
-          mode === 'import'
-            ? 'Bring a public Spotify playlist into Musify'
-            : mode === 'screenshots'
-              ? 'Snap a playlist in any music app and bring it into Musify'
-              : 'Add a new collection to your library'
+          target
+            ? `Import songs into “${target.title}”`
+            : mode === 'import'
+              ? 'Bring a public playlist from another music app into Musify'
+              : mode === 'screenshots'
+                ? 'Snap a playlist in any music app and bring it into Musify'
+                : 'Add a new collection to your library'
         }
         onClose={onClose}
         closeDisabled={isBusy}
       />
 
       {canImport && !summary && (
-        <div role="tablist" aria-label="Playlist source" className="mb-4 grid grid-cols-3 gap-1 rounded-full border border-neutral-800 bg-neutral-950 p-1">
-          {(['create', 'import', 'screenshots'] as const).map((m) => (
+        <div
+          role="tablist"
+          aria-label="Playlist source"
+          className={cn('mb-4 grid gap-1 rounded-full border border-neutral-800 bg-neutral-950 p-1', target ? 'grid-cols-2' : 'grid-cols-3')}
+        >
+          {modes.map((m) => (
             <button
               key={m}
               type="button"
@@ -354,6 +386,13 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
             <Alert variant="warning">
               {summary.unread.count} of the screenshots weren&rsquo;t read: {summary.unread.reason} Try importing
               those again in a few minutes.
+            </Alert>
+          )}
+
+          {!!summary.missing && (
+            <Alert variant="warning">
+              That link didn&rsquo;t show {pluralize(summary.missing, 'more song')} from the playlist (links give up to 100,
+              and some songs aren&rsquo;t available there). Add them with Screenshots.
             </Alert>
           )}
 
@@ -407,10 +446,13 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               </ul>
             </div>
           )}
-          <DialogActions onCancel={onClose} cancelLabel="Close" cancelDisabled={isBusy}>
-            <button type="button" disabled={isBusy} onClick={() => openPlaylist(summary.playlist.id)} className={primaryButtonClass}>
-              Open playlist
-            </button>
+          <DialogActions onCancel={onClose} cancelLabel={target ? 'Done' : 'Close'} cancelDisabled={isBusy}>
+            {/* With a target the user is already on that playlist. */}
+            {!target && (
+              <button type="button" disabled={isBusy} onClick={() => openPlaylist(summary.playlist.id)} className={primaryButtonClass}>
+                Open playlist
+              </button>
+            )}
           </DialogActions>
         </div>
       ) : mode === 'screenshots' ? (
@@ -456,7 +498,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               take one scrolling screenshot. Song names are read automatically and matched to our catalog.
             </p>
           </div>
-          <div className="space-y-1.5">
+          {!target && <div className="space-y-1.5">
             <label htmlFor="screenshot-title" className="text-xs font-semibold text-neutral-300">
               Playlist name <span className="text-xs font-normal text-neutral-500">(optional)</span>
             </label>
@@ -470,7 +512,7 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
               disabled={isBusy}
               className={inputClass}
             />
-          </div>
+          </div>}
           {progress && <ProgressBar progress={progress} />}
           <div className="pt-2">
             <DialogActions onCancel={onClose} cancelDisabled={isBusy}>
@@ -491,21 +533,22 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated }: CreatePlayli
         <form key="import" onSubmit={handleImport} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="spotify-url" className="text-xs font-semibold text-neutral-300">
-              Spotify playlist link <span className="text-brand-400">*</span>
+              Playlist link <span className="text-brand-400">*</span>
             </label>
             <input
               id="spotify-url"
               type="url"
               autoFocus
-              placeholder="https://open.spotify.com/playlist/…"
+              placeholder="https://music.youtube.com/playlist?list=…"
               value={spotifyUrl}
               onChange={(e) => setSpotifyUrl(e.target.value)}
               disabled={isBusy}
               className={inputClass}
             />
             <p className="text-[11px] text-neutral-500">
-              The playlist must be public. Songs are matched to our catalog, which takes a few seconds. Over 100 songs?
-              You&rsquo;ll be shown how to add the rest.
+              Works with Spotify, YouTube, YouTube Music, Apple Music, JioSaavn, Deezer and Gaana; the playlist must be
+              public. Songs are matched to our catalog, which takes a few seconds. Amazon Music, Wynk or another app?
+              Use Screenshots.
             </p>
           </div>
           <div className="pt-2">

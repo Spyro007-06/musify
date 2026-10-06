@@ -171,11 +171,45 @@ describe('POST /api/playlists/import/spotify', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects a link that is not a Spotify playlist, without fetching anything', async () => {
+  it('rejects a link from an app it cannot read, without fetching anything', async () => {
     mockSpotify(200);
-    const res = await authedPost('/api/playlists/import/spotify', owner, { url: 'https://example.com/foo' });
-    expect(res.status).toBe(400);
+    for (const url of ['https://example.com/foo', `https://evil.example/playlist/${PLAYLIST_ID}`, 'http://169.254.169.254/latest', 'not a link']) {
+      const res = await authedPost('/api/playlists/import/link', owner, { url });
+      expect(res.status).toBe(400);
+    }
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('reads a Deezer link through its public API and matches the songs', async () => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          title: 'Top Worldwide',
+          picture_xl: 'https://cdn.deezer.com/cover.jpg',
+          nb_tracks: 3,
+          tracks: { data: [{ title: 'Boston', artist: { name: 'Stella Lefty' }, duration: 170 }, { title: 'Nope', artist: { name: 'X' }, duration: 100 }] },
+        })
+      )
+    );
+    saavnMock.findSongByDuration.mockImplementation(async (query: string) => (query.startsWith('Boston') ? { id: 'saavn-boston' } : null));
+    prismaMock.playlist.create.mockResolvedValue({ id: 'pl-dz', title: 'Top Worldwide', coverUrl: 'https://cdn.deezer.com/cover.jpg' } as any);
+
+    const res = await authedPost('/api/playlists/import/link', owner, { url: 'https://www.deezer.com/en/playlist/3155776842' });
+
+    expect(res.status).toBe(201);
+    expect(fetchSpy).toHaveBeenCalledWith('https://api.deezer.com/playlist/3155776842', expect.objectContaining({ redirect: 'manual' }));
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Boston Stella Lefty', 170, 'Stella Lefty', 'Boston');
+    expect(res.body.data).toMatchObject({ source: 'Deezer', total: 2, missing: 1, mayHaveMore: false, unmatched: [{ title: 'Nope' }] });
+    expect((prismaMock.playlist.create.mock.calls[0][0] as any).data.description).toBe('Imported from Deezer.');
+  });
+
+  it("doesn't follow a redirect off the app's own hosts", async () => {
+    fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } }));
+    const res = await authedPost('/api/playlists/import/link', owner, { url: 'https://gaana.com/playlist/some-list' });
+    expect(res.status).toBe(400);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('404s when Spotify has no such (public) playlist', async () => {
@@ -192,9 +226,9 @@ describe('POST /api/playlists/import/spotify', () => {
     );
     prismaMock.playlist.create.mockResolvedValue({ id: 'pl-1', title: 'Road Trip', coverUrl: 'https://i.scdn.co/image/cover' } as any);
 
-    // Only the playlist id is used: another host in the link can't redirect the fetch.
+    // Only the playlist id is used to build the fetch URL.
     const res = await authedPost('/api/playlists/import/spotify', owner, {
-      url: `https://evil.example/playlist/${PLAYLIST_ID}?si=abc`,
+      url: `https://open.spotify.com/playlist/${PLAYLIST_ID}?si=abc`,
     });
 
     expect(res.status).toBe(201);
@@ -238,6 +272,43 @@ describe('POST /api/playlists/import/spotify', () => {
     const res = await authedPost('/api/playlists/import/spotify', owner, { url: `https://open.spotify.com/playlist/${PLAYLIST_ID}` });
     expect(res.status).toBe(201);
     expect(res.body.data.unmatched.map((t: any) => t.title)).toEqual(['Region Locked', 'Stay (with Justin Bieber)']);
+  });
+
+  it('with a playlistId, adds the songs to that playlist instead of creating one', async () => {
+    mockSpotify(200, embedHtml(spotifyPage));
+    saavnMock.findSongByDuration.mockImplementation(async (query: string) =>
+      query.startsWith('Hey Jude') ? { id: 'saavn-jude' } : query.startsWith('Stay') ? { id: 'saavn-stay' } : null
+    );
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'pl-mine', title: 'Mine', coverUrl: null, ownerId: owner.id } as any);
+    prismaMock.playlistTrack.aggregate.mockResolvedValue({ _max: { position: 4 } } as any);
+    prismaMock.playlistTrack.createMany.mockResolvedValue({ count: 1 }); // the other was already in it
+
+    const res = await authedPost('/api/playlists/import/spotify', owner, {
+      url: `https://open.spotify.com/playlist/${PLAYLIST_ID}`,
+      playlistId: 'pl-mine',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ playlist: { id: 'pl-mine', title: 'Mine' }, added: 1, total: 4 });
+    expect(prismaMock.playlist.create).not.toHaveBeenCalled();
+    const { data, skipDuplicates } = prismaMock.playlistTrack.createMany.mock.calls[0][0] as any;
+    expect(skipDuplicates).toBe(true);
+    expect(data).toEqual([
+      { playlistId: 'pl-mine', trackId: 'saavn-jude', position: 5 },
+      { playlistId: 'pl-mine', trackId: 'saavn-stay', position: 6 },
+    ]);
+  });
+
+  it("refuses to import into someone else's playlist, before fetching Spotify", async () => {
+    mockSpotify(200, embedHtml(spotifyPage));
+    prismaMock.playlist.findUnique.mockResolvedValue({ id: 'pl-theirs', ownerId: 'someone-else' } as any);
+    const res = await authedPost('/api/playlists/import/spotify', owner, {
+      url: `https://open.spotify.com/playlist/${PLAYLIST_ID}`,
+      playlistId: 'pl-theirs',
+    });
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(prismaMock.playlistTrack.createMany).not.toHaveBeenCalled();
   });
 });
 
