@@ -6,7 +6,6 @@ import { Brand } from '@/components/layout/brand';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/types/api';
-import { UserRole } from '@/types/user';
 import { Alert } from '@/components/ui/alert';
 
 function SignupForm() {
@@ -20,7 +19,6 @@ function SignupForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<UserRole>('USER');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +83,6 @@ function SignupForm() {
           username: username.trim(),
           password,
           displayName: displayName.trim() || undefined,
-          role,
         },
         redirectUrl
       );
@@ -184,22 +181,6 @@ function SignupForm() {
               {isPasswordValid ? '✓ Strong enough' : `Still needs: ${missingPasswordRequirements.join(', ')}`}
             </p>
           )}
-        </div>
-
-        <div>
-          <label htmlFor="signup-role" className="block text-sm font-medium text-neutral-400 mb-1">
-            Account Role
-          </label>
-          <select
-            id="signup-role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as UserRole)}
-            disabled={isLoading}
-            className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-400 disabled:opacity-50"
-          >
-            <option value="USER">Standard Listener (User)</option>
-            <option value="ARTIST">Artist / Creator</option>
-          </select>
         </div>
 
         <button
