@@ -26,6 +26,8 @@ export interface CreatePlaylistModalProps {
   onCreated?: (playlistId: string, playlistTitle: string) => void;
   /** Import into this existing playlist of the user's instead of creating one ("Add songs"). */
   target?: { id: string; title: string };
+  /** Opens on the playlist-link tab with this link filled in (a link shared to Musify). */
+  initialUrl?: string;
 }
 
 type Mode = 'create' | 'import' | 'screenshots';
@@ -55,7 +57,7 @@ interface Progress {
   total: number;
 }
 
-export function CreatePlaylistModal({ isOpen, onClose, onCreated, target }: CreatePlaylistModalProps) {
+export function CreatePlaylistModal({ isOpen, onClose, onCreated, target, initialUrl }: CreatePlaylistModalProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const createMutation = useCreatePlaylist();
@@ -88,14 +90,14 @@ export function CreatePlaylistModal({ isOpen, onClose, onCreated, target }: Crea
       setCoverUrl('');
       setIsPublic(true);
       setValidationError(null);
-      setMode(hasTarget ? 'import' : 'create');
-      setSpotifyUrl('');
+      setMode(hasTarget || initialUrl ? 'import' : 'create');
+      setSpotifyUrl(initialUrl ?? '');
       setPastedSongs('');
       setScreenshots([]);
       setSummary(null);
       setProgress(null);
     }
-  }, [isOpen, hasTarget]);
+  }, [isOpen, hasTarget, initialUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

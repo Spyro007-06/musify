@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Readable } from 'stream';
 import { MusicService } from '@services/music.service';
 import { LyricsService } from '@services/lyrics.service';
+import { SpotifyImportService } from '@services/spotifyImport.service';
 import { sendSuccess, sendPaginated } from '@utils/ApiResponse';
 import { HTTP_STATUS } from '@constants/httpCodes';
 import { SUCCESS_MESSAGES } from '@constants/messages';
@@ -193,6 +194,22 @@ export class MusicController {
         statusCode: HTTP_STATUS.OK,
         message: 'Categories retrieved successfully.',
         data: categories,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** A link shared to Musify: the song it points at, ready to play, or { kind: 'playlist' } to import. */
+  public static async resolveSharedLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const url = typeof req.query.url === 'string' ? req.query.url.slice(0, 1000) : '';
+      if (!url) throw ApiError.badRequest('A link is required.');
+      sendSuccess({
+        res,
+        statusCode: HTTP_STATUS.OK,
+        message: 'Shared link read.',
+        data: await SpotifyImportService.resolveSharedLink(url),
       });
     } catch (error) {
       next(error);

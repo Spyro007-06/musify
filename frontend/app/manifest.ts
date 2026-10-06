@@ -13,6 +13,9 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     lang: 'en',
     categories: ['music', 'entertainment'],
+    // Puts Musify in Android's share sheet: a song or playlist link shared
+    // from any app opens /share (installed app only; Chrome on Android).
+    share_target: { action: '/share', method: 'GET', params: { title: 'title', text: 'text', url: 'url' } },
     background_color: '#0a0a0a',
     theme_color: '#0b1210', // the page's themeColor (app/layout.tsx), so the title bar doesn't change on launch
     icons: [
