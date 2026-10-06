@@ -36,8 +36,12 @@ import { pluralize } from '@/lib/utils/pluralize';
 import { toast } from '@/stores/toast-store';
 import { cn } from '@/lib/utils/cn';
 
-const secondaryButtonClass =
-  'inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10 transition-colors';
+// Round icon buttons in one tidy row on phones (labels stay for screen readers), labeled pills from sm up.
+const actionButtonBase =
+  'inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full border text-xs font-semibold transition-colors sm:h-auto sm:w-auto sm:px-4 sm:py-2';
+const secondaryButtonClass = cn(actionButtonBase, 'border-white/10 bg-white/5 text-white hover:bg-white/10');
+const actionIconClass = 'h-4 w-4 sm:h-3.5 sm:w-3.5';
+const actionLabelClass = 'sr-only sm:not-sr-only';
 
 interface PlaylistPageProps {
   params: Promise<{ id: string }>;
@@ -347,14 +351,14 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
       </div>
 
       {/* 2. Action Controls Bar */}
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-3 sm:gap-4">
           {hasTracks && !isReordering && (
             <button
               type="button"
               onClick={handlePlayAll}
               aria-label={isCollectionPlaying ? 'Pause playlist' : 'Play all playlist tracks'}
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl shadow-brand-950/60 hover:scale-105 active:scale-95 hover:bg-brand-400 transition-all duration-300"
+              className="flex h-12 w-12 shrink-0 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-brand-500 text-black shadow-xl shadow-brand-950/60 hover:scale-105 active:scale-95 hover:bg-brand-400 transition-all duration-300"
             >
               {isCollectionPlaying ? (
                 <Pause className="h-6 w-6 fill-current" />
@@ -365,8 +369,8 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
           )}
           {!isReordering && (
             <button type="button" onClick={handleShare} aria-label="Share playlist" className={secondaryButtonClass}>
-              <Share2 className="h-3.5 w-3.5" />
-              <span>Share</span>
+              <Share2 className={actionIconClass} />
+              <span className={actionLabelClass}>Share</span>
             </button>
           )}
         </div>
@@ -383,29 +387,32 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
               <span>Done</span>
             </button>
           ) : (
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
               <button type="button" onClick={() => setIsAddSongsOpen(true)} className={secondaryButtonClass}>
-                <ListPlus className="h-3.5 w-3.5" />
-                <span>Add songs</span>
+                <ListPlus className={actionIconClass} />
+                <span className={actionLabelClass}>Add songs</span>
               </button>
               <button type="button" onClick={() => setIsEditModalOpen(true)} className={secondaryButtonClass}>
-                <Pencil className="h-3.5 w-3.5" />
-                <span>Edit details</span>
+                <Pencil className={actionIconClass} />
+                <span className={actionLabelClass}>Edit details</span>
               </button>
               {tracks.length > 1 && (
                 <button type="button" onClick={() => setIsReordering(true)} className={secondaryButtonClass}>
-                  <ArrowUpDown className="h-3.5 w-3.5" />
-                  <span>Reorder</span>
+                  <ArrowUpDown className={actionIconClass} />
+                  <span className={actionLabelClass}>Reorder</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(true)}
                 aria-label="Delete playlist"
-                className="inline-flex items-center gap-2 rounded-full border border-danger-500/20 bg-danger-950/20 px-4 py-2 text-xs font-semibold text-danger-300 hover:bg-danger-950/40 hover:border-danger-500/40 transition-colors"
+                className={cn(
+                  actionButtonBase,
+                  'border-danger-500/20 bg-danger-950/20 text-danger-300 hover:bg-danger-950/40 hover:border-danger-500/40'
+                )}
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>Delete</span>
+                <Trash2 className={actionIconClass} />
+                <span className={actionLabelClass}>Delete</span>
               </button>
             </div>
           ))}
