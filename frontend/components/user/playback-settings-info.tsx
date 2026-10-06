@@ -43,11 +43,12 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
             <span className="text-xs font-semibold text-white">Streaming Bitrate</span>
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-[11px] font-bold text-brand-400 border border-brand-500/20">
               <Check className="h-3 w-3" />
-              High Quality (320 kbps)
+              Up to 320 kbps
             </span>
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            Streams are served directly from our music catalog at the highest available bitrates for maximum acoustic clarity.
+            Songs play at 320 kbps. If your connection keeps stalling, playback switches to 160 kbps so the music
+            doesn&apos;t stutter, until you reload the app.
           </p>
         </div>
 
