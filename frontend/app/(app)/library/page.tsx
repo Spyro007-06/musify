@@ -2,10 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Heart, History, ListMusic, Play, ArrowRight, ChartColumn } from 'lucide-react';
+import { Heart, History, ListMusic, Play, ArrowRight, ChartColumn, Download } from 'lucide-react';
 import { useLikedSongs, useRecentlyPlayed } from '@/hooks/use-music';
 import { usePlaylists } from '@/hooks/use-playlists';
 import { usePlayerStore } from '@/stores/player-store';
+import { useOfflineStore } from '@/stores/offline-store';
 import { MusicSection } from '@/components/music/music-section';
 import { TrackRow } from '@/components/music/track-row';
 import { PlaylistCard } from '@/components/music/playlist-card';
@@ -24,6 +25,7 @@ function playlistsSummary(playlists: Playlist[]): string {
 
 export default function LibraryPage() {
   const playFrom = usePlayerStore((s) => s.playFrom);
+  const downloadedCount = useOfflineStore((s) => s.ids.size);
 
   const {
     data: likedSongs,
@@ -188,6 +190,35 @@ export default function LibraryPage() {
                 </h2>
                 <p className="text-xs text-neutral-400">
                   {playlists ? playlistsSummary(playlists) : 'Curated collections'}
+                </p>
+              </div>
+            </div>
+
+            <ArrowRight className="h-4 w-4 text-neutral-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
+          </div>
+        </Link>
+
+        {/* Downloads Tile */}
+        <Link
+          href="/library/downloads"
+          className={cn(
+            'group relative overflow-hidden rounded-2xl p-5 border border-brand-500/20',
+            'bg-gradient-to-br from-brand-950/50 via-neutral-900/60 to-black',
+            'hover:border-brand-500/40 hover:from-brand-950/70 transition-all duration-300 shadow-lg select-none'
+          )}
+        >
+          <div className="pointer-events-none absolute -right-6 -bottom-6 h-28 w-28 rounded-full bg-brand-500/10 blur-2xl group-hover:bg-brand-500/20 transition-all" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-emerald-600 text-black shadow-md shadow-brand-950/50">
+                <Download className="h-6 w-6 stroke-[2.5]" />
+              </div>
+              <div>
+                <h2 className="font-bold text-base text-white group-hover:text-brand-300 transition-colors">
+                  Downloads
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  {downloadedCount > 0 ? `${pluralize(downloadedCount, 'song')} saved in Musify` : 'Songs saved in Musify'}
                 </p>
               </div>
             </div>

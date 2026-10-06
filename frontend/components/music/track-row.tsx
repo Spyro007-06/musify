@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Pause, Heart, Volume2, ListPlus, ListEnd, Trash2, Download, MoreVertical } from 'lucide-react';
+import { Play, Pause, Heart, Volume2, ListPlus, ListEnd, Trash2, MoreVertical } from 'lucide-react';
 import { Track } from '@/types/track';
 import { formatDuration } from '@/lib/utils/format-duration';
 import { cn } from '@/lib/utils/cn';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { useLikeTrack } from '@/hooks/use-music';
-import { useDownloadTrack } from '@/hooks/use-download-track';
+import { DownloadIcon, useDownloadTrack, useIsDownloaded } from '@/hooks/use-download-track';
 import { usePlayerStore } from '@/stores/player-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { AddToPlaylistModal } from '@/components/playlist/add-to-playlist-modal';
@@ -66,6 +66,7 @@ export function TrackRow({
   const [isLiked, setIsLiked] = React.useState(Boolean(track.isLiked));
   const likeMutation = useLikeTrack();
   const downloadTrack = useDownloadTrack();
+  const isDownloaded = useIsDownloaded(track.id);
 
   React.useEffect(() => {
     setIsLiked(Boolean(track.isLiked));
@@ -226,10 +227,13 @@ export function TrackRow({
           <button
             type="button"
             onClick={handleDownloadClick}
-            aria-label={`Download ${track.title}`}
-            className="relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']"
+            aria-label={isDownloaded ? `Download ${track.title} (saved in Musify)` : `Download ${track.title}`}
+            className={cn(
+              "relative hidden h-8 w-8 items-center justify-center rounded-full text-neutral-400 sm:flex sm:opacity-0 sm:group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-all before:absolute before:-inset-1.5 before:content-['']",
+              isDownloaded && 'sm:opacity-100' // a saved song shows its check without hovering
+            )}
           >
-            <Download className="h-4 w-4" />
+            <DownloadIcon trackId={track.id} className="h-4 w-4" />
           </button>
 
           {onRemove && (
@@ -296,7 +300,7 @@ export function TrackRow({
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-200 hover:bg-white/5"
                 >
-                  <Download className="h-4 w-4" />
+                  <DownloadIcon trackId={track.id} className="h-4 w-4" />
                   Download
                 </button>
                 {onRemove && (
