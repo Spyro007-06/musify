@@ -61,6 +61,10 @@ function getBreaker(name: string): CircuitBreaker<[Task<unknown>], unknown> {
     breaker = new CircuitBreaker<[Task<unknown>], unknown>((task) => task(), {
       timeout: false,
       errorThresholdPercentage: 50,
+      // One breaker serves every user. Without a floor, a single timed-out
+      // call in a quiet 10s window is a 100% error rate and opens it for
+      // everyone for 30s — e.g. every listener's next song fails at once.
+      volumeThreshold: 5,
       resetTimeout: 30000,
       rollingCountTimeout: 10000,
       name,

@@ -208,16 +208,29 @@ async function fetchAutoQueueTracks(alreadyQueued: Track[]): Promise<Track[]> {
   }
 }
 
+// A failed prefetch is retried from playback time updates (prepareNextTrack),
+// no sooner than this. Without a retry, one failed call (the backend busy)
+// leaves the song change to a live fetch, which a backgrounded phone never
+// finishes: the next song only started once the app was reopened.
+const PREFETCH_RETRY_MS = 5_000;
+let prefetchInFlight: string | null = null;
+let prefetchRetryAt = 0;
+
 function prefetchTrackStream(track: Track) {
-  if (streamUrlCache.has(track.id)) return;
+  if (streamUrlCache.has(track.id) || prefetchInFlight === track.id) return;
+  prefetchInFlight = track.id;
   musicApi
     .prefetchStream(track.id)
     .then((res) => {
       const url = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
-      if (url) streamUrlCache.set(track.id, url);
+      if (!url) throw new Error('no stream url');
+      streamUrlCache.set(track.id, url);
     })
     .catch(() => {
-      // Best-effort — playTrack just falls back to a normal fetch if this never lands.
+      prefetchRetryAt = Date.now() + PREFETCH_RETRY_MS;
+    })
+    .finally(() => {
+      if (prefetchInFlight === track.id) prefetchInFlight = null;
     });
 }
 
@@ -844,8 +857,12 @@ function prepareNextTrack(state: PlayerState, time: number) {
   const { currentTrack, isPlaying, duration, repeat, sleepAtTrackEnd, crossfadeSeconds } = state;
   if (!currentTrack || !isPlaying || !duration || repeat === 'one') return;
   const next = upcomingTrack(state);
-  const url = next && streamUrlCache.get(next.id);
-  if (!url) return;
+  if (!next) return;
+  const url = streamUrlCache.get(next.id);
+  if (!url) {
+    if (Date.now() >= prefetchRetryAt) prefetchTrackStream(next);
+    return;
+  }
 
   const remaining = duration - time;
   const engine = getAudioEngine();

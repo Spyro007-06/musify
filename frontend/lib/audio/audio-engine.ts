@@ -13,6 +13,15 @@ export type AudioEngineEvents = {
 // elements are allowed to start later without one (iOS asks per element).
 const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 
+// A stall shorter than this is just a hiccup, not a sign the stream is too heavy.
+const STALL_MS = 1000;
+const STALLS_BEFORE_DOWNGRADE = 2;
+
+/** JioSaavn serves each song at several bitrates under the same path: …_320.mp4, …_160.mp4. */
+export function lowerBitrate(src: string): string {
+  return src.replace(/_320\.mp4(?=$|\?)/, '_160.mp4');
+}
+
 interface Fade {
   from: HTMLAudioElement;
   start: number;
@@ -42,6 +51,15 @@ export class AudioEngine {
   private switchedOnLoad = false;
   /** iOS ignores audio.volume, so a fade there would just overlap two songs. */
   private readonly volumeIsSettable: boolean = false;
+  /**
+   * Set after STALLS_BEFORE_DOWNGRADE real stalls in one song (a crowded
+   * Wi-Fi or a weak signal): from then on songs play from JioSaavn's 160 kbps
+   * file, half the 320's size. ponytail: one-way for the page session; probe
+   * back up after some clean songs if users on good networks get stuck on it.
+   */
+  private lowBandwidth = false;
+  private stallsThisSong = 0;
+  private stallStartedAt = 0;
 
   constructor(events: AudioEngineEvents = {}) {
     this.events = events;
@@ -118,18 +136,26 @@ export class AudioEngine {
     });
 
     el.addEventListener('waiting', () => {
-      if (isActive()) this.events.onWaiting?.();
+      if (!isActive()) return;
+      // Mid-song only: buffering at the start or after a seek is expected.
+      if (!el.seeking && el.currentTime > 1) this.stallStartedAt = performance.now();
+      this.events.onWaiting?.();
     });
 
     el.addEventListener('playing', () => {
-      if (isActive()) this.events.onPlaying?.();
+      if (!isActive()) return;
+      if (this.stallStartedAt && performance.now() - this.stallStartedAt >= STALL_MS) {
+        if (++this.stallsThisSong >= STALLS_BEFORE_DOWNGRADE) this.downgrade(el);
+      }
+      this.stallStartedAt = 0;
+      this.events.onPlaying?.();
     });
 
     el.addEventListener('error', () => {
       if (el.src === SILENT_WAV) return;
       if (!isActive()) {
         // A failed preload: don't switch to this element for that song.
-        if (el.src === this.preloadedSrc) this.preloadedSrc = '';
+        if (el === this.standby) this.preloadedSrc = '';
         return;
       }
       const message = el.error?.message || 'Playback stream encountered an error.';
@@ -146,10 +172,38 @@ export class AudioEngine {
   public preload(src: string) {
     const standby = this.standby;
     if (!standby || this.fade || src === this.currentSrc || src === this.preloadedSrc) return;
+    // Downloading the next song while this one still is splits the
+    // bandwidth, and on a slow connection the playing song stutters.
+    if (!this.activeFullyBuffered()) return;
     standby.preload = 'auto';
-    standby.src = src;
+    standby.src = this.sourceFor(src);
     standby.load();
     this.preloadedSrc = src;
+  }
+
+  private sourceFor(src: string): string {
+    return this.lowBandwidth ? lowerBitrate(src) : src;
+  }
+
+  private activeFullyBuffered(): boolean {
+    const audio = this.audio;
+    if (!audio || !Number.isFinite(audio.duration)) return false;
+    const { buffered } = audio;
+    for (let i = 0; i < buffered.length; i++) {
+      if (buffered.start(i) <= audio.currentTime && buffered.end(i) >= audio.duration - 1) return true;
+    }
+    return false;
+  }
+
+  /** Too many stalls: carry on from the same spot in the lighter file, and stay on it. */
+  private downgrade(el: HTMLAudioElement) {
+    this.lowBandwidth = true;
+    const lighter = lowerBitrate(el.src);
+    if (lighter === el.src) return;
+    const at = el.currentTime;
+    el.src = lighter;
+    el.currentTime = at;
+    el.play().catch(() => {});
   }
 
   public load(src: string) {
@@ -160,6 +214,8 @@ export class AudioEngine {
     const fadeMs = this.crossfadeNextLoadMs;
     this.crossfadeNextLoadMs = 0;
     this.endFade();
+    this.stallsThisSong = 0;
+    this.stallStartedAt = 0;
 
     const wasPreloaded = src === this.preloadedSrc;
     this.switchedOnLoad = wasPreloaded || (fadeMs > 0 && !outgoing.paused);
@@ -167,7 +223,7 @@ export class AudioEngine {
       this.activeIndex = 1 - this.activeIndex;
       const incoming = this.audio!;
       if (!wasPreloaded) {
-        incoming.src = src;
+        incoming.src = this.sourceFor(src);
         incoming.load();
       }
       incoming.currentTime = 0;
@@ -177,7 +233,7 @@ export class AudioEngine {
         this.events.onDurationChange?.(incoming.duration);
       }
     } else {
-      outgoing.src = src;
+      outgoing.src = this.sourceFor(src);
       outgoing.load();
     }
 
@@ -202,7 +258,7 @@ export class AudioEngine {
         audio.removeAttribute('src');
         this.activeIndex = 1 - this.activeIndex;
         const fallback = this.audio!;
-        fallback.src = this.currentSrc;
+        fallback.src = this.sourceFor(this.currentSrc);
         fallback.load();
         this.applyVolumes();
         return this.play();
