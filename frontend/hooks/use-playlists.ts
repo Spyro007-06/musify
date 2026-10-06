@@ -62,16 +62,17 @@ export function useCreatePlaylist() {
   });
 }
 
-export function useImportSpotifyPlaylist() {
+export function useImportPlaylistLink() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (url: string) => {
-      const res = await playlistsApi.importFromSpotify(url);
+    mutationFn: async ({ url, playlistId }: { url: string; playlistId?: string }) => {
+      const res = await playlistsApi.importFromLink(url, playlistId);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, { playlistId }) => {
       queryClient.invalidateQueries({ queryKey: ['playlists', 'user'] });
+      if (playlistId) queryClient.invalidateQueries({ queryKey: ['playlists', 'detail', playlistId] });
     },
   });
 }

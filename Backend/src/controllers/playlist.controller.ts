@@ -66,12 +66,12 @@ export class PlaylistController {
   public static async importFromSpotify(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const { url } = importSpotifySchema.parse(req.body);
-      const result = await SpotifyImportService.importPlaylist(authReq.user.id, url);
+      const { url, playlistId } = importSpotifySchema.parse(req.body);
+      const result = await SpotifyImportService.importPlaylist(authReq.user.id, url, playlistId);
 
       sendSuccess({
         res,
-        statusCode: HTTP_STATUS.CREATED,
+        statusCode: playlistId ? HTTP_STATUS.OK : HTTP_STATUS.CREATED,
         message: `Imported ${result.matched.length} of ${result.total} songs.`,
         data: result,
       });

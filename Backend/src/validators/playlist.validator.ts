@@ -28,7 +28,9 @@ export const addTrackSchema = z.object({
 
 
 export const importSpotifySchema = z.object({
-  url: z.string().trim().min(1, 'Spotify playlist link is required').max(500),
+  url: z.string().trim().min(1, 'Playlist link is required').max(1000),
+  /** Add the songs to this playlist of the user's instead of creating a new one. */
+  playlistId: z.string().trim().min(1).max(100).optional(),
 });
 
 /** One batch for POST /playlists/:id/import/songs — small, so each request stays short. */

@@ -643,6 +643,23 @@ export class SaavnService {
     });
   }
 
+  /** A playlist from a jiosaavn.com link (the token is its last path segment), or null if there's none. */
+  public async getPlaylistByLinkToken(token: string, limit: number): Promise<{ title: string; cover: string | null; total: number; tracks: any[] } | null> {
+    try {
+      const p = await resilientCall(SAAVN_BREAKER.CATALOG, () => this.playlistService.getPlaylistByLink({ token, page: 0, limit }));
+      if (!p) return null;
+      return {
+        title: unescapeHtml(p.name || ''),
+        cover: p.image?.[p.image.length - 1]?.url || null,
+        total: Number(p.songCount) || p.songs?.length || 0,
+        tracks: dedupeById((p.songs || []).map((s: any) => this.mapTrack(s))),
+      };
+    } catch (error) {
+      logger.error(`❌ JioSaavn getPlaylistByLink failed for ${token}:`, error);
+      throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
+    }
+  }
+
   /** A JioSaavn editorial playlist with its tracks, or null if it doesn't exist. */
   public async getPlaylist(id: string): Promise<any | null> {
     return withCache(`saavn:playlist:${id}`, 3600, async () => {
