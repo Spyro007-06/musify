@@ -5,6 +5,7 @@ import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { GlobalPlayer } from '@/components/player/global-player';
+import { DownloadChooser } from '@/hooks/use-download-track';
 import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils/cn';
 
@@ -44,6 +45,9 @@ export function AppShell({ children, className }: AppShellProps) {
 
       {/* 4. Mobile Bottom Navigation (< md) */}
       <MobileNav />
+
+      {/* "Save in Musify" or "Save to this device", for any Download button */}
+      <DownloadChooser />
     </div>
   );
 }

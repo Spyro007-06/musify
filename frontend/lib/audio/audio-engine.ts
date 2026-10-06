@@ -17,9 +17,22 @@ const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAE
 const STALL_MS = 1000;
 const STALLS_BEFORE_DOWNGRADE = 2;
 
-/** JioSaavn serves each song at several bitrates under the same path: …_320.mp4, …_160.mp4. */
-export function lowerBitrate(src: string): string {
-  return src.replace(/_320\.mp4(?=$|\?)/, '_160.mp4');
+/** JioSaavn serves each song at several bitrates under the same path: …_320.mp4, …_160.mp4, …_96.mp4. */
+const BITRATES = [320, 160, 96];
+
+export function atBitrate(src: string, kbps: number): string {
+  return src.replace(/_(320|160|96)\.mp4(?=$|\?)/, `_${kbps}.mp4`);
+}
+
+/**
+ * Steps below 320 to start at, from what Android Chrome reports about the
+ * connection: Data Saver or 3G → 160, 2G → 96. Other browsers report nothing.
+ */
+function networkStep(): number {
+  const c = (navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean } }).connection;
+  if (!c) return 0;
+  if (c.effectiveType?.includes('2g')) return 2;
+  return c.saveData || c.effectiveType === '3g' ? 1 : 0;
 }
 
 interface Fade {
@@ -52,12 +65,13 @@ export class AudioEngine {
   /** iOS ignores audio.volume, so a fade there would just overlap two songs. */
   private readonly volumeIsSettable: boolean = false;
   /**
-   * Set after STALLS_BEFORE_DOWNGRADE real stalls in one song (a crowded
-   * Wi-Fi or a weak signal): from then on songs play from JioSaavn's 160 kbps
-   * file, half the 320's size. ponytail: one-way for the page session; probe
-   * back up after some clean songs if users on good networks get stuck on it.
+   * Steps below 320 kbps (index into BITRATES), one more each time a song
+   * stalls STALLS_BEFORE_DOWNGRADE times (a crowded Wi-Fi, a weak signal):
+   * 160 is half the 320's size, 96 a third. ponytail: one-way for the page
+   * session; probe back up after some clean songs if users on good networks
+   * get stuck low.
    */
-  private lowBandwidth = false;
+  private bitrateStep = 0;
   private stallsThisSong = 0;
   private stallStartedAt = 0;
 
@@ -182,7 +196,8 @@ export class AudioEngine {
   }
 
   private sourceFor(src: string): string {
-    return this.lowBandwidth ? lowerBitrate(src) : src;
+    const step = Math.max(this.bitrateStep, networkStep());
+    return step > 0 ? atBitrate(src, BITRATES[step]) : src;
   }
 
   private activeFullyBuffered(): boolean {
@@ -195,10 +210,13 @@ export class AudioEngine {
     return false;
   }
 
-  /** Too many stalls: carry on from the same spot in the lighter file, and stay on it. */
+  /** Too many stalls: carry on from the same spot in the next lighter file, and stay on it. */
   private downgrade(el: HTMLAudioElement) {
-    this.lowBandwidth = true;
-    const lighter = lowerBitrate(el.src);
+    const step = Math.max(this.bitrateStep, networkStep()) + 1;
+    this.stallsThisSong = 0; // two more stalls for the next step down
+    if (step >= BITRATES.length) return;
+    this.bitrateStep = step;
+    const lighter = atBitrate(el.src, BITRATES[step]);
     if (lighter === el.src) return;
     const at = el.currentTime;
     el.src = lighter;

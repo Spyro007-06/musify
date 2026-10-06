@@ -15,6 +15,7 @@ import { getAudioEngine } from '@/lib/audio/audio-engine';
 import { musicApi } from '@/lib/api/music';
 import { userSignalsApi } from '@/lib/api/user-signals';
 import { useAuthStore } from '@/stores/auth-store';
+import { offlineAudioUrl } from '@/stores/offline-store';
 
 // Reports how a track was left (naturally finished vs. skipped away from) to
 // the recommendation engine. Fire-and-forget: never let a logging failure
@@ -219,10 +220,14 @@ let prefetchRetryAt = 0;
 function prefetchTrackStream(track: Track) {
   if (streamUrlCache.has(track.id) || prefetchInFlight === track.id) return;
   prefetchInFlight = track.id;
-  musicApi
-    .prefetchStream(track.id)
-    .then((res) => {
-      const url = res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
+  // A saved song needs no network: its local URL is "warm" right away.
+  offlineAudioUrl(track.id)
+    .then(async (saved) => {
+      if (saved) return saved;
+      const res = await musicApi.prefetchStream(track.id);
+      return res.data?.url || (res.data as unknown as { streamUrl?: string })?.streamUrl;
+    })
+    .then((url) => {
       if (!url) throw new Error('no stream url');
       streamUrlCache.set(track.id, url);
     })
@@ -423,9 +428,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     try {
       // 3. Request playable stream URL only now (user initiated playback) —
-      // unless we already warmed it while the previous track was playing.
+      // unless the song is saved in the app (plays from the phone, no data
+      // used) or we already warmed it while the previous track was playing.
+      const savedUrl = await offlineAudioUrl(track.id);
       const cachedUrl = takeCachedStreamUrl(track.id);
-      let streamUrl = cachedUrl ?? undefined;
+      if (requestGen !== activePlaybackGeneration) return;
+      let streamUrl = savedUrl ?? cachedUrl ?? undefined;
 
       if (!streamUrl) {
         const res = await musicApi.getStream(track.id);

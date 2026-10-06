@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ListMusic, ListPlus, Heart, Disc3, Download, MicVocal } from 'lucide-react';
+import { ChevronDown, ListMusic, ListPlus, Heart, Disc3, MicVocal } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerProgress } from './player-progress';
@@ -10,7 +10,7 @@ import { PlayerVolume } from './player-volume';
 import { LyricsPanel } from './lyrics-panel';
 import { useUiStore } from '@/stores/ui-store';
 import { useLikeTrack } from '@/hooks/use-music';
-import { useDownloadTrack } from '@/hooks/use-download-track';
+import { DownloadIcon, useDownloadTrack, useIsDownloaded } from '@/hooks/use-download-track';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
 import { useBackToClose } from '@/hooks/use-back-to-close';
 import { useSwipeDown } from '@/hooks/use-swipe-down';
@@ -31,6 +31,7 @@ export function ExpandedPlayer() {
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = React.useState(false);
   const likeMutation = useLikeTrack();
   const downloadTrack = useDownloadTrack();
+  const isDownloaded = useIsDownloaded(currentTrack?.id);
 
   React.useEffect(() => {
     setIsLiked(Boolean(currentTrack?.isLiked));
@@ -181,10 +182,10 @@ export function ExpandedPlayer() {
             <button
               type="button"
               onClick={() => downloadTrack(currentTrack)}
-              aria-label="Download"
+              aria-label={isDownloaded ? 'Download (saved in Musify)' : 'Download'}
               className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
             >
-              <Download className="h-5 w-5" />
+              <DownloadIcon trackId={currentTrack?.id} className="h-5 w-5" />
             </button>
 
             <button
