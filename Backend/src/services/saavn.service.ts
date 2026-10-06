@@ -643,6 +643,17 @@ export class SaavnService {
     });
   }
 
+  /** The song behind a jiosaavn.com song link (the token is its last path segment). */
+  public async getSongByLinkToken(token: string): Promise<any | null> {
+    try {
+      const songs = await resilientCall(SAAVN_BREAKER.TRACK, () => this.songService.getSongByLink(token));
+      return this.mapTrack(songs?.[0]);
+    } catch (error) {
+      logger.error(`❌ JioSaavn getSongByLink failed for ${token}:`, error);
+      throw new SaavnUpstreamError('JioSaavn is currently unavailable.', error);
+    }
+  }
+
   /** A playlist from a jiosaavn.com link (the token is its last path segment), or null if there's none. */
   public async getPlaylistByLinkToken(token: string, limit: number): Promise<{ title: string; cover: string | null; total: number; tracks: any[] } | null> {
     try {

@@ -7,7 +7,7 @@ import { uniqueSlug } from '@utils/slugify';
 import { logger } from '@utils/logger';
 import { callGeminiJson } from '@utils/gemini';
 import { HTTP_STATUS } from '@constants/httpCodes';
-import { LinkTrack, readPlaylistLink } from './playlistLinks';
+import { LinkTrack, fetchFrom, readPlaylistLink, readSongLink } from './playlistLinks';
 import { ERROR_MESSAGES } from '@constants/messages';
 
 /** A song to find on JioSaavn. Screenshots carry no duration. */
@@ -140,6 +140,37 @@ const SCREENSHOT_PROMPT =
 
 export class SpotifyImportService {
   private static saavn = SaavnService.getInstance();
+
+  /**
+   * A link shared to Musify from another app (Android's share sheet): a
+   * playlist, which the client then imports (that needs sign-in), or one
+   * song, found in our catalog (track is null when it isn't there).
+   */
+  public static async resolveSharedLink(raw: string): Promise<{ kind: 'playlist' } | { kind: 'song'; song: SourceTrack; track: any }> {
+    let url: URL;
+    try {
+      url = new URL(raw.trim());
+    } catch {
+      throw ApiError.badRequest('Share a link to a song or a playlist.');
+    }
+    let song: LinkTrack | null;
+    if (url.protocol === 'https:' && /(^|\.)spotify\.(com|link)$/i.test(url.hostname)) {
+      // spotify.link short links redirect to open.spotify.com.
+      if (/spotify\.link$/i.test(url.hostname)) url = new URL((await fetchFrom(url.href, /(^|\.)spotify\.(com|link)$/)).url);
+      if (url.pathname.includes('/playlist/')) return { kind: 'playlist' };
+      const id = url.pathname.match(/\/track\/([A-Za-z0-9]{22})/)?.[1];
+      if (!id) throw ApiError.badRequest('Share a link to a song or a playlist.');
+      song = await fetchSpotifyTrack(id);
+      if (!song) throw ApiError.notFound('Song not found.');
+    } else {
+      song = await readSongLink(url);
+      if (!song) return { kind: 'playlist' };
+    }
+    const [hit] = await this.matchOnSaavn([song]);
+    // A JioSaavn link gives only the id; a search hit is already the full track.
+    const track = hit && (hit.title ? hit : await this.saavn.getTrack(hit.id));
+    return { kind: 'song', song: { title: song.title, artist: song.artist }, track: track ?? null };
+  }
 
   /** Finds each song on JioSaavn; null where there's no confident match. */
   public static matchOnSaavn(tracks: LinkTrack[]) {

@@ -231,6 +231,24 @@ router.get('/autoplay', optionalAuthenticate, MusicController.getAutoplay);
 
 /**
  * @swagger
+ * /music/shared-link:
+ *   get:
+ *     summary: "A link shared to Musify from another app: { kind: 'song', song, track } (track null when not in the catalog) or { kind: 'playlist' } (import it via /playlists/import/link)"
+ *     tags: [Music]
+ *     parameters:
+ *       - name: url
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get('/shared-link', optionalAuthenticate, MusicController.resolveSharedLink);
+
+/**
+ * @swagger
  * /music/tracks/{trackId}/stream:
  *   get:
  *     summary: Get track stream URL and log play

@@ -71,7 +71,7 @@ export async function readPlaylistLink(url: URL): Promise<LinkPlaylist> {
 }
 
 /** GETs a page, following redirects only while they stay on the app's own hosts. */
-async function fetchFrom(url: string, hosts: RegExp, accept = 'text/html'): Promise<{ url: string; body: string }> {
+export async function fetchFrom(url: string, hosts: RegExp, accept = 'text/html'): Promise<{ url: string; body: string }> {
   for (let hop = 0; hop < 5; hop++) {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en', Accept: accept },
@@ -114,6 +114,12 @@ function jsonLdObjects(html: string): any[] {
   return out;
 }
 
+/** A schema.org MusicRecording (name, byArtist, duration) as a song to find. */
+function recordingTrack(t: any): LinkTrack {
+  const by = Array.isArray(t.byArtist) ? t.byArtist[0] : t.byArtist;
+  return { title: String(t.name).trim(), artist: firstArtist(String(by?.name ?? '')), durationSec: isoDurationSec(t.duration) };
+}
+
 /**
  * schema.org's MusicPlaylist, which many music sites embed for search
  * engines: name, numTracks, and track[] of MusicRecording (name, byArtist,
@@ -126,10 +132,7 @@ export function parseJsonLdPlaylist(html: string): Omit<LinkPlaylist, 'source'> 
   const tracks: LinkTrack[] = (Array.isArray(raw) ? raw : [raw])
     .map((t: any) => t?.item ?? t)
     .filter((t: any) => typeof t?.name === 'string' && t.name.trim())
-    .map((t: any) => {
-      const by = Array.isArray(t.byArtist) ? t.byArtist[0] : t.byArtist;
-      return { title: t.name.trim(), artist: firstArtist(String(by?.name ?? '')), durationSec: isoDurationSec(t.duration) };
-    });
+    .map(recordingTrack);
   return {
     title: String(playlist.name || 'Imported playlist').slice(0, 100),
     coverUrl: typeof playlist.image === 'string' ? playlist.image : (playlist.image?.url ?? null),
@@ -303,4 +306,74 @@ async function readYouTube(url: URL) {
   const playlist = parseYouTubePlaylist(body);
   if (!playlist) throw ApiError.unprocessable('Could not read that YouTube playlist. Is it public?');
   return playlist;
+}
+
+const notASong = () => ApiError.badRequest('Share a link to a song or a playlist.');
+
+/**
+ * One song from a link shared to Musify (Android's share sheet), read from
+ * its app's public data; null when the link is a playlist instead. Spotify
+ * links are read by spotifyImport.service. Albums, artists and the like: 400.
+ */
+export async function readSongLink(url: URL): Promise<LinkTrack | null> {
+  const { source } = readerFor(url); // the same host allowlist, https only
+  let path = url.pathname;
+  switch (source) {
+    case 'YouTube': {
+      // watch?v=…, music.youtube.com/watch?v=…, youtu.be/…, /shorts/…
+      const id = url.searchParams.get('v') ?? path.match(/^\/(?:shorts\/)?([\w-]{11})$/)?.[1];
+      if (!id) {
+        if (url.searchParams.has('list')) return null;
+        throw notASong();
+      }
+      const video = `https://www.youtube.com/watch?v=${id}`;
+      const { body } = await fetchFrom(
+        `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(video)}`,
+        /(^|\.)youtube\.com$/,
+        'application/json'
+      );
+      const { title, author_name: channel } = JSON.parse(body);
+      return parseYouTubeTitle(String(title ?? ''), String(channel ?? ''));
+    }
+    case 'JioSaavn': {
+      if (/\/(playlist|featured)\//.test(path)) return null;
+      if (!path.includes('/song/')) throw notASong();
+      const song = await SaavnService.getInstance().getSongByLinkToken(path.split('/').filter(Boolean).pop()!);
+      if (!song) throw ApiError.notFound('Song not found.');
+      return { title: song.title, artist: song.artists?.[0]?.name ?? '', durationSec: song.duration, saavnId: song.id };
+    }
+    case 'Deezer': {
+      // Short share links (link.deezer.com/s/…) redirect to the real one.
+      if (!/\/(track|playlist)\//.test(path)) path = new URL((await fetchFrom(url.href, DEEZER_HOSTS)).url).pathname;
+      if (path.includes('/playlist/')) return null;
+      const id = path.match(/\/track\/(\d+)/)?.[1];
+      if (!id) throw notASong();
+      const t = JSON.parse((await fetchFrom(`https://api.deezer.com/track/${id}`, /^api\.deezer\.com$/, 'application/json')).body);
+      if (t.error) throw ApiError.notFound('Song not found.');
+      return { title: t.title, artist: t.artist?.name ?? '', durationSec: t.duration };
+    }
+    case 'Apple Music': {
+      // music.apple.com/in/album/…?i=<song id> or /in/song/…/<song id>; looked up in that country's store.
+      const id = url.searchParams.get('i') ?? (path.includes('/song/') ? path.split('/').pop() : undefined);
+      if (!id || !/^\d+$/.test(id)) {
+        if (path.includes('/playlist/')) return null;
+        throw notASong();
+      }
+      const country = path.split('/')[1];
+      const lookup = `https://itunes.apple.com/lookup?id=${id}${/^[a-z]{2}$/.test(country) ? `&country=${country}` : ''}`;
+      const r = JSON.parse((await fetchFrom(lookup, /^itunes\.apple\.com$/, 'application/json')).body).results?.[0];
+      if (!r?.trackName) throw ApiError.notFound('Song not found.');
+      return { title: r.trackName, artist: firstArtist(String(r.artistName ?? '')), durationSec: Math.round((r.trackTimeMillis ?? 0) / 1000) };
+    }
+    case 'Gaana': {
+      if (path.includes('/playlist/')) return null;
+      if (!path.includes('/song/')) throw notASong();
+      const { body } = await fetchFrom(url.href, /(^|\.)gaana\.com$/);
+      const recording = jsonLdObjects(body).find((o) => o?.['@type'] === 'MusicRecording');
+      if (!recording?.name) throw ApiError.notFound('Song not found.');
+      return recordingTrack(recording);
+    }
+    default:
+      throw notASong();
+  }
 }

@@ -111,4 +111,10 @@ export const musicApi = {
       `/music/tracks/${encodeURIComponent(trackId)}/stream?prefetch=true`
     );
   },
+
+  /** A link shared to Musify: the song ready to play (track null if it's not in the catalog), or a playlist to import. */
+  resolveSharedLink: (url: string): Promise<ApiResponse<SharedLink>> =>
+    apiClient.get<SharedLink>(`/music/shared-link?url=${encodeURIComponent(url)}`, { requiresAuth: false }),
 };
+
+export type SharedLink = { kind: 'playlist' } | { kind: 'song'; song: { title: string; artist: string }; track: Track | null };

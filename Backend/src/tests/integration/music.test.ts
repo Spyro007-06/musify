@@ -360,3 +360,69 @@ describe('GET /api/music/mood/:mood', () => {
     expect(res.body.data).toEqual([expect.objectContaining({ id: 'p1' })]);
   });
 });
+
+describe('GET /api/music/shared-link', () => {
+  let fetchSpy: jest.SpyInstance;
+  const shared = (url: string) => request(app).get('/api/music/shared-link').query({ url });
+
+  beforeEach(() => {
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (input: any) =>
+      String(input).startsWith('https://www.youtube.com/oembed')
+        ? new Response(JSON.stringify({ title: 'Shakira, Burna Boy - Dai Dai (Official Video)', author_name: 'shakiraVEVO' }))
+        : new Response('', { status: 404 })
+    );
+  });
+  afterEach(() => fetchSpy.mockRestore());
+
+  it('reads a YouTube song link through oEmbed and finds it in the catalog', async () => {
+    saavnMock.findSongByDuration.mockResolvedValue(track({ id: 'saavn-daidai', title: 'Dai Dai' }));
+
+    const res = await shared('https://youtu.be/fcnDmrtj6Sk?si=abc');
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy.mock.calls[0][0]).toBe(
+      `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent('https://www.youtube.com/watch?v=fcnDmrtj6Sk')}`
+    );
+    // Video title cleaned to the song; the guessed artist only steers the search.
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Dai Dai Shakira', 0, undefined, 'Dai Dai');
+    expect(res.body.data).toMatchObject({ kind: 'song', song: { title: 'Dai Dai', artist: 'Shakira' }, track: { id: 'saavn-daidai' } });
+  });
+
+  it('says so when the song is not in the catalog', async () => {
+    saavnMock.findSongByDuration.mockResolvedValue(null);
+    const res = await shared('https://music.youtube.com/watch?v=fcnDmrtj6Sk');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ kind: 'song', track: null });
+  });
+
+  it('reports playlist links for the client to import, without fetching anything', async () => {
+    for (const url of [
+      'https://music.youtube.com/playlist?list=PL4fGSI1pDJn6puJdseH2Rt9sMvt9E2M4i',
+      'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=1',
+      'https://www.jiosaavn.com/featured/trending-today/I3kvhipIy73uCJW60TJk1Q__',
+    ]) {
+      const res = await shared(url);
+      expect(res.body.data).toEqual({ kind: 'playlist' });
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('plays a JioSaavn song link as is: no search needed', async () => {
+    saavnMock.getSongByLinkToken.mockResolvedValue(track({ id: 'aRZbUYD7', title: 'Tum Hi Ho' }));
+    saavnMock.getTrack.mockResolvedValue(track({ id: 'aRZbUYD7', title: 'Tum Hi Ho' }));
+
+    const res = await shared('https://www.jiosaavn.com/song/tum-hi-ho/EToxUyFpcwQ');
+
+    expect(saavnMock.getSongByLinkToken).toHaveBeenCalledWith('EToxUyFpcwQ');
+    expect(saavnMock.findSongByDuration).not.toHaveBeenCalled();
+    expect(res.body.data).toMatchObject({ kind: 'song', track: { id: 'aRZbUYD7' } });
+  });
+
+  it('refuses links it cannot read, without fetching them', async () => {
+    for (const url of ['https://www.instagram.com/reel/C1abc/', 'https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy', 'http://youtu.be/fcnDmrtj6Sk', 'not a link']) {
+      const res = await shared(url);
+      expect(res.status).toBe(400);
+    }
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
