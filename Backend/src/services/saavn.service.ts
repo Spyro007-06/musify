@@ -510,8 +510,12 @@ export class SaavnService {
    */
   public async getTrackForStream(id: string): Promise<any> {
     try {
-      const songs = await resilientCall(SAAVN_BREAKER.STREAM, () => this.songService.getSongByIds({ songIds: id }));
-      return songs && songs.length > 0 ? this.mapTrack(songs[0]) : null;
+      // Cached: the stream URLs are plain, unsigned CDN paths, and every
+      // listener hitting play shouldn't each cost a JioSaavn round trip.
+      return await withCache(`saavn:stream:${id}`, 21600, async () => {
+        const songs = await resilientCall(SAAVN_BREAKER.STREAM, () => this.songService.getSongByIds({ songIds: id }));
+        return songs && songs.length > 0 ? this.mapTrack(songs[0]) : null;
+      });
     } catch (error) {
       logger.error(`❌ JioSaavn getTrackForStream failed for ID ${id}:`, error);
       throw new SaavnUpstreamError(`JioSaavn streaming is currently unavailable (track ${id}).`, error);

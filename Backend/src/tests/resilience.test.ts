@@ -57,4 +57,12 @@ describe('resilientCall', () => {
 
     expect(invoked).toBe(false);
   });
+
+  it('one failed call does not open the circuit for everyone else', async () => {
+    await resilientCall('dep-single-fail', async () => {
+      throw new Error('one slow request');
+    }, { timeoutMs: 100, retries: 0, retryDelayMs: 1 }).catch(() => {});
+
+    await expect(resilientCall('dep-single-fail', async () => 'next song')).resolves.toBe('next song');
+  });
 });
