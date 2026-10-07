@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ChevronDown, ListMusic, ListPlus, Heart, Disc3, MicVocal } from 'lucide-react';
+import { ChevronDown, ListMusic, ListPlus, Heart, Disc3, MicVocal, Users } from 'lucide-react';
 import { usePlayerStore } from '@/stores/player-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { PlayerProgress } from './player-progress';
@@ -9,6 +9,7 @@ import { PlayerControls } from './player-controls';
 import { PlayerVolume } from './player-volume';
 import { LyricsPanel } from './lyrics-panel';
 import { useUiStore } from '@/stores/ui-store';
+import { shareInvite, startSession, useTogetherStore } from '@/stores/together-store';
 import { useLikeTrack } from '@/hooks/use-music';
 import { DownloadIcon, useDownloadTrack, useIsDownloaded } from '@/hooks/use-download-track';
 import { useFocusTrap } from '@/hooks/use-focus-trap';
@@ -26,6 +27,7 @@ export function ExpandedPlayer() {
   const queueSource = usePlayerStore((s) => s.queueSource);
   const lyricsOpen = useUiStore((s) => s.lyricsOpen);
   const toggleLyrics = useUiStore((s) => s.toggleLyrics);
+  const togetherRole = useTogetherStore((s) => s.role);
 
   const [isLiked, setIsLiked] = React.useState(Boolean(currentTrack?.isLiked));
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = React.useState(false);
@@ -113,6 +115,20 @@ export function ExpandedPlayer() {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Listen Together: start hosting (or invite more friends); a guest is already in someone's session. */}
+          {togetherRole !== 'guest' && (
+            <button
+              type="button"
+              onClick={() => shareInvite(startSession())}
+              aria-label={togetherRole === 'host' ? 'Invite friends to listen together' : 'Listen together'}
+              className={cn(
+                'flex h-11 w-11 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-500',
+                togetherRole === 'host' ? 'text-brand-400 bg-brand-500/10' : 'text-neutral-300 hover:text-white hover:bg-white/10'
+              )}
+            >
+              <Users className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleLyrics}

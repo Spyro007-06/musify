@@ -141,6 +141,19 @@ function saveSession(state: PlayerState, prev: PlayerState) {
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
 
+// Listen Together (stores/together-store): this phone plays what the host
+// plays, so it doesn't move on by itself: no autoplay, no skipping past a
+// song that won't load. A song that ran out here before the host's next one
+// arrived still counts as finished.
+const MAX_FOLLOW_DRIFT = 2; // seconds off the host before seeking to catch up
+let followingHost = false;
+let finishedWhileFollowing = false;
+
+export function setFollowingHost(on: boolean) {
+  followingHost = on;
+  finishedWhileFollowing = false;
+}
+
 // Tracks that wouldn't play in a row, reset by the next one that does. A
 // song that won't play is skipped like radio would, but past a few in a row
 // nothing is going to play (offline?) and skipping on would just spin.
@@ -300,6 +313,8 @@ export interface PlayerState {
   playFrom: (source: string, track: Track, tracks: Track[]) => Promise<void>;
   /** Tap on a row in the queue screen. */
   playFromQueue: (ref: QueueRef) => Promise<void>;
+  /** Listen Together guests: play the host's song at the host's position. */
+  followHost: (state: { track: Track; position: number; playing: boolean; sentAt: number }) => Promise<void>;
   pause: () => void;
   resume: () => void;
   togglePlay: () => void;
@@ -486,7 +501,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       // Repeat-one would just retry this same broken track.
-      if (get().repeat !== 'one' && ++consecutiveFailures <= MAX_SKIPPED_FAILURES) {
+      if (!followingHost && get().repeat !== 'one' && ++consecutiveFailures <= MAX_SKIPPED_FAILURES) {
         get().nextTrack();
       }
     }
@@ -511,6 +526,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const at = currentIndex + 1 + index;
     const track = get().queue[at];
     return track ? get().playTrack(track, undefined, 'skip', { atIndex: at }) : Promise.resolve();
+  },
+
+  followHost: async ({ track, position, playing, sentAt }) => {
+    if (get().currentTrack?.id !== track.id) {
+      await get().playTrack(track, [track], finishedWhileFollowing ? 'completed' : 'skip');
+      finishedWhileFollowing = false;
+      set({ queueSource: 'Listening together' });
+    }
+    const { currentTime, isPlaying, currentTrack } = get();
+    if (!followingHost || currentTrack?.id !== track.id) return; // left meanwhile, or another song came in
+    const target = position + (playing ? (Date.now() - sentAt) / 1000 : 0);
+    if (Math.abs(currentTime - target) > MAX_FOLLOW_DRIFT) get().seek(target);
+    if (playing && !isPlaying) get().resume();
+    else if (!playing && isPlaying) get().pause();
   },
 
   pause: () => {
@@ -553,6 +582,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Sleep timer set to "End of track": stop here instead of moving on.
     if (reason === 'ended' && get().sleepAtTrackEnd) {
       set({ sleepAtTrackEnd: false, isPlaying: false });
+      return;
+    }
+    if (reason === 'ended' && followingHost) {
+      finishedWhileFollowing = true;
       return;
     }
     if (queue.length === 0 && userQueue.length === 0) return;
@@ -721,7 +754,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   maybeTopUpQueue: () => {
-    if (isToppingUpQueue || Date.now() < topUpRetryAt) return;
+    if (followingHost || isToppingUpQueue || Date.now() < topUpRetryAt) return;
     const { queue, currentIndex, repeat, userQueue } = get();
     if (repeat === 'one') return; // stuck replaying one track — nothing to top up
     const remaining = queue.length - currentIndex - 1;
