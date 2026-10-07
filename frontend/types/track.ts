@@ -16,6 +16,8 @@ export interface Track {
   isExplicit?: boolean;
   albumId?: string;
   artists: Artist[];
+  /** Who you hear: the singers, where the catalog says (its artists list often starts with the composer or lyricist). */
+  performers?: Artist[];
   album?: Partial<Album>;
   isLiked?: boolean;
   createdAt?: string;
