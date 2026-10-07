@@ -159,6 +159,8 @@ export function userHourlyLimiter(prefix: string, max: number, message: string) 
 
 export const aiLimiter = userHourlyLimiter('ai', env.AI_RATE_LIMIT_MAX, "You've generated a lot of AI playlists.");
 export const importLimiter = userHourlyLimiter('import', env.IMPORT_RATE_LIMIT_MAX, 'Too many playlist imports.');
+// Lyric translations and lyric searches call Gemini (a shared free quota); cached translations still count, cheaply.
+export const lyricsLimiter = userHourlyLimiter('lyrics', 60, "You've translated and searched a lot of lyrics.");
 
 export const authLimiter = redisEnabled
   ? createUpstashLimiter(

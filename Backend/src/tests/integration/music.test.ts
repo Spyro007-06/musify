@@ -426,3 +426,44 @@ describe('GET /api/music/shared-link', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('lyrics translation and lyric search', () => {
+  const { env } = jest.requireActual('@config/env');
+
+  afterEach(() => {
+    delete env.GEMINI_API_KEY;
+    jest.restoreAllMocks();
+  });
+
+  it('need sign-in: both call Gemini, a shared quota', async () => {
+    expect((await request(app).get('/api/music/tracks/t1/lyrics/translation')).status).toBe(401);
+    expect((await request(app).get('/api/music/lyrics-search').query({ q: 'tum hi ho ab' })).status).toBe(401);
+  });
+
+  it('lyric search: Gemini names the songs, the catalog finds them (artist only steers the search)', async () => {
+    env.GEMINI_API_KEY = 'test-key';
+    const songs = [
+      { title: 'Tum Hi Ho', artist: 'Arijit Singh' },
+      { title: 'Made Up Song', artist: 'Nobody' },
+    ];
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ songs }) }] } }] })));
+    saavnMock.findSongByDuration.mockImplementation(async (_q: string, _d: number, _a: unknown, title: string) =>
+      title === 'Tum Hi Ho' ? track({ id: 'aRZbUYD7', title: 'Tum Hi Ho' }) : null
+    );
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+
+    const res = await request(app).get('/api/music/lyrics-search').query({ q: 'hum tere bin ab reh nahi sakte' }).set('Authorization', authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([expect.objectContaining({ id: 'aRZbUYD7' })]);
+    expect(saavnMock.findSongByDuration).toHaveBeenCalledWith('Tum Hi Ho Arijit Singh', 0, undefined, 'Tum Hi Ho');
+  });
+
+  it('lyric search wants a few words, not one', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+    const res = await request(app).get('/api/music/lyrics-search').query({ q: 'love' }).set('Authorization', authHeader());
+    expect(res.status).toBe(400);
+  });
+});

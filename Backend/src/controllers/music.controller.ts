@@ -91,6 +91,27 @@ export class MusicController {
     }
   }
 
+  /** Each lyric line in Latin letters and in English. */
+  public static async getLyricsTranslation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await LyricsService.getTranslation(req.params.trackId);
+      sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Lyrics translated.', data });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** Songs a remembered line of lyrics is likely from. */
+  public static async findByLyrics(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+      if (q.split(/\s+/).length < 3) throw ApiError.badRequest('Type at least a few words of the song.');
+      sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Songs found.', data: await LyricsService.findByLyrics(q) });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public static async getAlbum(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const optReq = req as OptionalAuthRequest;

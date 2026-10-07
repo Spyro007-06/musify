@@ -150,6 +150,17 @@ export function useLyrics(trackId: string | undefined) {
   });
 }
 
+/** The lyrics' Latin-script and English lines; fetched only when asked for (one AI call per song, then kept). */
+export function useLyricsTranslation(trackId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['music', 'lyrics-translation', trackId],
+    queryFn: async () => (await musicApi.getLyricsTranslation(trackId!)).data?.lines ?? [],
+    enabled: Boolean(trackId) && enabled,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
 export { useAlbum, useAlbums } from './use-album';
 
 export function useLikeTrack() {
