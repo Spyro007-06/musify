@@ -17,10 +17,18 @@ import { userSignalsApi } from '@/lib/api/user-signals';
 import { useAuthStore } from '@/stores/auth-store';
 import { offlineAudioUrl } from '@/stores/offline-store';
 
+// Seconds of the current song actually heard, for listening stats: the
+// position moving forward in small steps while it plays. Logging the
+// position instead counted a skip ahead as listening; jumps (a seek, the
+// reload when quality drops) don't count here, rewinds and replays do.
+const MAX_HEARD_STEP = 5; // position updates come about 4 times a second, also with the screen off
+let heardSeconds = 0;
+let lastPosition = 0;
+
 // Reports how a track was left (naturally finished vs. skipped away from) to
 // the recommendation engine. Fire-and-forget: never let a logging failure
 // affect playback, and don't log for guests (endpoints require auth).
-function logOutgoingTrack(track: Track, currentTime: number, duration: number, completed: boolean) {
+function logOutgoingTrack(track: Track, heard: number, duration: number, completed: boolean) {
   // A guest's 401 here would bounce them to /login mid-song (apiClient's refresh-failed redirect).
   if (typeof window === 'undefined' || !useAuthStore.getState().isAuthenticated) return;
 
@@ -31,18 +39,18 @@ function logOutgoingTrack(track: Track, currentTime: number, duration: number, c
         albumId: track.album?.id,
         artistId: track.artists?.[0]?.id,
         genre: track.genre,
-        sessionDuration: Math.round(currentTime),
+        sessionDuration: Math.round(heard),
         completedSong: true,
         listenPercentage: 100,
       })
       .catch(() => {
         // Best-effort signal; playback is unaffected by failures here.
       });
-  } else if (currentTime > SKIP_LOG_THRESHOLD) {
+  } else if (heard > SKIP_LOG_THRESHOLD) {
     userSignalsApi
       .logSkip({
         trackId: track.id,
-        skipTime: Math.round(currentTime),
+        skipTime: Math.round(heard),
         duration: Math.round(duration) || undefined,
       })
       .catch(() => {
@@ -371,13 +379,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     playedTrackIds.add(track.id);
     if (playOrder[playOrder.length - 1] !== track.id) playOrder.push(track.id);
 
-    const { shuffle, originalQueue, queue, currentTrack, currentTime, duration } = get();
+    const { shuffle, originalQueue, queue, currentTrack, duration } = get();
     const engine = getAudioEngine();
 
     // Report how the outgoing track was left before switching to the new one.
     if (currentTrack && currentTrack.id !== track.id) {
-      logOutgoingTrack(currentTrack, currentTime, duration, transitionReason === 'completed');
+      logOutgoingTrack(currentTrack, heardSeconds, duration, transitionReason === 'completed');
     }
+    heardSeconds = 0;
+    lastPosition = 0;
 
     // 2. Determine queue context
     let nextOriginalQueue = originalQueue;
@@ -548,10 +558,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   nextTrack: async (reason = 'manual') => {
-    const { queue, currentIndex, repeat, playTrack, currentTrack, currentTime, duration, userQueue } = get();
+    const { queue, currentIndex, repeat, playTrack, currentTrack, duration, userQueue } = get();
 
-    // Sleep timer set to "End of track": stop here instead of moving on.
+    // Sleep timer set to "End of track": stop here instead of moving on. The
+    // song did finish, so it's a completed listen.
     if (reason === 'ended' && get().sleepAtTrackEnd) {
+      if (currentTrack) logOutgoingTrack(currentTrack, heardSeconds, duration, true);
+      heardSeconds = 0;
       set({ sleepAtTrackEnd: false, isPlaying: false });
       return;
     }
@@ -561,7 +574,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Replay current track: reset to 0. A natural "ended" here is still a
       // completed listen even though the track itself doesn't change.
       if (reason === 'ended') {
-        logOutgoingTrack(currentTrack, currentTime, duration, true);
+        logOutgoingTrack(currentTrack, heardSeconds, duration, true);
+        heardSeconds = 0;
       }
       const engine = getAudioEngine();
       engine.seek(0);
@@ -624,6 +638,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   seek: (seconds: number) => {
     if (!get().streamUrl) resumeAt = seconds; // restored, not loaded yet: start there on Play
+    lastPosition = seconds; // a jump, not listening
     getAudioEngine().seek(seconds);
     set({ currentTime: seconds });
   },
@@ -789,6 +804,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setQueueOpen: (open: boolean) => set({ isQueueOpen: open }),
 
   setCurrentTime: (time: number) => {
+    const step = time - lastPosition;
+    if (step > 0 && step <= MAX_HEARD_STEP) heardSeconds += step;
+    lastPosition = time;
     set({ currentTime: time });
     const { sleepEndsAt } = get();
     if (sleepEndsAt && Date.now() >= sleepEndsAt) expireSleepTimer();

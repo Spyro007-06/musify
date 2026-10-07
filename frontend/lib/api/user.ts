@@ -24,9 +24,15 @@ export async function updateUserPreferences(
   return apiClient.post<void>('/user/preferences', preferences);
 }
 
-/** month: YYYY-MM; omitted = this month. */
+/**
+ * month: YYYY-MM; omitted = this month. Months start at this device's
+ * midnight (tzOffset: minutes east of UTC), not UTC's: in India a play at
+ * 1 a.m. on the 1st belongs to the new month.
+ */
 export async function getListeningStats(month?: string): Promise<ApiResponse<ListeningStats>> {
-  return apiClient.get<ListeningStats>(`/user/stats${month ? `?month=${month}` : ''}`);
+  const params = new URLSearchParams({ tzOffset: String(-new Date().getTimezoneOffset()) });
+  if (month) params.set('month', month);
+  return apiClient.get<ListeningStats>(`/user/stats?${params}`);
 }
 
 /** The mood checked in on the home screen within the last 3 hours, if any. */

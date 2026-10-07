@@ -45,7 +45,8 @@ export class UserController {
   public static async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const stats = await StatsService.getMonthlyStats(authReq.user.id, req.query.month as string | undefined);
+      const { month, tzOffset } = req.query as { month?: string; tzOffset?: string | number };
+      const stats = await StatsService.getMonthlyStats(authReq.user.id, month, Number(tzOffset) || 0);
       sendSuccess({ res, statusCode: HTTP_STATUS.OK, message: 'Listening stats retrieved successfully.', data: stats });
     } catch (error) {
       next(error);
