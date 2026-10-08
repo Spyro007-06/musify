@@ -20,6 +20,9 @@ const STALLS_BEFORE_DOWNGRADE = 2;
 /** JioSaavn serves each song at several bitrates under the same path: …_320.mp4, …_160.mp4, …_96.mp4. */
 const BITRATES = [320, 160, 96];
 
+/** The listener's choice in Settings: the most a song streams at, or 'auto' (see networkStep). */
+export type StreamQuality = 'auto' | 320 | 160 | 96;
+
 export function atBitrate(src: string, kbps: number): string {
   return src.replace(/_(320|160|96)\.mp4(?=$|\?)/, `_${kbps}.mp4`);
 }
@@ -72,6 +75,7 @@ export class AudioEngine {
    * get stuck low.
    */
   private bitrateStep = 0;
+  private quality: StreamQuality = 'auto';
   private stallsThisSong = 0;
   private stallStartedAt = 0;
 
@@ -195,8 +199,27 @@ export class AudioEngine {
     this.preloadedSrc = src;
   }
 
+  /** Applies from the next song. A new choice also starts over from it after stall step-downs. */
+  public setQuality(quality: StreamQuality) {
+    if (quality === this.quality) return;
+    this.quality = quality;
+    this.bitrateStep = 0;
+    const standby = this.standby;
+    if (this.preloadedSrc && standby) {
+      // The next song is already buffering at the old quality.
+      standby.removeAttribute('src');
+      standby.load();
+      this.preloadedSrc = '';
+    }
+  }
+
+  /** Steps below 320: the chosen quality (on Auto, the connection's), or lower after stalls. */
+  private step(): number {
+    return Math.max(this.bitrateStep, this.quality === 'auto' ? networkStep() : BITRATES.indexOf(this.quality));
+  }
+
   private sourceFor(src: string): string {
-    const step = Math.max(this.bitrateStep, networkStep());
+    const step = this.step();
     return step > 0 ? atBitrate(src, BITRATES[step]) : src;
   }
 
@@ -212,7 +235,7 @@ export class AudioEngine {
 
   /** Too many stalls: carry on from the same spot in the next lighter file, and stay on it. */
   private downgrade(el: HTMLAudioElement) {
-    const step = Math.max(this.bitrateStep, networkStep()) + 1;
+    const step = this.step() + 1;
     this.stallsThisSong = 0; // two more stalls for the next step down
     if (step >= BITRATES.length) return;
     this.bitrateStep = step;
@@ -385,4 +408,31 @@ export function getAudioEngine(events?: AudioEngineEvents): AudioEngine {
     globalAudioEngine.updateEvents(events);
   }
   return globalAudioEngine;
+}
+
+/** Self-check: `node --experimental-strip-types lib/audio/audio-engine.ts` */
+// (Browsers get a stub `process` without argv, hence the ?. guards.)
+if (typeof process !== 'undefined' && process.argv?.[1]?.endsWith('audio-engine.ts')) {
+  const engine = new AudioEngine();
+  const song = 'https://aac.saavncdn.com/1/abc_320.mp4';
+  const kbps = () => Number(engine['sourceFor'](song).match(/_(\d+)\.mp4$/)?.[1]);
+  const stall = () =>
+    engine['downgrade']({ src: engine['sourceFor'](song), currentTime: 0, play: async () => {} } as unknown as HTMLAudioElement);
+  const check = (ok: boolean, what: string) => {
+    if (!ok) throw new Error(`audio-engine self-check failed: ${what}`);
+  };
+
+  check(kbps() === 320, 'auto, good connection: 320');
+  Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true });
+  check(kbps() === 160, 'auto with Data Saver on: 160');
+  engine.setQuality(320);
+  check(kbps() === 320, 'a chosen 320 ignores Data Saver');
+  engine.setQuality(96);
+  check(kbps() === 96, 'data saver: 96');
+  engine.setQuality(160);
+  stall();
+  check(kbps() === 96, 'stalls step down below the choice');
+  engine.setQuality(320);
+  check(kbps() === 320, 'a new choice starts over');
+  console.log('audio-engine self-check passed');
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Track } from '@/types/track';
+import type { StreamQuality } from '@/lib/audio/audio-engine';
 import {
   AUTO_QUEUE_REFILL_THRESHOLD,
   AUTO_QUEUE_RETRY_MS,
@@ -117,6 +118,16 @@ function getSavedCrossfade(): number {
     return Number.isFinite(val) ? Math.max(0, Math.min(MAX_CROSSFADE_SECONDS, Math.round(val))) : 0;
   } catch {
     return 0;
+  }
+}
+
+function getSavedQuality(): StreamQuality {
+  if (typeof window === 'undefined') return 'auto';
+  try {
+    const val = Number(localStorage.getItem('musify_quality'));
+    return val === 320 || val === 160 || val === 96 ? val : 'auto';
+  } catch {
+    return 'auto';
   }
 }
 
@@ -309,6 +320,8 @@ export interface PlayerState {
   isMuted: boolean;
   shuffle: boolean;
   repeat: RepeatMode;
+  /** The most songs stream at; 'auto' follows the connection. */
+  streamQuality: StreamQuality;
   /** Seconds the end of a song overlaps the next one; 0 = off. */
   crossfadeSeconds: number;
   /** The DJ introduces songs that start by themselves (lib/player/dj). */
@@ -347,6 +360,7 @@ export interface PlayerState {
   /** Shuffle the upcoming context again (shown while shuffle is on). */
   reshuffle: () => void;
   cycleRepeat: () => void;
+  setStreamQuality: (quality: StreamQuality) => void;
   setCrossfade: (seconds: number) => void;
   setDjEnabled: (on: boolean) => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
@@ -395,6 +409,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isMuted: false,
   shuffle: false,
   repeat: 'off',
+  streamQuality: 'auto',
   crossfadeSeconds: 0,
   djEnabled: false,
   error: null,
@@ -767,6 +782,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setStreamQuality: (quality: StreamQuality) => {
+    set({ streamQuality: quality });
+    getAudioEngine().setQuality(quality);
+    try {
+      localStorage.setItem('musify_quality', String(quality));
+    } catch {
+      // Ignore
+    }
+  },
+
   setCrossfade: (seconds: number) => {
     const clamped = Math.max(0, Math.min(MAX_CROSSFADE_SECONDS, Math.round(seconds)));
     set({ crossfadeSeconds: clamped });
@@ -879,7 +904,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setError: (error: string | null) => set({ error }),
 
   hydratePreferences: () => {
+    const streamQuality = getSavedQuality();
+    getAudioEngine().setQuality(streamQuality);
     set({
+      streamQuality,
       volume: getSavedVolume(),
       isMuted: getSavedMuted(),
       shuffle: getSavedShuffle(),
