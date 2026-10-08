@@ -4,14 +4,28 @@ import * as React from 'react';
 import { Volume2, Radio, Check, Info, Blend } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/player-store';
-import { getAudioEngine } from '@/lib/audio/audio-engine';
+import { getAudioEngine, type StreamQuality } from '@/lib/audio/audio-engine';
 import { MAX_CROSSFADE_SECONDS } from '@/lib/player/player-constants';
+
+// Data per hour measured on real songs (the files run a little above their nominal bitrate).
+const QUALITIES: { value: StreamQuality; label: string; about: string }[] = [
+  {
+    value: 'auto',
+    label: 'Auto',
+    about: "320 kbps, or less when the phone asks: 160 with Android's Data Saver on or on 3G, 96 on 2G.",
+  },
+  { value: 320, label: '320', about: '320 kbps, the best quality: about 150 MB an hour.' },
+  { value: 160, label: '160', about: '160 kbps: about 75 MB an hour, half the data of 320.' },
+  { value: 96, label: '96', about: '96 kbps, the data saver: about 45 MB an hour.' },
+];
 
 interface PlaybackSettingsInfoProps {
   className?: string;
 }
 
 export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
+  const quality = usePlayerStore((s) => s.streamQuality);
+  const setQuality = usePlayerStore((s) => s.setStreamQuality);
   const crossfade = usePlayerStore((s) => s.crossfadeSeconds);
   const setCrossfade = usePlayerStore((s) => s.setCrossfade);
   // Checked after mount: it depends on the browser (iOS doesn't let pages set volume).
@@ -37,18 +51,32 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Streaming Bitrate Card */}
-        <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-white">Streaming Bitrate</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-500/10 px-2.5 py-0.5 text-[11px] font-bold text-brand-400 border border-brand-500/20">
-              <Check className="h-3 w-3" />
-              Up to 320 kbps
-            </span>
+        {/* Streaming quality (data saver) */}
+        <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-3">
+          <span id="stream-quality" className="block text-xs font-semibold text-white">
+            Streaming Quality
+          </span>
+          <div role="radiogroup" aria-labelledby="stream-quality" className="grid grid-cols-4 gap-1">
+            {QUALITIES.map((q) => (
+              <label key={q.value} className="cursor-pointer">
+                <input
+                  type="radio"
+                  name="stream-quality"
+                  className="peer sr-only"
+                  checked={quality === q.value}
+                  onChange={() => setQuality(q.value)}
+                  aria-label={q.value === 'auto' ? 'Auto' : `${q.value} kbps`}
+                />
+                <span className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-semibold bg-white/[0.07] text-white transition-colors hover:bg-white/[0.12] peer-checked:bg-brand-500 peer-checked:text-black peer-focus-visible:ring-2 peer-focus-visible:ring-brand-400">
+                  {quality === q.value && <Check className="h-3 w-3" aria-hidden="true" />}
+                  {q.label}
+                </span>
+              </label>
+            ))}
           </div>
           <p className="text-xs text-neutral-400 leading-relaxed">
-            Songs play at 320 kbps. If your connection keeps stalling, playback switches to 160 kbps so the music
-            doesn&apos;t stutter, until you reload the app.
+            {QUALITIES.find((q) => q.value === quality)?.about} A song that keeps stalling steps down a level so it
+            doesn&apos;t stutter. Changes apply from the next song.
           </p>
         </div>
 
