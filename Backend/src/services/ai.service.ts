@@ -169,8 +169,9 @@ const CURATED_PLAYLIST_SCHEMA = {
  * Asks Gemini for real songs that fit the prompt and finds each on JioSaavn,
  * keeping Gemini's order. Only about 40% of its picks are on JioSaavn, so
  * while fewer than 30 are found it asks again for three times the shortfall,
- * leaving out every song already tried — until 30 are found or the time
- * budget is spent; JioSaavn's suggestions fill whatever is still missing.
+ * leaving out every song already tried — until 30 are found, the time
+ * budget is spent or Gemini stops answering; JioSaavn's suggestions fill
+ * whatever is still missing.
  * Null when Gemini isn't set up or didn't answer at first.
  */
 async function curateWithGemini(prompt: string, languages: string[]): Promise<{ title: string; tracks: any[] } | null> {
@@ -212,8 +213,10 @@ async function curateWithGemini(prompt: string, languages: string[]): Promise<{ 
     try {
       reply = JSON.parse(text ?? '');
     } catch {
-      if (round === 1) return null; // Gemini isn't answering: the keyword parser takes over
-      continue; // a later round failed: try again until the deadline
+      // Gemini isn't answering, already retried in askGeminiJson; usually the quota every
+      // user shares is spent, so asking again until the deadline would only pile on.
+      if (round === 1) return null; // the keyword parser takes over
+      break; // JioSaavn's suggestions fill what's missing
     }
     const songs: SourceTrack[] = [];
     for (const s of Array.isArray(reply?.songs) ? reply.songs : []) {
