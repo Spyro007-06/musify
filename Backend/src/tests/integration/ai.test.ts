@@ -224,6 +224,41 @@ describe('POST /api/ai/playlist/generate', () => {
     expect(saavnMock.getSongSuggestions).toHaveBeenCalledTimes(3);
   });
 
+  it('with Gemini out of quota after the first round: stops asking and fills up from JioSaavn', async () => {
+    const songs = Array.from({ length: 12 }, (_, i) => ({ title: `Song ${i}`, artist: 'Artist' }));
+    let calls = 0;
+    jest.spyOn(global, 'fetch').mockImplementation(async () => {
+      // The quota (shared by every user) runs out right after the first answer.
+      if (calls++ > 0) return new Response('{"error":{"code":429}}', { status: 429 });
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ title: 'Ghats', songs }) }] } }] }));
+    });
+    saavnMock.findSongByDuration.mockImplementation((_q: string, _d: number, _a: string, title: string) =>
+      Promise.resolve({ id: `id-${title}`, title, duration: 200, genre: 'tamil' })
+    );
+    saavnMock.getSongSuggestions.mockImplementation((id: string) =>
+      Promise.resolve(Array.from({ length: 10 }, (_, i) => ({ id: `${id}-s${i}`, title: `${id} s${i}`, duration: 200, genre: 'tamil' })))
+    );
+    prismaMock.playlist.create.mockResolvedValue({ id: 'playlist-5', title: 'Ghats', tracks: [] } as any);
+    const { agent, csrfToken } = await authedAgent();
+
+    env.GEMINI_API_KEY = 'test-key';
+    let res;
+    try {
+      res = await agent
+        .post('/api/ai/playlist/generate')
+        .set('x-csrf-token', csrfToken)
+        .set('Authorization', authHeader())
+        .send({ prompt: 'music for a train journey' });
+    } finally {
+      env.GEMINI_API_KEY = '';
+    }
+
+    expect(res.status).toBe(201);
+    expect((prismaMock.playlist.create.mock.calls[0][0] as any).data.tracks.create).toHaveLength(30);
+    // The first answer, then one round that failed (each model twice), not round after round until the time budget ends.
+    expect(calls).toBe(1 + 4);
+  });
+
   it('artist-similarity prompt: resolves the named artist and routes into ArtistService top-tracks/related-artists', async () => {
     saavnMock.search.mockResolvedValue({
       artists: [{ id: 'artist-1', name: 'Test Artist', image: 'https://example.com/art.jpg' }],
