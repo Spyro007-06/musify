@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { QueryProvider } from './query-provider';
 import { useAudio } from '@/hooks/use-audio';
 import { useAuthStore } from '@/stores/auth-store';
@@ -25,13 +26,20 @@ function AudioEngineManager() {
 }
 
 function ServiceWorkerRegistrar() {
+  const router = useRouter();
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // Offline shell is a nice-to-have; a failed registration shouldn't affect the app.
-      });
-    }
-  }, []);
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Offline shell is a nice-to-have; a failed registration shouldn't affect the app.
+    });
+    // A tapped release alert (public/sw.js): open it in place, so the music keeps playing.
+    const onMessage = (event: MessageEvent) => {
+      const path = event.data?.type === 'open' ? event.data.path : null;
+      if (typeof path === 'string' && /^\/(?!\/)/.test(path)) router.push(path);
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [router]);
   return null;
 }
 

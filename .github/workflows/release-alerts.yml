@@ -1,0 +1,26 @@
+name: New-release alerts
+
+# Asks the backend to check followed artists for new songs and notify their
+# fans (Backend/src/services/releaseAlerts.service.ts). Only songs that
+# appeared since the last check are sent, so a late or repeated run is harmless.
+on:
+  schedule:
+    - cron: '17 */6 * * *' # every 6 hours; GitHub often starts these late
+  workflow_dispatch:
+
+concurrency:
+  group: release-alerts
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Run the release check
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        # The free backend sleeps when idle; the retries cover the minute it takes to wake.
+        run: |
+          curl -fsS --retry 5 --retry-delay 30 --retry-all-errors --max-time 900 \
+            -X POST -H "x-cron-secret: $CRON_SECRET" \
+            https://musify-api-m2dw.onrender.com/api/internal/release-alerts

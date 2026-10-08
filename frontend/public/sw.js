@@ -49,3 +49,36 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/home')))
   );
 });
+
+// New-release alerts, sent by the backend (Backend/src/services/releaseAlerts.service.ts).
+self.addEventListener('push', (event) => {
+  let alert = {};
+  try {
+    alert = event.data ? event.data.json() : {};
+  } catch {
+    // Not ours: show nothing special.
+  }
+  event.waitUntil(
+    self.registration.showNotification(alert.title || 'Musify', {
+      body: alert.body,
+      icon: alert.image || '/icons/icon-192.png',
+      tag: alert.tag,
+      data: { url: alert.url },
+    })
+  );
+});
+
+// Opens the release in the window already open, so the music keeps playing; else opens the app.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || '/home', self.location.origin);
+  if (url.origin !== self.location.origin) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows[0];
+      if (!open) return self.clients.openWindow(url.href);
+      open.postMessage({ type: 'open', path: url.pathname + url.search });
+      return open.focus();
+    })
+  );
+});

@@ -24,3 +24,7 @@ process.env.UPSTASH_REDIS_REST_URL = '';
 process.env.UPSTASH_REDIS_REST_TOKEN = '';
 // Same for Gemini: tests that need it mock fetch and set env.GEMINI_API_KEY themselves.
 process.env.GEMINI_API_KEY = '';
+// And release alerts: tests that need keys set them on env themselves.
+process.env.VAPID_PUBLIC_KEY = '';
+process.env.VAPID_PRIVATE_KEY = '';
+process.env.CRON_SECRET = '';

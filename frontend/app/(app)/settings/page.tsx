@@ -14,6 +14,7 @@ import { EditProfileForm } from '@/components/user/edit-profile-form';
 import { PreferencesForm } from '@/components/user/preferences-form';
 import { AccountDetails } from '@/components/user/account-details';
 import { PlaybackSettingsInfo } from '@/components/user/playback-settings-info';
+import { ReleaseAlertsSetting } from '@/components/user/release-alerts-setting';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
 import { cn } from '@/lib/utils/cn';
@@ -117,7 +118,12 @@ function SettingsContent() {
 
         {/* Tab Content Panel */}
         <main className="md:col-span-8 lg:col-span-9">
-          {activeTab === 'preferences' && <PreferencesForm />}
+          {activeTab === 'preferences' && (
+            <div className="space-y-6">
+              <PreferencesForm />
+              <ReleaseAlertsSetting />
+            </div>
+          )}
           {activeTab === 'profile' && <EditProfileForm user={displayUser} />}
           {activeTab === 'account' && <AccountDetails user={displayUser} />}
           {activeTab === 'playback' && <PlaybackSettingsInfo />}
