@@ -375,6 +375,41 @@ describe('SaavnService', () => {
       await expect(saavn.getRecommendationsByGenres(['pop'], 10)).rejects.toBeInstanceOf(SaavnUpstreamError);
     });
 
+    it("credits a track's singers as its performers, not the composer listed first", async () => {
+      mockGetSongByIds.mockResolvedValue([
+        rawSong({
+          artists: {
+            primary: [{ id: 'mithoon', name: 'Mithoon' }, { id: 'arijit', name: 'Arijit Singh' }],
+            all: [
+              { id: 'mithoon', name: 'Mithoon', role: 'music' },
+              { id: 'arijit', name: 'Arijit Singh', role: 'singer' },
+              { id: 'mithoon', name: 'Mithoon', role: 'lyricist' },
+              { id: 'aditya', name: 'Aditya Roy Kapur', role: 'starring' },
+            ],
+          },
+        }),
+      ]);
+      const track = await saavn.getTrack('s1');
+      expect(track.artists.map((a: any) => a.name)).toEqual(['Mithoon', 'Arijit Singh']); // display unchanged
+      expect(track.performers).toEqual([{ id: 'arijit', name: 'Arijit Singh' }]);
+    });
+
+    it('with no singers listed, credits the primary artists minus lyric-only credits', async () => {
+      mockGetSongByIds.mockResolvedValue([
+        rawSong({
+          artists: {
+            primary: [{ id: 'pavijay', name: 'Pa. Vijay' }, { id: 'sai', name: 'Sai Abhyankkar' }, { id: 'vm', name: 'V.M. Mahalingam' }],
+            all: [
+              { id: 'sai', name: 'Sai Abhyankkar', role: 'music' },
+              { id: 'pavijay', name: 'Pa. Vijay', role: 'lyricist' },
+            ],
+          },
+        }),
+      ]);
+      const track = await saavn.getTrack('s1');
+      expect(track.performers.map((a: any) => a.name)).toEqual(['Sai Abhyankkar', 'V.M. Mahalingam']);
+    });
+
     it('getTrack returns null for a genuinely missing track (not an error)', async () => {
       mockGetSongByIds.mockResolvedValue([]);
       expect(await saavn.getTrack('missing')).toBeNull();

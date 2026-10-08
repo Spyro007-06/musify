@@ -1,6 +1,6 @@
 import '../tests/setup/saavnMock';
 import { saavnMock } from './setup/saavnMock';
-import { LyricsService, parseLrc } from '@services/lyrics.service';
+import { LyricsService, parseLrc, translateLines } from '@services/lyrics.service';
 import { clearMemoryCache } from '@utils/cache';
 
 const track = { id: 't1', title: 'Song - From "Film"', duration: 200, artists: [{ name: 'Composer' }, { name: 'Singer' }], hasLyrics: true };
@@ -68,5 +68,45 @@ describe('LyricsService.getLyrics', () => {
   it('404s for an unknown track', async () => {
     saavnMock.getTrack.mockResolvedValue(null);
     await expect(LyricsService.getLyrics('nope')).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('translateLines', () => {
+  const { env } = jest.requireActual('@config/env');
+  const gemini = (lines: object[]) =>
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ lines }) }] } }] })));
+
+  beforeEach(() => {
+    env.GEMINI_API_KEY = 'test-key';
+  });
+  afterEach(() => {
+    delete env.GEMINI_API_KEY;
+    jest.restoreAllMocks();
+  });
+
+  it('matches each answer to its line by number, so a skipped line shifts nothing', async () => {
+    const fetchSpy = gemini([
+      { n: 4, latin: 'tum hi ho', meaning: 'only you' }, // out of order
+      { n: 1, latin: 'hum tere bin', meaning: 'without you' },
+      // line 2 left out by the model
+    ]);
+
+    const out = await translateLines('the song "Tum Hi Ho"', ['हम तेरे बिन', 'अब रह नहीं सकते', '', 'तुम ही हो']);
+
+    expect(out).toEqual([
+      { latin: 'hum tere bin', meaning: 'without you' },
+      { latin: '', meaning: '' }, // skipped: blank, not the next line's meaning
+      { latin: '', meaning: '' }, // an empty line isn't sent at all
+      { latin: 'tum hi ho', meaning: 'only you' },
+    ]);
+    const sent = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string).contents[0].parts[0].text;
+    expect(sent).toContain('[{"n":1,"text":"हम तेरे बिन"},{"n":2,"text":"अब रह नहीं सकते"},{"n":4,"text":"तुम ही हो"}]');
+  });
+
+  it('answers 503 "busy" when Gemini is overloaded, so the app can offer a retry', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(async () => new Response('{"error":{"code":503}}', { status: 503 }));
+    await expect(translateLines('a song', ['line'])).rejects.toMatchObject({ statusCode: 503 });
   });
 });

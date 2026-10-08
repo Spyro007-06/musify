@@ -127,6 +127,20 @@ export class SaavnService {
       trackArtists = [{ id: 'unknown-artist', name: 'Unknown Artist' }];
     }
 
+    // Who you hear, for crediting listening stats: JioSaavn's "primary"
+    // list mixes in composers and lyricists, often first ("Mithoon, Arijit
+    // Singh" for Tum Hi Ho). The singers when it lists them, otherwise the
+    // primary artists minus lyric-only credits.
+    const roles = new Map<string, Set<string>>();
+    for (const a of item.artists?.all ?? []) roles.set(a.id, (roles.get(a.id) ?? new Set()).add(a.role));
+    const singers = [...roles].filter(([, r]) => r.has('singer')).map(([id]) => id);
+    const lyricOnly = (id: string) => roles.get(id)?.has('lyricist') && !roles.get(id)?.has('music');
+    const performerIds = singers.length > 0 ? singers : trackArtists.filter((a) => !lyricOnly(a.id)).map((a) => a.id);
+    const names = new Map<string, string>((item.artists?.all ?? []).map((a: any) => [a.id, unescapeHtml(a.name)]));
+    const performers = performerIds.length > 0
+      ? performerIds.map((id) => ({ id, name: names.get(id) ?? trackArtists.find((a) => a.id === id)?.name ?? '' }))
+      : trackArtists;
+
     return {
       id: item.id,
       title: unescapeHtml(item.name || item.title),
@@ -134,6 +148,7 @@ export class SaavnService {
       artwork,
       audioUrl,
       artists: trackArtists,
+      performers,
       album: item.album ? {
         id: item.album.id,
         title: unescapeHtml(item.album.name || item.album.title || ''),

@@ -12,15 +12,24 @@ import {
 } from '@/lib/player/player-constants';
 import { shuffleArray } from '@/lib/player/player-utils';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
+import { hush, introduce } from '@/lib/player/dj';
 import { musicApi } from '@/lib/api/music';
 import { userSignalsApi } from '@/lib/api/user-signals';
 import { useAuthStore } from '@/stores/auth-store';
 import { offlineAudioUrl } from '@/stores/offline-store';
 
+// Seconds of the current song actually heard, for listening stats: the
+// position moving forward in small steps while it plays. Logging the
+// position instead counted a skip ahead as listening; jumps (a seek, the
+// reload when quality drops) don't count here, rewinds and replays do.
+const MAX_HEARD_STEP = 5; // position updates come about 4 times a second, also with the screen off
+let heardSeconds = 0;
+let lastPosition = 0;
+
 // Reports how a track was left (naturally finished vs. skipped away from) to
 // the recommendation engine. Fire-and-forget: never let a logging failure
 // affect playback, and don't log for guests (endpoints require auth).
-function logOutgoingTrack(track: Track, currentTime: number, duration: number, completed: boolean) {
+function logOutgoingTrack(track: Track, heard: number, duration: number, completed: boolean) {
   // A guest's 401 here would bounce them to /login mid-song (apiClient's refresh-failed redirect).
   if (typeof window === 'undefined' || !useAuthStore.getState().isAuthenticated) return;
 
@@ -31,18 +40,18 @@ function logOutgoingTrack(track: Track, currentTime: number, duration: number, c
         albumId: track.album?.id,
         artistId: track.artists?.[0]?.id,
         genre: track.genre,
-        sessionDuration: Math.round(currentTime),
+        sessionDuration: Math.round(heard),
         completedSong: true,
         listenPercentage: 100,
       })
       .catch(() => {
         // Best-effort signal; playback is unaffected by failures here.
       });
-  } else if (currentTime > SKIP_LOG_THRESHOLD) {
+  } else if (heard > SKIP_LOG_THRESHOLD) {
     userSignalsApi
       .logSkip({
         trackId: track.id,
-        skipTime: Math.round(currentTime),
+        skipTime: Math.round(heard),
         duration: Math.round(duration) || undefined,
       })
       .catch(() => {
@@ -89,6 +98,15 @@ function getSavedRepeat(): RepeatMode {
     return val === 'all' || val === 'one' ? val : 'off';
   } catch {
     return 'off';
+  }
+}
+
+function getSavedDj(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('musify_dj') === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -140,6 +158,19 @@ function saveSession(state: PlayerState, prev: PlayerState) {
 
 // Module-level playback generation counter to prevent race conditions
 let activePlaybackGeneration = 0;
+
+// Listen Together (stores/together-store): this phone plays what the host
+// plays, so it doesn't move on by itself: no autoplay, no skipping past a
+// song that won't load. A song that ran out here before the host's next one
+// arrived still counts as finished.
+const MAX_FOLLOW_DRIFT = 2; // seconds off the host before seeking to catch up
+let followingHost = false;
+let finishedWhileFollowing = false;
+
+export function setFollowingHost(on: boolean) {
+  followingHost = on;
+  finishedWhileFollowing = false;
+}
 
 // Tracks that wouldn't play in a row, reset by the next one that does. A
 // song that won't play is skipped like radio would, but past a few in a row
@@ -280,6 +311,8 @@ export interface PlayerState {
   repeat: RepeatMode;
   /** Seconds the end of a song overlaps the next one; 0 = off. */
   crossfadeSeconds: number;
+  /** The DJ introduces songs that start by themselves (lib/player/dj). */
+  djEnabled: boolean;
   error: string | null;
   isExpanded: boolean;
   isQueueOpen: boolean;
@@ -300,6 +333,8 @@ export interface PlayerState {
   playFrom: (source: string, track: Track, tracks: Track[]) => Promise<void>;
   /** Tap on a row in the queue screen. */
   playFromQueue: (ref: QueueRef) => Promise<void>;
+  /** Listen Together guests: play the host's song at the host's position. */
+  followHost: (state: { track: Track; position: number; playing: boolean; sentAt: number }) => Promise<void>;
   pause: () => void;
   resume: () => void;
   togglePlay: () => void;
@@ -313,6 +348,7 @@ export interface PlayerState {
   reshuffle: () => void;
   cycleRepeat: () => void;
   setCrossfade: (seconds: number) => void;
+  setDjEnabled: (on: boolean) => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
   maybeTopUpQueue: () => void;
   /** Appends to the Queued list; plays it right away if nothing is loaded yet. */
@@ -360,6 +396,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffle: false,
   repeat: 'off',
   crossfadeSeconds: 0,
+  djEnabled: false,
   error: null,
   isExpanded: false,
   isQueueOpen: false,
@@ -367,17 +404,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip', opts = {}) => {
     // 1. Race-condition protection: increment generation counter
     const requestGen = ++activePlaybackGeneration;
+    hush(); // an intro still talking is about the song being left
 
     playedTrackIds.add(track.id);
     if (playOrder[playOrder.length - 1] !== track.id) playOrder.push(track.id);
 
-    const { shuffle, originalQueue, queue, currentTrack, currentTime, duration } = get();
+    const { shuffle, originalQueue, queue, currentTrack, duration } = get();
     const engine = getAudioEngine();
 
     // Report how the outgoing track was left before switching to the new one.
     if (currentTrack && currentTrack.id !== track.id) {
-      logOutgoingTrack(currentTrack, currentTime, duration, transitionReason === 'completed');
+      logOutgoingTrack(currentTrack, heardSeconds, duration, transitionReason === 'completed');
     }
+    heardSeconds = 0;
+    lastPosition = 0;
 
     // 2. Determine queue context
     let nextOriginalQueue = originalQueue;
@@ -471,6 +511,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isPlaying: played,
         error: null,
       });
+      // The DJ only introduces songs that came on by themselves, never one the listener just picked.
+      if (played && transitionReason === 'completed' && get().djEnabled && !get().isMuted) {
+        introduce(track, (volume) => engine.setVolume(volume), () => get().volume);
+      }
       // Queue top-up and warming the next stream URL are both handled by the
       // subscription at the bottom of this file.
     } catch (err: unknown) {
@@ -486,7 +530,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       // Repeat-one would just retry this same broken track.
-      if (get().repeat !== 'one' && ++consecutiveFailures <= MAX_SKIPPED_FAILURES) {
+      if (!followingHost && get().repeat !== 'one' && ++consecutiveFailures <= MAX_SKIPPED_FAILURES) {
         get().nextTrack();
       }
     }
@@ -513,7 +557,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     return track ? get().playTrack(track, undefined, 'skip', { atIndex: at }) : Promise.resolve();
   },
 
+  followHost: async ({ track, position, playing, sentAt }) => {
+    if (get().currentTrack?.id !== track.id) {
+      await get().playTrack(track, [track], finishedWhileFollowing ? 'completed' : 'skip');
+      finishedWhileFollowing = false;
+      set({ queueSource: 'Listening together' });
+    }
+    const { currentTime, isPlaying, currentTrack } = get();
+    if (!followingHost || currentTrack?.id !== track.id) return; // left meanwhile, or another song came in
+    const target = position + (playing ? (Date.now() - sentAt) / 1000 : 0);
+    if (Math.abs(currentTime - target) > MAX_FOLLOW_DRIFT) get().seek(target);
+    if (playing && !isPlaying) get().resume();
+    else if (!playing && isPlaying) get().pause();
+  },
+
   pause: () => {
+    hush();
     getAudioEngine().pause();
     set({ isPlaying: false });
   },
@@ -548,11 +607,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   nextTrack: async (reason = 'manual') => {
-    const { queue, currentIndex, repeat, playTrack, currentTrack, currentTime, duration, userQueue } = get();
+    const { queue, currentIndex, repeat, playTrack, currentTrack, duration, userQueue } = get();
 
-    // Sleep timer set to "End of track": stop here instead of moving on.
+    // Sleep timer set to "End of track": stop here instead of moving on. The
+    // song did finish, so it's a completed listen.
     if (reason === 'ended' && get().sleepAtTrackEnd) {
+      if (currentTrack) logOutgoingTrack(currentTrack, heardSeconds, duration, true);
+      heardSeconds = 0;
       set({ sleepAtTrackEnd: false, isPlaying: false });
+      return;
+    }
+    if (reason === 'ended' && followingHost) {
+      finishedWhileFollowing = true;
       return;
     }
     if (queue.length === 0 && userQueue.length === 0) return;
@@ -561,7 +627,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Replay current track: reset to 0. A natural "ended" here is still a
       // completed listen even though the track itself doesn't change.
       if (reason === 'ended') {
-        logOutgoingTrack(currentTrack, currentTime, duration, true);
+        logOutgoingTrack(currentTrack, heardSeconds, duration, true);
+        heardSeconds = 0;
       }
       const engine = getAudioEngine();
       engine.seek(0);
@@ -624,6 +691,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   seek: (seconds: number) => {
     if (!get().streamUrl) resumeAt = seconds; // restored, not loaded yet: start there on Play
+    lastPosition = seconds; // a jump, not listening
     getAudioEngine().seek(seconds);
     set({ currentTime: seconds });
   },
@@ -709,6 +777,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setDjEnabled: (on: boolean) => {
+    set({ djEnabled: on });
+    try {
+      localStorage.setItem('musify_dj', String(on));
+    } catch {
+      // Ignore
+    }
+  },
+
   setQueue: (newQueue: Track[], startIndex = 0) => {
     const track = newQueue[startIndex] || null;
     set({
@@ -721,7 +798,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   maybeTopUpQueue: () => {
-    if (isToppingUpQueue || Date.now() < topUpRetryAt) return;
+    if (followingHost || isToppingUpQueue || Date.now() < topUpRetryAt) return;
     const { queue, currentIndex, repeat, userQueue } = get();
     if (repeat === 'one') return; // stuck replaying one track — nothing to top up
     const remaining = queue.length - currentIndex - 1;
@@ -789,6 +866,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setQueueOpen: (open: boolean) => set({ isQueueOpen: open }),
 
   setCurrentTime: (time: number) => {
+    const step = time - lastPosition;
+    if (step > 0 && step <= MAX_HEARD_STEP) heardSeconds += step;
+    lastPosition = time;
     set({ currentTime: time });
     const { sleepEndsAt } = get();
     if (sleepEndsAt && Date.now() >= sleepEndsAt) expireSleepTimer();
@@ -805,6 +885,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       shuffle: getSavedShuffle(),
       repeat: getSavedRepeat(),
       crossfadeSeconds: getSavedCrossfade(),
+      djEnabled: getSavedDj(),
       ...(get().currentTrack ? {} : getSavedSession()),
     });
   },
