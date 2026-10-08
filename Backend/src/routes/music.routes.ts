@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { MusicController } from '@controllers/music.controller';
 import { authenticate, optionalAuthenticate } from '@middlewares/auth';
+import { lyricsLimiter } from '@middlewares/rateLimiter';
 
 const router = Router();
 
@@ -278,6 +279,42 @@ router.get('/tracks/:trackId/stream', optionalAuthenticate, MusicController.getS
  *         description: OK
  */
 router.get('/tracks/:trackId/lyrics', MusicController.getLyrics);
+
+/**
+ * @swagger
+ * /music/tracks/{trackId}/lyrics/translation:
+ *   get:
+ *     summary: "Each lyric line in Latin letters and in English: { lines: [{ latin, meaning }] }, aligned with the lyrics' lines. Made once per song and kept."
+ *     tags: [Music]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OK
+ *       503:
+ *         description: The translator (Gemini) is busy; try again in a minute
+ */
+router.get('/tracks/:trackId/lyrics/translation', authenticate, lyricsLimiter, MusicController.getLyricsTranslation);
+
+/**
+ * @swagger
+ * /music/lyrics-search:
+ *   get:
+ *     summary: Songs a remembered line of lyrics is likely from (q, at least 3 words)
+ *     tags: [Music]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - name: q
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get('/lyrics-search', authenticate, lyricsLimiter, MusicController.findByLyrics);
 
 /**
  * @swagger

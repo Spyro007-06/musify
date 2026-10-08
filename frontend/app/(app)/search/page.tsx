@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { LyricSearch } from '@/components/search/lyric-search';
 import { Compass, Music2, X } from 'lucide-react';
 import { SearchInput } from '@/components/search/search-input';
 import { SearchResults } from '@/components/search/search-results';
@@ -69,6 +70,8 @@ function SearchPageContent() {
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">Search</h1>
         <SearchInput value={inputValue} onChange={setInputValue} isSearching={isSearching} autoFocus={!urlQuery} />
       </div>
+
+      {activeQuery && <LyricSearch key={activeQuery} query={activeQuery} />}
 
       {activeQuery ? (
         <SearchResults
