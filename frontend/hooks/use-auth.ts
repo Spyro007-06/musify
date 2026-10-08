@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth-store';
 import { resetPlayerSession } from '@/stores/player-store';
 import { authApi } from '@/lib/api/auth';
+import { turnOffAlerts } from '@/lib/push';
 import { LoginCredentials, SignupCredentials } from '@/types/auth';
 import { clearSessionMarker, markSessionActive } from '@/lib/auth/session-marker';
 
@@ -108,6 +109,7 @@ export function useAuth() {
 
   const logout = async () => {
     try {
+      await turnOffAlerts().catch(() => {});
       await authApi.logout(refreshToken || undefined);
     } catch {
       // ignore

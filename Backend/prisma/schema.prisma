@@ -49,6 +49,7 @@ model User {
   recommendationScores RecommendationScores[]
   recommendationCache  RecommendationCache[]
   searchHistory        SearchHistory[]
+  pushSubscriptions    PushSubscription[]
 }
 
 model Playlist {
@@ -236,4 +237,25 @@ model SearchHistory {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// A phone or browser that turned on new-release alerts (Web Push).
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique // the push service's URL for this device
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// New-release alerts: the artist's latest catalog songs at the last check,
+/// so only songs that show up after it are announced.
+model ArtistReleaseCheck {
+  artistId  String   @id // catalog (Saavn) artist id
+  songIds   String[]
+  checkedAt DateTime @updatedAt
 }

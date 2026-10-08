@@ -25,6 +25,8 @@ import userRoutes from '@routes/user.routes';
 import aiRoutes from '@routes/ai.routes';
 import taskRoutes from '@routes/tasks.routes';
 import healthRoutes from '@routes/health.routes';
+import notificationRoutes from '@routes/notification.routes';
+import { NotificationController } from '@controllers/notification.controller';
 
 const app: Express = express();
 
@@ -116,6 +118,9 @@ app.use(
 );
 app.use(globalLimiter);
 app.use(hpp());
+// The scheduled new-release check: a GitHub Action holding a shared secret,
+// not a browser session, so it comes before the CSRF check.
+app.post(`${env.API_PREFIX}/internal/release-alerts`, NotificationController.runReleaseAlerts);
 app.use(doubleCsrfProtection);
 
 // CSRF Token Endpoint
@@ -142,6 +147,7 @@ app.use(`${env.API_PREFIX}/recommendations`, recommendationsRoutes);
 app.use(`${env.API_PREFIX}/user`, userRoutes);
 app.use(`${env.API_PREFIX}/ai`, aiRoutes);
 app.use(`${env.API_PREFIX}/tasks`, taskRoutes);
+app.use(`${env.API_PREFIX}/notifications`, notificationRoutes);
 
 // Health check endpoints (basic, liveness, readiness — see health.routes.ts)
 app.use(`${env.API_PREFIX}/health`, healthRoutes);

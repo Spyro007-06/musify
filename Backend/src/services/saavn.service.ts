@@ -604,6 +604,19 @@ export class SaavnService {
     }
   }
 
+  /** The artist's newest catalog songs, unmapped: release alerts read their copyright line. */
+  public async getArtistLatestSongs(id: string): Promise<any[]> {
+    try {
+      const page = await resilientCall(SAAVN_BREAKER.ARTIST, () =>
+        this.artistService.getArtistSongs({ artistId: id, page: 0, sortBy: 'latest', sortOrder: 'desc' })
+      );
+      return page.songs ?? [];
+    } catch (error) {
+      logger.error(`❌ JioSaavn getArtistLatestSongs failed for ID ${id}:`, error);
+      throw new SaavnUpstreamError(`JioSaavn is currently unavailable (artist ${id}).`, error);
+    }
+  }
+
   public async getRelatedArtists(id: string): Promise<any[]> {
     try {
       const artist = await resilientCall(SAAVN_BREAKER.ARTIST, () =>

@@ -83,6 +83,14 @@ const envSchema = z.object({
   // key on both sides (checked below).
   SAAVN_PROXY_URL: z.string().url().optional(),
   SAAVN_PROXY_KEY: z.string().optional(),
+
+  // New-release alerts (optional — off while unset). Web Push keys from
+  // `npx web-push generate-vapid-keys`; the app reads the public one from
+  // GET /notifications/public-key. CRON_SECRET is shared with the scheduled
+  // GitHub Action that runs the check (.github/workflows/release-alerts.yml).
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
 });
 
 const parseResult = envSchema.safeParse(process.env);

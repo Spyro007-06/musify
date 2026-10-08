@@ -16,6 +16,7 @@ import { Track } from '@/types/track';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { usePlayerStore } from '@/stores/player-store';
 import { useToggleFollowArtist } from '@/hooks/use-artist';
+import { offerAlerts } from '@/lib/push';
 import { ArtistAboutModal } from './artist-about-modal';
 import { cn } from '@/lib/utils/cn';
 
@@ -63,7 +64,7 @@ export function ArtistHero({ artist, topTracks = [] }: ArtistHeroProps) {
 
   const handleFollowClick = () => {
     if (followMutation.isPending) return;
-    followMutation.mutate({ isFollowing });
+    followMutation.mutate({ isFollowing }, { onSuccess: () => !isFollowing && offerAlerts(artist.name) });
   };
 
   const handleShareClick = async () => {
