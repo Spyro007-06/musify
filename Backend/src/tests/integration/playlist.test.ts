@@ -414,14 +414,14 @@ describe('POST /api/playlists/import/screenshot — Gemini overloads', () => {
     fetchSpy = jest
       .spyOn(global, 'fetch')
       .mockImplementation(async (url: any) =>
-        String(url).includes('/gemini-flash-latest:') ? overloaded() : geminiOk([{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }])
+        String(url).includes('/gemini-flash-lite-latest:') ? overloaded() : geminiOk([{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }])
       );
     const res = await authedPost('/api/playlists/import/screenshot', owner, { mimeType: 'image/jpeg', data: 'aGVsbG8=' });
     expect(res.status).toBe(200);
     expect(res.body.data.songs).toEqual([{ title: 'Tum Hi Ho', artist: 'Arijit Singh' }]);
     expect(fetchSpy.mock.calls.map(([u]) => String(u).match(/models\/([^:]+)/)?.[1])).toEqual([
-      'gemini-flash-latest',
       'gemini-flash-lite-latest',
+      'gemini-flash-latest',
     ]);
   });
 

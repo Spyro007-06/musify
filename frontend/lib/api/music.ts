@@ -99,6 +99,14 @@ export const musicApi = {
   getLyrics: (trackId: string): Promise<ApiResponse<Lyrics>> =>
     apiClient.get<Lyrics>(`/music/tracks/${encodeURIComponent(trackId)}/lyrics`, { requiresAuth: false }),
 
+  /** Each lyric line in Latin letters and in English, aligned with getLyrics' lines. Needs sign-in. */
+  getLyricsTranslation: (trackId: string): Promise<ApiResponse<{ lines: { latin: string; meaning: string }[] }>> =>
+    apiClient.get(`/music/tracks/${encodeURIComponent(trackId)}/lyrics/translation`),
+
+  /** Songs a remembered line of lyrics is likely from. Needs sign-in. */
+  findByLyrics: (line: string): Promise<ApiResponse<Track[]>> =>
+    apiClient.get<Track[]>(`/music/lyrics-search?q=${encodeURIComponent(line)}`),
+
   getStream: async (trackId: string): Promise<ApiResponse<{ url: string; streamUrl?: string }>> => {
     return apiClient.get<{ url: string; streamUrl?: string }>(`/music/tracks/${encodeURIComponent(trackId)}/stream`);
   },

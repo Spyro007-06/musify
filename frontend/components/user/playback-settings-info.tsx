@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Volume2, Radio, Check, Info, Blend } from 'lucide-react';
+import { Volume2, Radio, Check, Info, Blend, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/player-store';
 import { getAudioEngine, type StreamQuality } from '@/lib/audio/audio-engine';
@@ -28,6 +28,10 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
   const setQuality = usePlayerStore((s) => s.setStreamQuality);
   const crossfade = usePlayerStore((s) => s.crossfadeSeconds);
   const setCrossfade = usePlayerStore((s) => s.setCrossfade);
+  const djEnabled = usePlayerStore((s) => s.djEnabled);
+  const setDjEnabled = usePlayerStore((s) => s.setDjEnabled);
+  const [canSpeak, setCanSpeak] = React.useState(true);
+  React.useEffect(() => setCanSpeak('speechSynthesis' in window), []);
   // Checked after mount: it depends on the browser (iOS doesn't let pages set volume).
   const [canFade, setCanFade] = React.useState(true);
   React.useEffect(() => setCanFade(getAudioEngine().supportsCrossfade()), []);
@@ -122,6 +126,34 @@ export function PlaybackSettingsInfo({ className }: PlaybackSettingsInfoProps) {
           {canFade
             ? 'Blend the end of each song into the next. The next song is always buffered early, so even with crossfade off there is no gap between tracks.'
             : "This browser doesn't let websites change playback volume, so crossfade isn't available here. Songs still play back to back without a gap."}
+        </p>
+      </div>
+
+      {/* AI DJ */}
+      <div className="rounded-xl bg-neutral-950/40 p-4 border border-white/5 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="ai-dj" className="flex items-center gap-2 text-xs font-semibold text-white">
+            <Mic className="h-3.5 w-3.5 text-brand-400" />
+            AI DJ
+          </label>
+          <button
+            id="ai-dj"
+            type="button"
+            role="switch"
+            aria-checked={djEnabled && canSpeak}
+            disabled={!canSpeak}
+            onClick={() => setDjEnabled(!djEnabled)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors disabled:opacity-40 ${djEnabled && canSpeak ? 'bg-brand-500' : 'bg-neutral-800'}`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${djEnabled && canSpeak ? 'translate-x-5' : 'translate-x-0'}`}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-neutral-400 leading-relaxed">
+          {canSpeak
+            ? 'A short spoken intro as songs come on by themselves ("A 2013 Hindi classic now: Tum Hi Ho, from Aashiqui 2"), in your phone’s own voice, on every other song. The music dips while it talks.'
+            : "This browser can't speak, so the DJ isn't available here."}
         </p>
       </div>
 

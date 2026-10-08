@@ -2,10 +2,13 @@ import { env } from '@config/env';
 import { logger } from '@utils/logger';
 
 /**
- * Google's moving aliases (they track the current Flash / Flash-Lite, so they
+ * Google's moving aliases (they track the current Flash-Lite / Flash, so they
  * don't go stale), tried in order. 404 is included in case an alias is retired.
+ * Flash-Lite first: the free tier allows it far more requests a day than Flash
+ * (about 500 vs 20), and it costs about a third less on a paid one. Flash
+ * covers the moments it's busy.
  */
-const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
+const GEMINI_MODELS = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
 const GEMINI_RETRYABLE = new Set([404, 429, 500, 503]);
 const GEMINI_ROUND_PAUSE_MS = 1500;
 

@@ -13,8 +13,9 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     // next/og renders plain <img>. The rule already skips these files, but
-    // its path check misses Windows backslashes, so say it explicitly.
-    files: ["**/opengraph-image.tsx"],
+    // its path check misses Windows backslashes, so say it explicitly. The
+    // Wrapped story card (app/wrapped-card) is drawn by next/og too.
+    files: ["**/opengraph-image.tsx", "app/wrapped-card/route.tsx"],
     rules: { "@next/next/no-img-element": "off" },
   },
 ];

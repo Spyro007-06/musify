@@ -2,9 +2,11 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { ChartColumn, ChevronLeft, ChevronRight, Play, Compass } from 'lucide-react';
+import { ChartColumn, ChevronLeft, ChevronRight, Play, Compass, Share2, Loader2 } from 'lucide-react';
 import { useListeningStats } from '@/hooks/use-user';
 import { usePlayerStore } from '@/stores/player-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { toast } from '@/stores/toast-store';
 import { ImageWithFallback } from '@/components/ui/image-with-fallback';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
@@ -12,8 +14,11 @@ import { formatNumber } from '@/lib/utils/format-number';
 import { pluralize } from '@/lib/utils/pluralize';
 import { ListeningStats } from '@/types/user';
 
-/** Months are UTC on the backend, so they are here too. */
-const thisMonth = () => new Date().toISOString().slice(0, 7);
+/** This device's month: the backend counts months from local midnight too (tzOffset). */
+const thisMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 function shiftMonth(month: string, by: number): string {
   const [y, m] = month.split('-').map(Number);
@@ -114,6 +119,67 @@ function StatTile({ label, value, note }: { label: string; value: string; note?:
   );
 }
 
+/**
+ * Makes the month's story card (app/wrapped-card) and opens the phone's
+ * share sheet with it (Instagram, WhatsApp…); browsers that can't share
+ * files save the image instead.
+ */
+function ShareMonthButton({ stats, month }: { stats: ListeningStats; month: string }) {
+  const name = useAuthStore((s) => s.user?.displayName || s.user?.username || '');
+  const [busy, setBusy] = React.useState(false);
+
+  const share = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch('/wrapped-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month,
+          name,
+          minutesListened: stats.minutesListened,
+          plays: stats.plays,
+          uniqueArtists: stats.uniqueArtists,
+          // All the song's artists, as the app shows them: the first is often its composer.
+          topTracks: stats.topTracks.map(({ track }) => ({
+            title: track.title,
+            artist: track.artists?.map((a) => a.name).join(', '),
+            artwork: track.artwork,
+          })),
+          topArtists: stats.topArtists.map((a) => ({ name: a.name, image: a.image })),
+          topLanguages: stats.topLanguages.map((l) => ({ name: l.name })),
+        }),
+      });
+      if (!res.ok) throw new Error(`card ${res.status}`);
+      const file = new File([await res.blob()], `musify-${month}.png`, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `My ${monthLabel(month)} on Musify` });
+      } else {
+        const url = URL.createObjectURL(file);
+        Object.assign(document.createElement('a'), { href: url, download: file.name }).click();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+    } catch (err) {
+      // Closing the share sheet isn't an error.
+      if ((err as Error)?.name !== 'AbortError') toast.error("Couldn't make your card. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={share}
+      disabled={busy}
+      className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-5 py-2.5 text-sm font-semibold text-black shadow-lg shadow-brand-950/40 transition-colors hover:bg-brand-400 disabled:opacity-60"
+    >
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+      <span>{busy ? 'Making your card…' : 'Share my month'}</span>
+    </button>
+  );
+}
+
 function StatsBody({ stats, month }: { stats: ListeningStats; month: string }) {
   const playFrom = usePlayerStore((s) => s.playFrom);
   const topTracks = stats.topTracks.map((t) => t.track);
@@ -122,6 +188,7 @@ function StatsBody({ stats, month }: { stats: ListeningStats; month: string }) {
 
   return (
     <div className="space-y-10">
+      <ShareMonthButton stats={stats} month={month} />
       <section aria-label="Summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Minutes listened" value={compact(stats.minutesListened)} />
         <StatTile label="Songs played" value={compact(stats.plays)} note={pluralize(stats.skips, 'skip')} />
