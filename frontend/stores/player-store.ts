@@ -12,6 +12,7 @@ import {
 } from '@/lib/player/player-constants';
 import { shuffleArray } from '@/lib/player/player-utils';
 import { getAudioEngine } from '@/lib/audio/audio-engine';
+import { hush, introduce } from '@/lib/player/dj';
 import { musicApi } from '@/lib/api/music';
 import { userSignalsApi } from '@/lib/api/user-signals';
 import { useAuthStore } from '@/stores/auth-store';
@@ -97,6 +98,15 @@ function getSavedRepeat(): RepeatMode {
     return val === 'all' || val === 'one' ? val : 'off';
   } catch {
     return 'off';
+  }
+}
+
+function getSavedDj(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('musify_dj') === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -301,6 +311,8 @@ export interface PlayerState {
   repeat: RepeatMode;
   /** Seconds the end of a song overlaps the next one; 0 = off. */
   crossfadeSeconds: number;
+  /** The DJ introduces songs that start by themselves (lib/player/dj). */
+  djEnabled: boolean;
   error: string | null;
   isExpanded: boolean;
   isQueueOpen: boolean;
@@ -336,6 +348,7 @@ export interface PlayerState {
   reshuffle: () => void;
   cycleRepeat: () => void;
   setCrossfade: (seconds: number) => void;
+  setDjEnabled: (on: boolean) => void;
   setQueue: (queue: Track[], startIndex?: number) => void;
   maybeTopUpQueue: () => void;
   /** Appends to the Queued list; plays it right away if nothing is loaded yet. */
@@ -383,6 +396,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffle: false,
   repeat: 'off',
   crossfadeSeconds: 0,
+  djEnabled: false,
   error: null,
   isExpanded: false,
   isQueueOpen: false,
@@ -390,6 +404,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   playTrack: async (track: Track, contextQueue?: Track[], transitionReason = 'skip', opts = {}) => {
     // 1. Race-condition protection: increment generation counter
     const requestGen = ++activePlaybackGeneration;
+    hush(); // an intro still talking is about the song being left
 
     playedTrackIds.add(track.id);
     if (playOrder[playOrder.length - 1] !== track.id) playOrder.push(track.id);
@@ -496,6 +511,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         isPlaying: played,
         error: null,
       });
+      // The DJ only introduces songs that came on by themselves, never one the listener just picked.
+      if (played && transitionReason === 'completed' && get().djEnabled && !get().isMuted) {
+        introduce(track, (volume) => engine.setVolume(volume), () => get().volume);
+      }
       // Queue top-up and warming the next stream URL are both handled by the
       // subscription at the bottom of this file.
     } catch (err: unknown) {
@@ -553,6 +572,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   pause: () => {
+    hush();
     getAudioEngine().pause();
     set({ isPlaying: false });
   },
@@ -757,6 +777,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  setDjEnabled: (on: boolean) => {
+    set({ djEnabled: on });
+    try {
+      localStorage.setItem('musify_dj', String(on));
+    } catch {
+      // Ignore
+    }
+  },
+
   setQueue: (newQueue: Track[], startIndex = 0) => {
     const track = newQueue[startIndex] || null;
     set({
@@ -856,6 +885,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       shuffle: getSavedShuffle(),
       repeat: getSavedRepeat(),
       crossfadeSeconds: getSavedCrossfade(),
+      djEnabled: getSavedDj(),
       ...(get().currentTrack ? {} : getSavedSession()),
     });
   },
