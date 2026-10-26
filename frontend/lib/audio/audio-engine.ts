@@ -16,6 +16,8 @@ const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAE
 // A stall shorter than this is just a hiccup, not a sign the stream is too heavy.
 const STALL_MS = 1000;
 const STALLS_BEFORE_DOWNGRADE = 2;
+const SONGS_BEFORE_UPGRADE = 3;
+const MAX_RETRIES = 3;
 
 /** JioSaavn serves each song at several bitrates under the same path: …_320.mp4, …_160.mp4, …_96.mp4. */
 const BITRATES = [320, 160, 96];
@@ -70,14 +72,17 @@ export class AudioEngine {
   /**
    * Steps below 320 kbps (index into BITRATES), one more each time a song
    * stalls STALLS_BEFORE_DOWNGRADE times (a crowded Wi-Fi, a weak signal):
-   * 160 is half the 320's size, 96 a third. ponytail: one-way for the page
-   * session; probe back up after some clean songs if users on good networks
-   * get stuck low.
+   * 160 is half the 320's size, 96 a third. Steps back up
+   * after SONGS_BEFORE_UPGRADE smooth songs in a row (see load).
    */
   private bitrateStep = 0;
   private quality: StreamQuality = 'auto';
   private stallsThisSong = 0;
   private stallStartedAt = 0;
+  /** This song stalled or had to reconnect, so it doesn't count toward stepping back up. */
+  private troubled = false;
+  private cleanSongs = 0;
+  private retriesThisSong = 0;
 
   constructor(events: AudioEngineEvents = {}) {
     this.events = events;
@@ -163,6 +168,7 @@ export class AudioEngine {
     el.addEventListener('playing', () => {
       if (!isActive()) return;
       if (this.stallStartedAt && performance.now() - this.stallStartedAt >= STALL_MS) {
+        this.troubled = true;
         if (++this.stallsThisSong >= STALLS_BEFORE_DOWNGRADE) this.downgrade(el);
       }
       this.stallStartedAt = 0;
@@ -176,6 +182,12 @@ export class AudioEngine {
         if (el === this.standby) this.preloadedSrc = '';
         return;
       }
+      // The connection dropped mid-song: pick up from the same spot, don't give up.
+      if (el.error?.code === MediaError.MEDIA_ERR_NETWORK && el.currentTime > 0 && ++this.retriesThisSong <= MAX_RETRIES) {
+        this.troubled = true;
+        this.reconnect(el);
+        return;
+      }
       const message = el.error?.message || 'Playback stream encountered an error.';
       this.events.onError?.(new Error(message));
     });
@@ -186,13 +198,17 @@ export class AudioEngine {
     this.crossfadeNextLoadMs = this.volumeIsSettable ? Math.max(0, seconds) * 1000 : 0;
   }
 
-  /** Buffers the next song on the standby element so switching to it is instant. */
-  public preload(src: string) {
+  /**
+   * Buffers the next song on the standby element so switching to it is instant.
+   * `force` skips the wait for this song to finish downloading: with seconds
+   * left, a brief stutter beats a next song that can't start in the background.
+   */
+  public preload(src: string, force = false) {
     const standby = this.standby;
     if (!standby || this.fade || src === this.currentSrc || src === this.preloadedSrc) return;
     // Downloading the next song while this one still is splits the
     // bandwidth, and on a slow connection the playing song stutters.
-    if (!this.activeFullyBuffered()) return;
+    if (!force && !this.activeFullyBuffered()) return;
     standby.preload = 'auto';
     standby.src = this.sourceFor(src);
     standby.load();
@@ -233,6 +249,19 @@ export class AudioEngine {
     return false;
   }
 
+  /** Reloads the song at the spot it broke, once the network is back (or after a short wait). */
+  private reconnect(el: HTMLAudioElement) {
+    const at = el.currentTime;
+    const resume = () => {
+      if (el !== this.audio) return; // the listener moved on meanwhile
+      el.load();
+      el.currentTime = at;
+      el.play().catch(() => {});
+    };
+    if (navigator.onLine) setTimeout(resume, 1000 * this.retriesThisSong);
+    else window.addEventListener('online', resume, { once: true });
+  }
+
   /** Too many stalls: carry on from the same spot in the next lighter file, and stay on it. */
   private downgrade(el: HTMLAudioElement) {
     const step = this.step() + 1;
@@ -257,6 +286,14 @@ export class AudioEngine {
     this.endFade();
     this.stallsThisSong = 0;
     this.stallStartedAt = 0;
+    this.retriesThisSong = 0;
+    // A few smooth songs in a row: the network has likely recovered, try the next step up.
+    if (this.troubled) this.cleanSongs = 0;
+    else if (this.bitrateStep > 0 && ++this.cleanSongs >= SONGS_BEFORE_UPGRADE) {
+      this.bitrateStep--;
+      this.cleanSongs = 0;
+    }
+    this.troubled = false;
 
     const wasPreloaded = src === this.preloadedSrc;
     this.switchedOnLoad = wasPreloaded || (fadeMs > 0 && !outgoing.paused);

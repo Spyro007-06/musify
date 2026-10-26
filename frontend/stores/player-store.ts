@@ -961,6 +961,9 @@ function upcomingTrack({ queue, currentIndex, repeat, userQueue }: PlayerState):
   return userQueue[0] ?? queue[currentIndex + 1] ?? (repeat === 'all' ? queue[0] : undefined);
 }
 
+// In the last seconds the next song is buffered even if this one hasn't finished downloading.
+const FORCE_PRELOAD_SECONDS = 10;
+
 // The playback generation already crossfaded out of, so it happens once per song.
 let crossfadedGeneration = -1;
 
@@ -983,7 +986,7 @@ function prepareNextTrack(state: PlayerState, time: number) {
 
   const remaining = duration - time;
   const engine = getAudioEngine();
-  if (remaining <= Math.max(PRELOAD_NEXT_SECONDS, crossfadeSeconds + 5)) engine.preload(url);
+  if (remaining <= Math.max(PRELOAD_NEXT_SECONDS, crossfadeSeconds + 5)) engine.preload(url, remaining <= FORCE_PRELOAD_SECONDS);
 
   const fade =
     crossfadeSeconds > 0 &&

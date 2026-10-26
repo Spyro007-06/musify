@@ -18,7 +18,11 @@ import {
   Check,
   Menu,
   ListPlus,
+  Download,
+  CircleCheck,
+  Loader2,
 } from 'lucide-react';
+import { saveAllOffline, useOfflineStore } from '@/stores/offline-store';
 import { usePlaylist, useRemoveTrackFromPlaylist, useReorderPlaylistTracks } from '@/hooks/use-playlists';
 import { useDragReorder } from '@/hooks/use-drag-reorder';
 import { useAuthStore } from '@/stores/auth-store';
@@ -79,6 +83,19 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const tracks = React.useMemo(() => playlist?.tracks || [], [playlist?.tracks]);
   const hasTracks = tracks.length > 0;
+
+  const savedIds = useOfflineStore((s) => s.ids);
+  const [isDownloadingAll, setIsDownloadingAll] = React.useState(false);
+  const savedCount = tracks.filter((t) => savedIds.has(t.id)).length;
+  const allSaved = hasTracks && savedCount === tracks.length;
+
+  const handleDownloadAll = async () => {
+    setIsDownloadingAll(true);
+    const failed = await saveAllOffline(tracks);
+    setIsDownloadingAll(false);
+    if (failed === 0) toast.success(`"${playlist?.title}" is saved in Musify (Library → Downloads).`);
+    else toast.error(`${pluralize(failed, 'song')} couldn't be saved. Tap Download all to retry.`);
+  };
 
   // Each drop is saved right away (shown immediately, rolled back on failure).
   const reorder = useDragReorder<'tracks'>(
@@ -365,6 +382,26 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
               ) : (
                 <Play className="h-6 w-6 fill-current ml-0.5" />
               )}
+            </button>
+          )}
+          {hasTracks && !isReordering && (
+            <button
+              type="button"
+              onClick={handleDownloadAll}
+              disabled={isDownloadingAll || allSaved}
+              aria-label="Download all songs in this playlist"
+              className={cn(secondaryButtonClass, 'disabled:cursor-default disabled:opacity-80')}
+            >
+              {isDownloadingAll ? (
+                <Loader2 className={cn(actionIconClass, 'animate-spin')} />
+              ) : allSaved ? (
+                <CircleCheck className={cn(actionIconClass, 'text-brand-400')} />
+              ) : (
+                <Download className={actionIconClass} />
+              )}
+              <span className={actionLabelClass}>
+                {isDownloadingAll ? `Saving ${savedCount}/${tracks.length}` : allSaved ? 'Downloaded' : 'Download all'}
+              </span>
             </button>
           )}
           {!isReordering && (
