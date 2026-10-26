@@ -90,6 +90,25 @@ export async function saveOffline(track: Track): Promise<void> {
   }
 }
 
+/**
+ * Saves every song not saved yet, one after another (parallel downloads would
+ * split a weak connection and stall each). Returns how many failed; stops early offline.
+ */
+export async function saveAllOffline(tracks: Track[]): Promise<number> {
+  let failed = 0;
+  for (const track of tracks) {
+    const { ids, saving } = useOfflineStore.getState();
+    if (ids.has(track.id) || saving.has(track.id)) continue;
+    try {
+      await saveOffline(track);
+    } catch {
+      failed++;
+      if (!navigator.onLine) break;
+    }
+  }
+  return failed;
+}
+
 export async function removeOffline(id: string): Promise<void> {
   const cache = await caches.open(CACHE);
   await cache.delete(infoKey(id));
