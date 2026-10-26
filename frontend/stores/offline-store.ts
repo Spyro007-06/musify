@@ -30,7 +30,7 @@ interface OfflineState {
   /** Songs being saved right now. */
   saving: Set<string>;
   /** The "Download all" run in progress (or just finished), shown as a progress bar anywhere in the app. */
-  batch: { id: string; title: string; total: number; done: number; failed: number; finished: boolean } | null;
+  batch: { id: string; title: string; total: number; done: number; failed: number; finished: boolean; full?: boolean } | null;
 }
 
 export const useOfflineStore = create<OfflineState>(() => ({ ids: new Set(), saving: new Set(), batch: null }));
@@ -110,21 +110,31 @@ export async function saveAllOffline(id: string, title: string, tracks: Track[])
   const warn = (e: BeforeUnloadEvent) => e.preventDefault();
   window.addEventListener('beforeunload', warn);
   let failed = 0;
-  for (const track of todo) {
-    const { ids, saving } = useOfflineStore.getState();
-    if (!ids.has(track.id) && !saving.has(track.id)) {
-      try {
-        await saveOffline(track);
-      } catch {
-        failed++;
-        if (!navigator.onLine) break;
+  let done = 0;
+  try {
+    for (const track of todo) {
+      const { ids, saving } = useOfflineStore.getState();
+      if (!ids.has(track.id) && !saving.has(track.id)) {
+        try {
+          await saveOffline(track);
+        } catch (err) {
+          failed++;
+          // A full phone fails every remaining song the same way; offline too.
+          if ((err as Error).name === 'QuotaExceededError') {
+            progress({ full: true });
+            break;
+          }
+          if (!navigator.onLine) break;
+        }
       }
+      progress({ done: ++done, failed });
     }
-    progress({ done: useOfflineStore.getState().batch!.done + 1, failed });
+  } finally {
+    window.removeEventListener('beforeunload', warn);
+    progress({ finished: true });
+    // Only a finished run is cleared: a newer run may have started meanwhile.
+    setTimeout(() => useOfflineStore.setState((s) => (s.batch?.finished ? { batch: null } : s)), 4000);
   }
-  window.removeEventListener('beforeunload', warn);
-  progress({ finished: true });
-  setTimeout(() => useOfflineStore.setState({ batch: null }), 4000);
   return failed;
 }
 

@@ -86,14 +86,16 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
 
   const savedIds = useOfflineStore((s) => s.ids);
   const batch = useOfflineStore((s) => s.batch);
-  const isDownloadingAll = Boolean(batch && !batch.finished);
+  const busy = Boolean(batch && !batch.finished); // some playlist is downloading
+  const isDownloadingAll = busy && batch?.id === playlistId;
   const savedCount = tracks.filter((t) => savedIds.has(t.id)).length;
   const allSaved = hasTracks && savedCount === tracks.length;
 
   const handleDownloadAll = async () => {
     if (!playlist) return;
     const failed = await saveAllOffline(playlist.id, playlist.title, tracks);
-    if (failed === 0) toast.success(`"${playlist.title}" is saved in Musify (Library → Downloads).`);
+    if (useOfflineStore.getState().batch?.full) toast.error('Not enough space on this device. Free some up and tap Download all again.');
+    else if (failed === 0) toast.success(`"${playlist.title}" is saved in Musify (Library → Downloads).`);
     else toast.error(`${pluralize(failed, 'song')} couldn't be saved. Tap Download all to retry.`);
   };
 
@@ -388,7 +390,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
             <button
               type="button"
               onClick={handleDownloadAll}
-              disabled={isDownloadingAll || allSaved}
+              disabled={busy || allSaved}
               aria-label="Download all songs in this playlist"
               className={cn(secondaryButtonClass, 'disabled:cursor-default disabled:opacity-80')}
             >

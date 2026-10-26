@@ -40,6 +40,13 @@ function networkStep(): number {
   return c.saveData || c.effectiveType === '3g' ? 1 : 0;
 }
 
+/** Where the bitrate step and the run of smooth songs stand once a song is done. */
+export function stepAfterSong(step: number, clean: number, troubled: boolean): { step: number; clean: number } {
+  if (troubled) return { step, clean: 0 };
+  if (step > 0 && clean + 1 >= SONGS_BEFORE_UPGRADE) return { step: step - 1, clean: 0 };
+  return { step, clean: step > 0 ? clean + 1 : 0 };
+}
+
 interface Fade {
   from: HTMLAudioElement;
   start: number;
@@ -252,8 +259,10 @@ export class AudioEngine {
   /** Reloads the song at the spot it broke, once the network is back (or after a short wait). */
   private reconnect(el: HTMLAudioElement) {
     const at = el.currentTime;
+    const src = el.src;
     const resume = () => {
-      if (el !== this.audio) return; // the listener moved on meanwhile
+      // The listener moved on meanwhile (the element may even be active again, with another song).
+      if (el !== this.audio || el.src !== src) return;
       el.load();
       el.currentTime = at;
       el.play().catch(() => {});
@@ -288,11 +297,7 @@ export class AudioEngine {
     this.stallStartedAt = 0;
     this.retriesThisSong = 0;
     // A few smooth songs in a row: the network has likely recovered, try the next step up.
-    if (this.troubled) this.cleanSongs = 0;
-    else if (this.bitrateStep > 0 && ++this.cleanSongs >= SONGS_BEFORE_UPGRADE) {
-      this.bitrateStep--;
-      this.cleanSongs = 0;
-    }
+    ({ step: this.bitrateStep, clean: this.cleanSongs } = stepAfterSong(this.bitrateStep, this.cleanSongs, this.troubled));
     this.troubled = false;
 
     const wasPreloaded = src === this.preloadedSrc;
@@ -471,5 +476,10 @@ if (typeof process !== 'undefined' && process.argv?.[1]?.endsWith('audio-engine.
   check(kbps() === 96, 'stalls step down below the choice');
   engine.setQuality(320);
   check(kbps() === 320, 'a new choice starts over');
+  check(stepAfterSong(2, 0, true).clean === 0, 'a troubled song resets the run');
+  let state = { step: 2, clean: 0 };
+  for (let i = 0; i < 3; i++) state = stepAfterSong(state.step, state.clean, false);
+  check(state.step === 1, 'three smooth songs step up once');
+  check(stepAfterSong(0, 5, false).step === 0, 'never above the best step');
   console.log('audio-engine self-check passed');
 }
