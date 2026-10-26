@@ -29,11 +29,13 @@ interface OfflineState {
   ids: Set<string>;
   /** Songs being saved right now. */
   saving: Set<string>;
+  /** The "Download all" run in progress (or just finished), shown as a progress bar anywhere in the app. */
+  batch: { id: string; title: string; total: number; done: number; failed: number; finished: boolean } | null;
 }
 
-export const useOfflineStore = create<OfflineState>(() => ({ ids: new Set(), saving: new Set() }));
+export const useOfflineStore = create<OfflineState>(() => ({ ids: new Set(), saving: new Set(), batch: null }));
 
-function updateSet(key: keyof OfflineState, change: (set: Set<string>) => void) {
+function updateSet(key: 'ids' | 'saving', change: (set: Set<string>) => void) {
   useOfflineStore.setState((s) => {
     const next = new Set(s[key]);
     change(next);
@@ -92,20 +94,37 @@ export async function saveOffline(track: Track): Promise<void> {
 
 /**
  * Saves every song not saved yet, one after another (parallel downloads would
- * split a weak connection and stall each). Returns how many failed; stops early offline.
+ * split a weak connection and stall each). Runs on the module, not a page, so
+ * it carries on while the listener browses; progress is in `batch`. Returns
+ * how many failed; stops early offline.
  */
-export async function saveAllOffline(tracks: Track[]): Promise<number> {
+export async function saveAllOffline(id: string, title: string, tracks: Track[]): Promise<number> {
+  const running = useOfflineStore.getState().batch;
+  if (running && !running.finished) return 0; // one run at a time
+  const todo = tracks.filter((t) => !useOfflineStore.getState().ids.has(t.id));
+  if (todo.length === 0) return 0;
+  const progress = (change: Partial<NonNullable<OfflineState['batch']>>) =>
+    useOfflineStore.setState((s) => ({ batch: s.batch && { ...s.batch, ...change } }));
+  useOfflineStore.setState({ batch: { id, title, total: todo.length, done: 0, failed: 0, finished: false } });
+  // Closing the tab ends the run (a service worker could carry on; not built).
+  const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+  window.addEventListener('beforeunload', warn);
   let failed = 0;
-  for (const track of tracks) {
+  for (const track of todo) {
     const { ids, saving } = useOfflineStore.getState();
-    if (ids.has(track.id) || saving.has(track.id)) continue;
-    try {
-      await saveOffline(track);
-    } catch {
-      failed++;
-      if (!navigator.onLine) break;
+    if (!ids.has(track.id) && !saving.has(track.id)) {
+      try {
+        await saveOffline(track);
+      } catch {
+        failed++;
+        if (!navigator.onLine) break;
+      }
     }
+    progress({ done: useOfflineStore.getState().batch!.done + 1, failed });
   }
+  window.removeEventListener('beforeunload', warn);
+  progress({ finished: true });
+  setTimeout(() => useOfflineStore.setState({ batch: null }), 4000);
   return failed;
 }
 

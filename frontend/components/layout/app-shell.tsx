@@ -6,6 +6,7 @@ import { Topbar } from './topbar';
 import { MobileNav } from './mobile-nav';
 import { GlobalPlayer } from '@/components/player/global-player';
 import { TogetherBar } from '@/components/player/together-bar';
+import { DownloadProgress } from './download-progress';
 import { DownloadChooser } from '@/hooks/use-download-track';
 import { usePlayerStore } from '@/stores/player-store';
 import { cn } from '@/lib/utils/cn';
@@ -37,6 +38,7 @@ export function AppShell({ children, className }: AppShellProps) {
               : 'pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
           )}
         >
+          <DownloadProgress />
           <TogetherBar />
           {children}
         </main>
