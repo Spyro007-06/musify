@@ -85,15 +85,15 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
   const hasTracks = tracks.length > 0;
 
   const savedIds = useOfflineStore((s) => s.ids);
-  const [isDownloadingAll, setIsDownloadingAll] = React.useState(false);
+  const batch = useOfflineStore((s) => s.batch);
+  const isDownloadingAll = Boolean(batch && !batch.finished);
   const savedCount = tracks.filter((t) => savedIds.has(t.id)).length;
   const allSaved = hasTracks && savedCount === tracks.length;
 
   const handleDownloadAll = async () => {
-    setIsDownloadingAll(true);
-    const failed = await saveAllOffline(tracks);
-    setIsDownloadingAll(false);
-    if (failed === 0) toast.success(`"${playlist?.title}" is saved in Musify (Library → Downloads).`);
+    if (!playlist) return;
+    const failed = await saveAllOffline(playlist.id, playlist.title, tracks);
+    if (failed === 0) toast.success(`"${playlist.title}" is saved in Musify (Library → Downloads).`);
     else toast.error(`${pluralize(failed, 'song')} couldn't be saved. Tap Download all to retry.`);
   };
 
@@ -400,7 +400,7 @@ export default function PlaylistDetailPage({ params }: PlaylistPageProps) {
                 <Download className={actionIconClass} />
               )}
               <span className={actionLabelClass}>
-                {isDownloadingAll ? `Saving ${savedCount}/${tracks.length}` : allSaved ? 'Downloaded' : 'Download all'}
+                {isDownloadingAll ? 'Downloading…' : allSaved ? 'Downloaded' : 'Download all'}
               </span>
             </button>
           )}
