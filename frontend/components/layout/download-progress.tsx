@@ -19,7 +19,7 @@ export function DownloadProgress() {
       <div className="flex items-center gap-2 text-xs">
         <Icon className="h-4 w-4 shrink-0 text-brand-400" />
         <span className="min-w-0 flex-1 truncate font-semibold text-white">
-          {batch.finished ? `Saved "${batch.title}"` : `Downloading "${batch.title}"`}
+          {batch.finished ? `${batch.failed > 0 ? 'Finished' : 'Saved'} "${batch.title}"` : `Downloading "${batch.title}"`}
         </span>
         <span className="shrink-0 tabular-nums text-neutral-400">
           {batch.done}/{batch.total}
